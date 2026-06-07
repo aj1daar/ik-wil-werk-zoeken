@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+coverage/
+.vscode/
+.DS_Store
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+backend/local.settings.json
+frontend/.wrangler/
