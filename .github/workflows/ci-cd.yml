@@ -1,0 +1,161 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ── Lint (parallel) ─────────────────────────────────────────────────────────
+
+  lint-frontend:
+    name: Lint / Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm run type-check
+        working-directory: frontend
+
+  lint-backend:
+    name: Lint / Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build (debug — fast compile check)
+        run: dotnet build backend/backend.csproj -c Debug
+
+  # ── Build (parallel, after respective lint) ──────────────────────────────────
+
+  build-frontend:
+    name: Build / Frontend
+    needs: lint-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: Build
+        working-directory: frontend
+        run: pnpm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 1
+
+  build-backend:
+    name: Build / Backend
+    needs: lint-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish (AOT, linux-x64)
+        run: dotnet publish backend/backend.csproj -c Release -r linux-x64 --self-contained -o ./publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-publish
+          path: ./publish
+          retention-days: 1
+
+  # ── Deploy (parallel, main only, after both builds pass) ─────────────────────
+
+  deploy-frontend:
+    name: Deploy / Cloudflare Pages
+    needs: [build-frontend, build-backend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Create Pages project if not exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@latest pages project create ${{ vars.CLOUDFLARE_PAGES_PROJECT }} --production-branch main 2>/dev/null || true
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+
+  deploy-backend:
+    name: Deploy / Azure Functions
+    needs: [build-frontend, build-backend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-publish
+          path: ./publish
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy infrastructure (Bicep)
+        run: |
+          az deployment sub create \
+            --name infra \
+            --location westeurope \
+            --template-file infra/main.bicep \
+            --parameters \
+              resourceGroupName=${{ vars.AZURE_RESOURCE_GROUP }} \
+              functionAppName=${{ vars.AZURE_FUNCTION_APP_NAME }} \
+              storageAccountName=${{ vars.AZURE_STORAGE_ACCOUNT }}
+      - name: Push app secrets
+        run: |
+          az functionapp config appsettings set \
+            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              APP_PASSWORD="${{ secrets.APP_PASSWORD }}" \
+              JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+      - name: Deploy to Azure Functions
+        uses: azure/functions-action@v1
+        with:
+          app-name: ${{ vars.AZURE_FUNCTION_APP_NAME }}
+          package: ./publish
+          scm-do-build-during-deployment: false
