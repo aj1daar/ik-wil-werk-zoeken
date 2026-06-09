@@ -13,3 +13,7 @@ obj/
 *.sln.docstates
 backend/local.settings.json
 frontend/.wrangler/
+hidden/
+.vs/
+.idea/
+.claude/

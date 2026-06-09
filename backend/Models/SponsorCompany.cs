@@ -7,4 +7,11 @@ public sealed class SponsorCompany
     public string KvKNumber { get; set; } = string.Empty;
     public bool IsIndRecognizedSponsor { get; set; }
     public DateTimeOffset LastVerifiedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    // LLM enrichment — populated asynchronously after IND sync
+    public string? Summary { get; set; }
+    public string? CoreIndustry { get; set; }
+    public string[]? TechStackTags { get; set; }
+    public string[]? FunctionalTags { get; set; }
+    public DateTimeOffset? EnrichedAt { get; set; }
 }
