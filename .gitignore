@@ -12,6 +12,11 @@ obj/
 *.userosscache
 *.sln.docstates
 backend/local.settings.json
+
+# Azurite local storage emulator
+AzuriteConfig
+__azurite_db*.json
+__blobstorage__/
 frontend/.wrangler/
 hidden/
 .vs/
