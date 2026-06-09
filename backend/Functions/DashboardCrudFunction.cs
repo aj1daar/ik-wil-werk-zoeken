@@ -36,7 +36,7 @@ public sealed class DashboardCrudFunction
         {
             req.Headers.TryGetValues("Authorization", out var authHeader);
             if (!_tokens.ValidateToken(authHeader?.FirstOrDefault()))
-                return WithCors(CreateTextResponse(req, HttpStatusCode.Unauthorized, "Unauthorized"));
+                return WithCors(await ErrorResponse(req, HttpStatusCode.Unauthorized, "Unauthorized"));
         }
 
         var response = (entity.ToLowerInvariant(), req.Method.ToUpperInvariant()) switch
@@ -44,16 +44,16 @@ public sealed class DashboardCrudFunction
             ("users", "GET")      => await GetCollection(req, _store.Users),
             ("users", "POST")     => await CreateItem(req, _store.Users),
             ("users", "PUT")      => await UpdateItem(req, _store.Users, id),
-            ("users", "DELETE")   => DeleteItem(req, _store.Users, id),
+            ("users", "DELETE")   => await DeleteItem(req, _store.Users, id),
             ("sponsors", "GET")   => await GetCollection(req, _store.Companies),
             ("sponsors", "POST")  => await CreateItem(req, _store.Companies),
             ("sponsors", "PUT")   => await UpdateItem(req, _store.Companies, id),
-            ("sponsors", "DELETE")=> DeleteItem(req, _store.Companies, id),
+            ("sponsors", "DELETE")=> await DeleteItem(req, _store.Companies, id),
             ("stages", "GET")     => await GetCollection(req, _store.Stages),
             ("stages", "POST")    => await CreateItem(req, _store.Stages),
             ("stages", "PUT")     => await UpdateItem(req, _store.Stages, id),
-            ("stages", "DELETE")  => DeleteItem(req, _store.Stages, id),
-            _ => CreateTextResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
+            ("stages", "DELETE")  => await DeleteItem(req, _store.Stages, id),
+            _ => await ErrorResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
         };
 
         return WithCors(response);
@@ -66,10 +66,10 @@ public sealed class DashboardCrudFunction
     }
 
     private static async Task<HttpResponseData> GetCollection<T>(
-        HttpRequestData req, ConcurrentDictionary<string, T> store)
+        HttpRequestData req, ConcurrentDictionary<string, T> store) where T : class
     {
         var response = req.CreateResponse(HttpStatusCode.OK);
-        await response.WriteAsJsonAsync(store.Values);
+        await WriteJson(response, SerializeCollection(store.Values));
         return response;
     }
 
@@ -78,13 +78,13 @@ public sealed class DashboardCrudFunction
     {
         var item = await DeserializeEntity<T>(req.Body);
         if (item is null)
-            return CreateTextResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
 
         var id = ExtractId(item);
         store[id] = item;
 
         var response = req.CreateResponse(HttpStatusCode.Created);
-        await response.WriteAsJsonAsync(item);
+        await WriteJson(response, SerializeItem(item));
         return response;
     }
 
@@ -92,28 +92,28 @@ public sealed class DashboardCrudFunction
         HttpRequestData req, ConcurrentDictionary<string, T> store, string? id) where T : class
     {
         if (string.IsNullOrWhiteSpace(id))
-            return CreateTextResponse(req, HttpStatusCode.BadRequest, "id is required for update");
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required for update");
 
         var item = await DeserializeEntity<T>(req.Body);
         if (item is null)
-            return CreateTextResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
 
         store[id] = SetId(item, id);
 
         var response = req.CreateResponse(HttpStatusCode.OK);
-        await response.WriteAsJsonAsync(store[id]);
+        await WriteJson(response, SerializeItem(store[id]));
         return response;
     }
 
-    private static HttpResponseData DeleteItem<T>(
+    private static async Task<HttpResponseData> DeleteItem<T>(
         HttpRequestData req, ConcurrentDictionary<string, T> store, string? id)
     {
         if (string.IsNullOrWhiteSpace(id))
-            return CreateTextResponse(req, HttpStatusCode.BadRequest, "id is required for delete");
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required for delete");
 
         return store.TryRemove(id, out _)
             ? req.CreateResponse(HttpStatusCode.NoContent)
-            : CreateTextResponse(req, HttpStatusCode.NotFound, "Not found");
+            : await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
     }
 
     private static string ExtractId<T>(T item) where T : class => item switch
@@ -157,12 +157,37 @@ public sealed class DashboardCrudFunction
         _ => item
     };
 
-    private static HttpResponseData CreateTextResponse(
+    private static async Task<HttpResponseData> ErrorResponse(
         HttpRequestData req, HttpStatusCode statusCode, string message)
     {
         var response = req.CreateResponse(statusCode);
-        response.WriteString(message);
+        await response.WriteStringAsync(message);
         return response;
+    }
+
+    private static async Task WriteJson(HttpResponseData response, string json)
+    {
+        response.Headers.TryAddWithoutValidation("Content-Type", "application/json; charset=utf-8");
+        await response.WriteStringAsync(json);
+    }
+
+    private static string SerializeItem<T>(T item) where T : class
+    {
+        if (item is SponsorCompany s) return JsonSerializer.Serialize(s, AppJsonSerializerContext.Default.SponsorCompany);
+        if (item is ApplicationStage a) return JsonSerializer.Serialize(a, AppJsonSerializerContext.Default.ApplicationStage);
+        if (item is User u) return JsonSerializer.Serialize(u, AppJsonSerializerContext.Default.User);
+        return "{}";
+    }
+
+    private static string SerializeCollection<T>(IEnumerable<T> items) where T : class
+    {
+        if (typeof(T) == typeof(SponsorCompany))
+            return JsonSerializer.Serialize(items.Cast<SponsorCompany>().ToArray(), AppJsonSerializerContext.Default.SponsorCompanyArray);
+        if (typeof(T) == typeof(ApplicationStage))
+            return JsonSerializer.Serialize(items.Cast<ApplicationStage>().ToArray(), AppJsonSerializerContext.Default.ApplicationStageArray);
+        if (typeof(T) == typeof(User))
+            return JsonSerializer.Serialize(items.Cast<User>().ToArray(), AppJsonSerializerContext.Default.UserArray);
+        return "[]";
     }
 
     private static async Task<T?> DeserializeEntity<T>(Stream body) where T : class
