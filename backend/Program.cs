@@ -1,4 +1,5 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
+using backend;
 using backend.Services;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
@@ -36,4 +37,11 @@ if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHT
         .UseAzureMonitorExporter();
 }
 
-builder.Build().Run();
+var host = builder.Build();
+
+// Pre-populate with dummy companies so the UI works before the first IND sync
+var store = host.Services.GetRequiredService<SponsorStore>();
+foreach (var c in SeedData.Companies)
+    store.Companies[c.Id] = c;
+
+host.Run();
