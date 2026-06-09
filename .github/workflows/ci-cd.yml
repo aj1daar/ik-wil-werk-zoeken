@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
 
   # ── Lint (parallel) ─────────────────────────────────────────────────────────
@@ -174,9 +177,9 @@ jobs:
             --location westeurope \
             --template-file infra/main.bicep \
             --parameters \
-              resourceGroupName=${{ vars.AZURE_RESOURCE_GROUP }} \
-              functionAppName=${{ vars.AZURE_FUNCTION_APP_NAME }} \
-              storageAccountName=${{ vars.AZURE_STORAGE_ACCOUNT }}
+              "resourceGroupName=${{ vars.AZURE_RESOURCE_GROUP }}" \
+              "functionAppName=${{ vars.AZURE_FUNCTION_APP_NAME }}" \
+              "storageAccountName=${{ vars.AZURE_STORAGE_ACCOUNT }}"
       - name: Push app secrets
         run: |
           az functionapp config appsettings set \
