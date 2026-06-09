@@ -2,7 +2,7 @@ using backend.Models;
 
 namespace backend;
 
-internal static class SeedData
+public static class SeedData
 {
     public static readonly SponsorCompany[] Companies =
     [

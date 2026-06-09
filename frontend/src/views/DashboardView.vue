@@ -84,9 +84,7 @@ function statusDot(status: string | undefined): string {
         <h1 class="text-lg font-semibold text-slate-100">HSM Sponsor Pipeline</h1>
         <p class="text-xs text-slate-500">Dutch IND recognised sponsors</p>
       </div>
-      <button @click="logout" class="text-sm text-slate-400 hover:text-slate-200 transition">
-        Sign out
-      </button>
+      <button @click="logout" class="btn-icon text-sm">Sign out</button>
     </header>
 
     <!-- Filters -->
@@ -99,17 +97,12 @@ function statusDot(status: string | undefined): string {
         <input
           v-model="search"
           placeholder="Search by name, industry or tags…"
-          class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm
-                 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-500 transition"
+          class="filter-input pl-9"
         />
       </div>
 
       <!-- Status filter -->
-      <select
-        v-model="filterStatus"
-        class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300
-               focus:outline-none focus:border-slate-500 transition"
-      >
+      <select v-model="filterStatus" class="filter-input w-auto text-slate-300">
         <option value="">All statuses</option>
         <option v-for="s in ['Bookmarked','Viewed','Abandoned','Applied','Ongoing Interview','Rejected','Declined Offer','Offer Proposed','Offer Accepted']" :key="s" :value="s">{{ s }}</option>
       </select>
@@ -119,8 +112,7 @@ function statusDot(status: string | undefined): string {
         v-model="filterCity"
         placeholder="Filter by city…"
         list="city-list"
-        class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300
-               placeholder-slate-600 focus:outline-none focus:border-slate-500 transition w-36"
+        class="filter-input w-36"
       />
       <datalist id="city-list">
         <option v-for="c in allCities" :key="c" :value="c" />
@@ -156,7 +148,7 @@ function statusDot(status: string | undefined): string {
             <!-- Status dot -->
             <span :class="['w-2 h-2 rounded-full shrink-0', statusDot(row.record?.status)]" />
 
-            <!-- Name + tags -->
+            <!-- Name + industry -->
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-slate-100 truncate">{{ row.name }}</p>
               <p v-if="row.coreIndustry" class="text-xs text-slate-500 truncate">{{ row.coreIndustry }}</p>
@@ -165,7 +157,7 @@ function statusDot(status: string | undefined): string {
             <!-- Status badge -->
             <span
               v-if="row.record"
-              :class="['px-2 py-0.5 rounded text-xs border shrink-0', STATUS_COLORS[row.record.status] ?? 'bg-slate-700 text-slate-400 border-slate-600']"
+              :class="['chip', STATUS_COLORS[row.record.status] ?? 'bg-slate-700 text-slate-400 border-slate-600']"
             >
               {{ row.record.status }}
             </span>

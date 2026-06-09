@@ -6,3 +6,69 @@ body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+
+@layer components {
+  /* Form labels */
+  .field-label {
+    @apply block text-xs font-medium text-slate-400 mb-1.5;
+  }
+
+  /* Panel inputs (dark bg-slate-800 surface, used in CompanyPanel) */
+  .field-input {
+    @apply w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2
+           text-sm text-slate-100 placeholder-slate-600
+           focus:outline-none focus:border-slate-500 transition;
+  }
+
+  /* Toolbar / filter inputs (bg-slate-900, used in filter bar) */
+  .filter-input {
+    @apply w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2
+           text-sm text-slate-100 placeholder-slate-600
+           focus:outline-none focus:border-slate-500 transition;
+  }
+
+  /* Login page password input */
+  .auth-input {
+    @apply w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 pr-12
+           text-slate-100 placeholder-slate-500
+           focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition;
+  }
+
+  /* Primary action button (Save / Start tracking) */
+  .btn-primary {
+    @apply bg-slate-600 hover:bg-slate-500 disabled:opacity-40 disabled:cursor-not-allowed
+           text-white text-sm font-medium py-2 px-4 rounded-md transition;
+  }
+
+  /* Full-width login submit button */
+  .btn-submit {
+    @apply w-full bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed
+           text-slate-100 font-medium py-3 rounded-lg transition;
+  }
+
+  /* Destructive action button (Remove) */
+  .btn-danger {
+    @apply px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-950/30
+           rounded-md border border-red-900/40 transition;
+  }
+
+  /* Icon-only button (show/hide password, close) */
+  .btn-icon {
+    @apply text-slate-500 hover:text-slate-300 transition;
+  }
+
+  /* Highlighted tag (core industry) */
+  .tag {
+    @apply px-2 py-0.5 rounded text-xs bg-slate-700 text-slate-300 border border-slate-600;
+  }
+
+  /* Subdued tag (tech stack, functional) */
+  .tag--muted {
+    @apply px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-400 border border-slate-700;
+  }
+
+  /* Inline status badge / city chip */
+  .chip {
+    @apply px-2 py-0.5 rounded text-xs border shrink-0;
+  }
+}

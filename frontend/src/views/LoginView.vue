@@ -39,14 +39,12 @@ async function submit() {
             v-model="password"
             placeholder="Password"
             autocomplete="current-password"
-            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 pr-12
-                   text-slate-100 placeholder-slate-500 focus:outline-none
-                   focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition"
+            class="auth-input"
           />
           <button
             type="button"
             @click="show = !show"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+            class="btn-icon absolute right-3 top-1/2 -translate-y-1/2"
             :aria-label="show ? 'Hide password' : 'Show password'"
           >
             <!-- Eye open -->
@@ -66,8 +64,7 @@ async function submit() {
         <button
           type="submit"
           :disabled="loading || !password"
-          class="w-full bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed
-                 text-slate-100 font-medium py-3 rounded-lg transition"
+          class="btn-submit"
         >
           {{ loading ? 'Signing in…' : 'Sign in' }}
         </button>
