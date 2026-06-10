@@ -191,6 +191,7 @@ jobs:
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
       - name: Deploy to Azure Functions
         run: |
+          chmod +x ./publish/backend
           cd ./publish && zip -r ../deploy.zip . && cd ..
           az functionapp deployment source config-zip \
             --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \

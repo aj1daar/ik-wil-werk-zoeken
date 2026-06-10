@@ -45,6 +45,8 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'AzureWebJobsStorage', value: storageConnectionString }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
+        { name: 'FUNCTIONS_WORKER_RUNTIME_VERSION', value: '8' }
+        { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
       ]
     }
   }
