@@ -18,7 +18,7 @@ async function submit() {
   const err = await auth.login(password.value)
   loading.value = false
   if (err) {
-    error.value = 'Incorrect password'
+    error.value = err === 'Unauthorized' ? 'Incorrect password' : `Login failed: ${err}`
     password.value = ''
   } else {
     router.push('/')

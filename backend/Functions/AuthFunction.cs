@@ -25,7 +25,7 @@ public sealed class AuthFunction
         try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.LoginRequest); }
         catch { /* malformed JSON — body stays null */ }
 
-        var expected = Environment.GetEnvironmentVariable("APP_PASSWORD");
+        var expected = Environment.GetEnvironmentVariable("APP_PASSWORD")?.Trim();
         if (string.IsNullOrEmpty(expected) || body?.Password != expected)
         {
             var res = req.CreateResponse(HttpStatusCode.Unauthorized);
