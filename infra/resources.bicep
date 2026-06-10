@@ -38,7 +38,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     httpsOnly: true
     siteConfig: {
       cors: {
-        allowedOrigins: ['*']
+        allowedOrigins: ['https://iwwz.nogoibay.org']
         supportCredentials: false
       }
       appSettings: [
