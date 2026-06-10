@@ -37,6 +37,10 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     serverFarmId: plan.id
     httpsOnly: true
     siteConfig: {
+      cors: {
+        allowedOrigins: ['*']
+        supportCredentials: false
+      }
       appSettings: [
         { name: 'AzureWebJobsStorage', value: storageConnectionString }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
