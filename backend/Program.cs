@@ -10,9 +10,6 @@ var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
 
-builder.Services.AddCors(options =>
-    options.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
-
 builder.Services.AddHttpClient("ind", client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "ik-wil-werk-zoeken/1.0");
@@ -30,6 +27,7 @@ builder.Services.AddSingleton<IndSponsorScraper>();
 builder.Services.AddSingleton<CompanyEnricher>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<UserStore>();
+builder.Services.AddSingleton<StageStore>();
 
 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
 {

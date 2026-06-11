@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json;
 using backend.Models;
@@ -10,13 +9,15 @@ namespace backend.Functions;
 
 public sealed class DashboardCrudFunction
 {
-    private readonly SponsorStore _store;
+    private readonly SponsorStore _sponsors;
+    private readonly StageStore   _stages;
     private readonly TokenService _tokens;
 
-    public DashboardCrudFunction(SponsorStore store, TokenService tokens)
+    public DashboardCrudFunction(SponsorStore sponsors, StageStore stages, TokenService tokens)
     {
-        _store = store;
-        _tokens = tokens;
+        _sponsors = sponsors;
+        _stages   = stages;
+        _tokens   = tokens;
     }
 
     [Function("DashboardCrud")]
@@ -52,27 +53,25 @@ public sealed class DashboardCrudFunction
         return WithCors(response);
     }
 
-    // ── sponsors (read-only for all authenticated users) ─────────────────────
+    // ── sponsors ──────────────────────────────────────────────────────────────
 
     private async Task<HttpResponseData> GetSponsors(HttpRequestData req)
     {
         var response = req.CreateResponse(HttpStatusCode.OK);
         await WriteJson(response, JsonSerializer.Serialize(
-            _store.Companies.Values.ToArray(),
+            _sponsors.Companies.Values.ToArray(),
             AppJsonSerializerContext.Default.SponsorCompanyArray));
         return response;
     }
 
-    // ── stages (user-scoped) ──────────────────────────────────────────────────
+    // ── stages ────────────────────────────────────────────────────────────────
 
     private async Task<HttpResponseData> GetStages(HttpRequestData req, string userId)
     {
-        var userStages = _store.Stages.Values
-            .Where(s => s.UserId == userId)
-            .ToArray();
+        var stages = await _stages.GetByUserIdAsync(userId);
         var response = req.CreateResponse(HttpStatusCode.OK);
         await WriteJson(response, JsonSerializer.Serialize(
-            userStages, AppJsonSerializerContext.Default.ApplicationStageArray));
+            stages.ToArray(), AppJsonSerializerContext.Default.ApplicationStageArray));
         return response;
     }
 
@@ -85,8 +84,9 @@ public sealed class DashboardCrudFunction
         if (!ValidateStage(item, out var validationError))
             return await ErrorResponse(req, HttpStatusCode.BadRequest, validationError);
 
-        item.UserId = userId;
-        _store.Stages[item.Id] = item;
+        item.UserId    = userId;
+        item.UpdatedAt = DateTimeOffset.UtcNow;
+        await _stages.UpsertAsync(item);
 
         var response = req.CreateResponse(HttpStatusCode.Created);
         await WriteJson(response, JsonSerializer.Serialize(item, AppJsonSerializerContext.Default.ApplicationStage));
@@ -98,11 +98,9 @@ public sealed class DashboardCrudFunction
         if (string.IsNullOrWhiteSpace(id))
             return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required for update");
 
-        if (!_store.Stages.TryGetValue(id, out var existing))
+        var existing = await _stages.GetAsync(userId, id);
+        if (existing is null)
             return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
-
-        if (existing.UserId != userId)
-            return await ErrorResponse(req, HttpStatusCode.Forbidden, "Forbidden");
 
         var item = await DeserializeStage(req.Body);
         if (item is null)
@@ -123,7 +121,7 @@ public sealed class DashboardCrudFunction
             Cities             = item.Cities,
             UpdatedAt          = DateTimeOffset.UtcNow,
         };
-        _store.Stages[id] = updated;
+        await _stages.UpsertAsync(updated);
 
         var response = req.CreateResponse(HttpStatusCode.OK);
         await WriteJson(response, JsonSerializer.Serialize(updated, AppJsonSerializerContext.Default.ApplicationStage));
@@ -135,13 +133,11 @@ public sealed class DashboardCrudFunction
         if (string.IsNullOrWhiteSpace(id))
             return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required for delete");
 
-        if (!_store.Stages.TryGetValue(id, out var existing))
+        var existing = await _stages.GetAsync(userId, id);
+        if (existing is null)
             return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
 
-        if (existing.UserId != userId)
-            return await ErrorResponse(req, HttpStatusCode.Forbidden, "Forbidden");
-
-        _store.Stages.TryRemove(id, out _);
+        await _stages.DeleteAsync(userId, id);
         return req.CreateResponse(HttpStatusCode.NoContent);
     }
 

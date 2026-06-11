@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "JWT_SECRET": "CHANGE_ME_at_least_32_random_characters",
+    "GEMINI_API_KEY": "",
+    "IND_REGISTER_URL": "",
+    "ALLOWED_ORIGIN": "http://localhost:5173"
+  }
+}

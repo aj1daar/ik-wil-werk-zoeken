@@ -204,7 +204,6 @@ jobs:
             --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
             --settings \
-              APP_PASSWORD="${{ secrets.APP_PASSWORD }}" \
               JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
           echo "=== App settings after secrets push ==="
@@ -244,7 +243,7 @@ jobs:
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
               "https://${{ vars.AZURE_FUNCTION_APP_NAME }}.azurewebsites.net/api/auth/login" \
               -H "Content-Type: application/json" \
-              -d '{"password":"healthcheck"}')
+              -d '{"email":"healthcheck@example.com","password":"healthcheck"}')
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "401" ]; then
               echo "Functions are up."

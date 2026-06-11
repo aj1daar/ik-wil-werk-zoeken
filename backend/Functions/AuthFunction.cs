@@ -12,11 +12,13 @@ public sealed class AuthFunction
 {
     private readonly TokenService _tokens;
     private readonly UserStore    _users;
+    private readonly StageStore   _stages;
 
-    public AuthFunction(TokenService tokens, UserStore users)
+    public AuthFunction(TokenService tokens, UserStore users, StageStore stages)
     {
         _tokens = tokens;
         _users  = users;
+        _stages = stages;
     }
 
     // POST /api/auth/login
@@ -219,6 +221,7 @@ public sealed class AuthFunction
         if (user is null)
             return await ErrorResponse(req, HttpStatusCode.NotFound, "User not found");
 
+        await _stages.DeleteAllByUserIdAsync(user.UserId);
         await _users.DeleteAsync(user);
 
         var res = req.CreateResponse(HttpStatusCode.NoContent);

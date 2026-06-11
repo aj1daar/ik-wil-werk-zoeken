@@ -16,6 +16,7 @@ namespace backend;
 [JsonSerializable(typeof(PreferencesPayload))]
 [JsonSerializable(typeof(SponsorCompany[]))]
 [JsonSerializable(typeof(ApplicationStage[]))]
+[JsonSerializable(typeof(string[]))]
 internal partial class AppJsonSerializerContext : JsonSerializerContext
 {
 }
