@@ -116,8 +116,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Publish (linux-x64)
-        run: dotnet publish backend/backend.csproj -c Release -r linux-x64 --self-contained -p:PublishAot=false -o ./publish
+      - name: Publish
+        run: dotnet publish backend/backend.csproj -c Release -o ./publish
       - uses: actions/upload-artifact@v4
         with:
           name: backend-publish
@@ -191,7 +191,6 @@ jobs:
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
       - name: Deploy to Azure Functions
         run: |
-          chmod +x ./publish/backend
           cd ./publish && zip -r ../deploy.zip . && cd ..
           az functionapp deployment source config-zip \
             --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
