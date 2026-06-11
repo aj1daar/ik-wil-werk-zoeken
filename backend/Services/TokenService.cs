@@ -81,6 +81,20 @@ public sealed class TokenService
         catch { return null; }
     }
 
+    public string? GetUserId(string? bearerOrToken)
+    {
+        var token = ExtractToken(bearerOrToken);
+        if (token is null) return null;
+        try
+        {
+            var parts        = token.Split('.');
+            var payloadBytes = Base64UrlDecode(parts[1]);
+            var parsed = JsonSerializer.Deserialize(payloadBytes, AppJsonSerializerContext.Default.JwtPayload);
+            return string.IsNullOrEmpty(parsed?.Sub) ? null : parsed.Sub;
+        }
+        catch { return null; }
+    }
+
     private static string? ExtractToken(string? bearerOrToken)
     {
         if (string.IsNullOrWhiteSpace(bearerOrToken)) return null;

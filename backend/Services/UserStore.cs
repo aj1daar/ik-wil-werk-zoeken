@@ -51,4 +51,9 @@ public sealed class UserStore
     {
         await GetClient().UpdateEntityAsync(user, user.ETag, TableUpdateMode.Replace);
     }
+
+    public async Task DeleteAsync(UserEntity user)
+    {
+        await GetClient().DeleteEntityAsync(user.PartitionKey, user.RowKey, user.ETag);
+    }
 }

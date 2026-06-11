@@ -94,6 +94,7 @@ async function remove() {
       <div v-if="company.summary" class="field">
         <label class="field-label">About</label>
         <p class="panel-body-text">{{ company.summary }}</p>
+        <p class="ai-notice">AI-generated summary by Google Gemini. May contain errors.</p>
       </div>
 
       <div v-if="company.coreIndustry || allTags.length" class="field">

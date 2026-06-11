@@ -45,6 +45,9 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) =>
     request<void>('POST', '/api/auth/change-password', { currentPassword, newPassword }),
 
+  deleteAccount: () =>
+    request<void>('DELETE', '/api/auth/account'),
+
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 

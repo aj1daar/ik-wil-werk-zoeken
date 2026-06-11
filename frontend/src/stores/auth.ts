@@ -24,9 +24,14 @@ export interface RegisterData {
   gdprConsentAt: string
 }
 
+function b64urlToStd(s: string): string {
+  const padded = s + '='.repeat((4 - (s.length % 4)) % 4)
+  return padded.replace(/-/g, '+').replace(/_/g, '/')
+}
+
 function parseUser(token: string): AuthUser | null {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
+    const payload = JSON.parse(atob(b64urlToStd(token.split('.')[1])))
     return {
       userId:    payload.sub ?? '',
       email:     payload.email ?? '',
@@ -95,6 +100,16 @@ export const useAuthStore = defineStore('auth', {
         return null
       } catch (e) {
         return e instanceof Error ? e.message : 'Password change failed'
+      }
+    },
+
+    async deleteAccount(): Promise<string | null> {
+      try {
+        await api.deleteAccount()
+        this.logout()
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Account deletion failed'
       }
     },
 

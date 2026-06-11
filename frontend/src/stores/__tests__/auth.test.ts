@@ -8,12 +8,14 @@ vi.mock('../../api', () => ({
     register:       vi.fn(),
     updateProfile:  vi.fn(),
     changePassword: vi.fn(),
+    deleteAccount:  vi.fn(),
   }
 }))
 
 import { api } from '../../api'
 
-// Build a decodable JWT using standard base64 so parseUser (which calls atob) can decode it.
+// Build a decodable JWT. parseUser now handles both URL-safe and standard base64, but tests
+// use standard btoa so the payload values are predictable and stable.
 function makeJwt(overrides: Record<string, unknown> = {}): string {
   const payload = {
     sub:         'user-123',
@@ -308,5 +310,60 @@ describe('useAuthStore', () => {
     store.logout()
     expect(() => store.logout()).not.toThrow()
     expect(store.isAuthenticated).toBe(false)
+  })
+
+  // ── deleteAccount ─────────────────────────────────────────────────────────
+
+  it('deleteAccount calls api.deleteAccount and then logs out', async () => {
+    const jwt = makeJwt()
+    vi.mocked(api.login).mockResolvedValue({ token: jwt })
+    vi.mocked(api.deleteAccount).mockResolvedValue(undefined)
+    const store = useAuthStore()
+    await store.login('a@b.com', 'pass')
+    const err = await store.deleteAccount()
+    expect(err).toBeNull()
+    expect(api.deleteAccount).toHaveBeenCalledOnce()
+    expect(store.token).toBeNull()
+    expect(store.user).toBeNull()
+    expect(store.isAuthenticated).toBe(false)
+    expect(sessionStorage.getItem('token')).toBeNull()
+  })
+
+  it('deleteAccount returns error message on failure without logging out', async () => {
+    const jwt = makeJwt()
+    vi.mocked(api.login).mockResolvedValue({ token: jwt })
+    vi.mocked(api.deleteAccount).mockRejectedValue(new Error('500 Server error'))
+    const store = useAuthStore()
+    await store.login('a@b.com', 'pass')
+    const err = await store.deleteAccount()
+    expect(err).toBe('500 Server error')
+    expect(store.token).toBe(jwt)
+    expect(store.isAuthenticated).toBe(true)
+  })
+
+  it('deleteAccount returns generic message for non-Error throws', async () => {
+    vi.mocked(api.deleteAccount).mockRejectedValue(null)
+    const err = await useAuthStore().deleteAccount()
+    expect(err).toBe('Account deletion failed')
+  })
+
+  // ── parseUser URL-safe base64 ────────────────────────────────────────────
+
+  it('parseUser correctly decodes URL-safe base64 JWT payload (real backend format)', () => {
+    // Build a URL-safe base64 JWT like the real backend produces
+    const toB64url = (s: string) =>
+      btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+    const header  = toB64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    const payload = toB64url(JSON.stringify({
+      sub: 'url-safe-id', email: 'url@test.com',
+      firstName: 'Url', lastName: 'Safe', exp: 9999999999,
+    }))
+    const token = `${header}.${payload}.fakesig`
+
+    sessionStorage.setItem('token', token)
+    setActivePinia(createPinia())
+    const store = useAuthStore()
+    expect(store.user?.userId).toBe('url-safe-id')
+    expect(store.user?.email).toBe('url@test.com')
   })
 })

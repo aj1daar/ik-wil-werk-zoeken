@@ -364,6 +364,62 @@ public sealed class TokenServiceTests : IDisposable
         Assert.Equal("tampered@example.com", new TokenService().GetEmail($"{header}.{payload}.wrongsig"));
     }
 
+    // ── GetUserId ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetUserId_ValidToken_ReturnsSub()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser(userId: "uuid-001"))!;
+        Assert.Equal("uuid-001", svc.GetUserId(token));
+    }
+
+    [Fact]
+    public void GetUserId_BearerPrefixedToken_ReturnsSub()
+    {
+        var svc   = new TokenService();
+        var token = $"Bearer {svc.CreateToken(MakeUser(userId: "uuid-bearer"))!}";
+        Assert.Equal("uuid-bearer", svc.GetUserId(token));
+    }
+
+    [Fact]
+    public void GetUserId_Null_ReturnsNull() =>
+        Assert.Null(new TokenService().GetUserId(null));
+
+    [Fact]
+    public void GetUserId_Empty_ReturnsNull() =>
+        Assert.Null(new TokenService().GetUserId(""));
+
+    [Fact]
+    public void GetUserId_OnePart_ReturnsNull() =>
+        Assert.Null(new TokenService().GetUserId("notajwt"));
+
+    [Fact]
+    public void GetUserId_PayloadWithoutSubField_ReturnsNull()
+    {
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"email":"x@x.com","exp":9999999999}"""));
+        Assert.Null(new TokenService().GetUserId($"{header}.{payload}.fakesig"));
+    }
+
+    [Fact]
+    public void GetUserId_PayloadWithEmptySub_ReturnsNull()
+    {
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"sub":"","email":"x@x.com","exp":9999999999}"""));
+        Assert.Null(new TokenService().GetUserId($"{header}.{payload}.fakesig"));
+    }
+
+    [Fact]
+    public void GetUserId_DifferentUsers_ReturnCorrectIds()
+    {
+        var svc = new TokenService();
+        var t1  = svc.CreateToken(MakeUser(userId: "id-aaa", email: "a@a.com"))!;
+        var t2  = svc.CreateToken(MakeUser(userId: "id-bbb", email: "b@b.com"))!;
+        Assert.Equal("id-aaa", svc.GetUserId(t1));
+        Assert.Equal("id-bbb", svc.GetUserId(t2));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static UserEntity MakeUser(
