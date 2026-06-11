@@ -16,7 +16,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   })
   if (res.status === 401) {
     sessionStorage.removeItem('token')
-    if (window.location.pathname !== '/login') window.location.href = '/login'
+    if (window.location.pathname !== '/login') {
+      sessionStorage.setItem('sessionExpired', '1')
+      window.location.href = '/login'
+    }
     throw new Error('Unauthorized')
   }
   if (!res.ok) {

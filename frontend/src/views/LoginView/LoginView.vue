@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import AppLogo from '../../components/AppLogo/AppLogo.vue'
@@ -12,6 +12,14 @@ const email    = ref('')
 const password = ref('')
 const error    = ref('')
 const loading  = ref(false)
+const expired  = ref(false)
+
+onMounted(() => {
+  if (sessionStorage.getItem('sessionExpired')) {
+    expired.value = true
+    sessionStorage.removeItem('sessionExpired')
+  }
+})
 
 async function submit() {
   if (!email.value || !password.value) return
@@ -36,7 +44,8 @@ async function submit() {
 
     <div class="auth-card login-card">
       <h1 class="auth-title">Welcome back</h1>
-      <p class="auth-subtitle">Sign in to your account to continue.</p>
+      <p v-if="expired" class="auth-expired">Your session expired — please sign in again.</p>
+      <p v-else class="auth-subtitle">Sign in to your account to continue.</p>
 
       <form @submit.prevent="submit" class="auth-form">
         <div>

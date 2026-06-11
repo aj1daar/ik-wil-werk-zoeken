@@ -2,6 +2,16 @@ param functionAppName string
 param storageAccountName string
 param location string = resourceGroup().location
 
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${functionAppName}-ai'
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    RetentionInDays: 90
+  }
+}
+
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
@@ -51,6 +61,7 @@ resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
         { name: 'FUNCTIONS_WORKER_RUNTIME_VERSION', value: '8.0' }
         { name: 'ALLOWED_ORIGIN', value: 'https://iwwz.nogoibay.org' }
+        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
       ]
     }
   }

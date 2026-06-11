@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuthStore } from '../../stores/auth'
+import { useRouter } from 'vue-router'
 import PasswordField from '../../components/PasswordField/PasswordField.vue'
 import FormMessage from '../../components/FormMessage/FormMessage.vue'
 
-const auth = useAuthStore()
+const auth   = useAuthStore()
+const router = useRouter()
 
 const firstName  = ref(auth.user?.firstName ?? '')
 const lastName   = ref(auth.user?.lastName ?? '')
@@ -20,6 +22,9 @@ const profileSaving  = ref(false)
 const profileMsg     = ref<{text:string;ok:boolean}|null>(null)
 const passwordSaving = ref(false)
 const passwordMsg    = ref<{text:string;ok:boolean}|null>(null)
+const deleteConfirm  = ref(false)
+const deleteError    = ref('')
+const deleting       = ref(false)
 
 const WORK_TYPES = [
   { value: 'any',    label: 'Any arrangement' },
@@ -55,6 +60,19 @@ async function changePassword() {
   passwordSaving.value = false
   passwordMsg.value = err ? { text: err, ok: false } : { text: 'Password updated.', ok: true }
   if (!err) { currentPw.value = ''; newPw.value = ''; confirmPw.value = '' }
+}
+
+async function deleteAccount() {
+  deleting.value = true
+  deleteError.value = ''
+  const err = await auth.deleteAccount()
+  if (err) {
+    deleteError.value = err
+    deleting.value = false
+    deleteConfirm.value = false
+  } else {
+    await router.push('/login')
+  }
 }
 </script>
 
@@ -152,6 +170,26 @@ async function changePassword() {
             </button>
           </div>
         </form>
+      </section>
+
+      <section class="card danger-zone">
+        <h2 class="section-title section-title--danger">Danger zone</h2>
+        <p class="danger-description">
+          Permanently delete your account and all your application records. This cannot be undone.
+        </p>
+        <p v-if="deleteError" class="danger-error">{{ deleteError }}</p>
+        <div v-if="!deleteConfirm" class="form-actions">
+          <button @click="deleteConfirm = true" class="btn-danger">Delete my account</button>
+        </div>
+        <div v-else class="delete-confirm">
+          <p class="danger-confirm-text">Are you sure? All your data will be erased permanently.</p>
+          <div class="form-actions">
+            <button @click="deleteAccount" :disabled="deleting" class="btn-danger">
+              {{ deleting ? 'Deleting…' : 'Yes, delete my account' }}
+            </button>
+            <button @click="deleteConfirm = false" :disabled="deleting" class="btn-secondary">Cancel</button>
+          </div>
+        </div>
       </section>
 
     </div>

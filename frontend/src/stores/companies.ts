@@ -70,7 +70,7 @@ export const useCompaniesStore = defineStore('companies', {
         this.companies = companies
         this.records = Object.fromEntries(records.map(r => [r.sponsorCompanyId, r]))
       } catch {
-        this.error = 'Could not reach the backend. Make sure Azure Functions is running.'
+        this.error = 'Could not load company data. Please try again later.'
       } finally {
         this.loading = false
       }
