@@ -27,11 +27,9 @@ public sealed class DashboardCrudFunction
         string entity,
         string? id)
     {
-        // Handle CORS preflight
         if (req.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
             return WithCors(req.CreateResponse(HttpStatusCode.OK));
 
-        // JWT auth — bypass when JWT_SECRET is not configured (local dev without secrets)
         if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("JWT_SECRET")))
         {
             req.Headers.TryGetValues("Authorization", out var authHeader);
@@ -41,18 +39,14 @@ public sealed class DashboardCrudFunction
 
         var response = (entity.ToLowerInvariant(), req.Method.ToUpperInvariant()) switch
         {
-            ("users", "GET")      => await GetCollection(req, _store.Users),
-            ("users", "POST")     => await CreateItem(req, _store.Users),
-            ("users", "PUT")      => await UpdateItem(req, _store.Users, id),
-            ("users", "DELETE")   => await DeleteItem(req, _store.Users, id),
-            ("sponsors", "GET")   => await GetCollection(req, _store.Companies),
-            ("sponsors", "POST")  => await CreateItem(req, _store.Companies),
-            ("sponsors", "PUT")   => await UpdateItem(req, _store.Companies, id),
-            ("sponsors", "DELETE")=> await DeleteItem(req, _store.Companies, id),
-            ("stages", "GET")     => await GetCollection(req, _store.Stages),
-            ("stages", "POST")    => await CreateItem(req, _store.Stages),
-            ("stages", "PUT")     => await UpdateItem(req, _store.Stages, id),
-            ("stages", "DELETE")  => await DeleteItem(req, _store.Stages, id),
+            ("sponsors", "GET")    => await GetCollection(req, _store.Companies),
+            ("sponsors", "POST")   => await CreateItem(req, _store.Companies),
+            ("sponsors", "PUT")    => await UpdateItem(req, _store.Companies, id),
+            ("sponsors", "DELETE") => await DeleteItem(req, _store.Companies, id),
+            ("stages", "GET")      => await GetCollection(req, _store.Stages),
+            ("stages", "POST")     => await CreateItem(req, _store.Stages),
+            ("stages", "PUT")      => await UpdateItem(req, _store.Stages, id),
+            ("stages", "DELETE")   => await DeleteItem(req, _store.Stages, id),
             _ => await ErrorResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
         };
 
@@ -118,18 +112,13 @@ public sealed class DashboardCrudFunction
 
     private static string ExtractId<T>(T item) where T : class => item switch
     {
-        User u           => u.Id,
-        SponsorCompany s => s.Id,
+        SponsorCompany s   => s.Id,
         ApplicationStage a => a.Id,
         _ => Guid.NewGuid().ToString("N")
     };
 
     private static T SetId<T>(T item, string id) where T : class => item switch
     {
-        User u => (T)(object)new User
-        {
-            Id = id, Email = u.Email, DisplayName = u.DisplayName
-        },
         SponsorCompany s => (T)(object)new SponsorCompany
         {
             Id = id,
@@ -173,9 +162,8 @@ public sealed class DashboardCrudFunction
 
     private static string SerializeItem<T>(T item) where T : class
     {
-        if (item is SponsorCompany s) return JsonSerializer.Serialize(s, AppJsonSerializerContext.Default.SponsorCompany);
+        if (item is SponsorCompany s)   return JsonSerializer.Serialize(s, AppJsonSerializerContext.Default.SponsorCompany);
         if (item is ApplicationStage a) return JsonSerializer.Serialize(a, AppJsonSerializerContext.Default.ApplicationStage);
-        if (item is User u) return JsonSerializer.Serialize(u, AppJsonSerializerContext.Default.User);
         return "{}";
     }
 
@@ -185,22 +173,15 @@ public sealed class DashboardCrudFunction
             return JsonSerializer.Serialize(items.Cast<SponsorCompany>().ToArray(), AppJsonSerializerContext.Default.SponsorCompanyArray);
         if (typeof(T) == typeof(ApplicationStage))
             return JsonSerializer.Serialize(items.Cast<ApplicationStage>().ToArray(), AppJsonSerializerContext.Default.ApplicationStageArray);
-        if (typeof(T) == typeof(User))
-            return JsonSerializer.Serialize(items.Cast<User>().ToArray(), AppJsonSerializerContext.Default.UserArray);
         return "[]";
     }
 
     private static async Task<T?> DeserializeEntity<T>(Stream body) where T : class
     {
-        if (typeof(T) == typeof(User))
-            return (await JsonSerializer.DeserializeAsync(body, AppJsonSerializerContext.Default.User)) as T;
-
         if (typeof(T) == typeof(SponsorCompany))
             return (await JsonSerializer.DeserializeAsync(body, AppJsonSerializerContext.Default.SponsorCompany)) as T;
-
         if (typeof(T) == typeof(ApplicationStage))
             return (await JsonSerializer.DeserializeAsync(body, AppJsonSerializerContext.Default.ApplicationStage)) as T;
-
         return null;
     }
 }

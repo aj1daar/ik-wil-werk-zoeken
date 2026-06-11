@@ -29,6 +29,7 @@ builder.Services.AddSingleton<SponsorStore>();
 builder.Services.AddSingleton<IndSponsorScraper>();
 builder.Services.AddSingleton<CompanyEnricher>();
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<UserStore>();
 
 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
 {
