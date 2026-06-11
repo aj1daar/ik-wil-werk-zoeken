@@ -122,6 +122,7 @@ jobs:
         with:
           name: backend-publish
           path: ./publish
+          include-hidden-files: true
           retention-days: 1
 
   # ── Deploy (parallel, main only, after both builds pass) ─────────────────────
