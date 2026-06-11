@@ -155,10 +155,13 @@ jobs:
     name: Deploy / Azure Functions
     needs: [build-frontend, build-backend]
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       id-token: write
       contents: read
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -172,7 +175,8 @@ jobs:
           echo "=== Key files ==="
           ls ./publish/*.dll 2>/dev/null | head -10 || echo "WARNING: no DLLs found"
           ls ./publish/host.json 2>/dev/null || echo "WARNING: host.json missing"
-          ls ./publish/runtimes/win-x64/native/ 2>/dev/null | head -5 || echo "WARNING: no win-x64 native binaries"
+          ls ./publish/functions.metadata 2>/dev/null && echo "functions.metadata present" || echo "WARNING: functions.metadata missing"
+          ls ./publish/worker.config.json 2>/dev/null && echo "worker.config.json present" || echo "WARNING: worker.config.json missing"
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -208,29 +212,36 @@ jobs:
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
             --query "[].name" --output tsv
       - name: Package and deploy
+        shell: pwsh
         run: |
-          cd ./publish && zip -r ../deploy.zip . && cd ..
-          echo "=== deploy.zip size ==="
-          ls -lh deploy.zip
-          echo "=== Deploying to Azure ==="
-          az webapp deploy \
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --src-path deploy.zip \
-            --type zip \
+          Write-Host "=== Zipping publish output ==="
+          Compress-Archive -Path "./publish/*" -DestinationPath "./deploy.zip" -Force
+          Write-Host "=== deploy.zip size: $((Get-Item ./deploy.zip).Length / 1MB) MB ==="
+          Write-Host "=== Deploying to Azure ==="
+          az webapp deploy `
+            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} `
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
+            --src-path deploy.zip `
+            --type zip `
             --verbose
-          echo "=== Functions registered after deploy ==="
-          az functionapp function list \
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --query "[].name" --output tsv || echo "(none registered yet)"
+          Write-Host "=== Restarting function app ==="
+          az functionapp restart `
+            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} `
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }}
+          Write-Host "=== Waiting 20s for restart ==="
+          Start-Sleep 20
+          Write-Host "=== Functions registered after deploy ==="
+          az functionapp function list `
+            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} `
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
+            --query "[].name" --output tsv
       - name: Health check
         run: |
           echo "Waiting 30s for cold start..."
           sleep 30
           for i in 1 2 3 4 5; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              https://${{ vars.AZURE_FUNCTION_APP_NAME }}.azurewebsites.net/api/auth/login \
+              "https://${{ vars.AZURE_FUNCTION_APP_NAME }}.azurewebsites.net/api/auth/login" \
               -H "Content-Type: application/json" \
               -d '{"password":"healthcheck"}')
             echo "Attempt $i: HTTP $STATUS"
