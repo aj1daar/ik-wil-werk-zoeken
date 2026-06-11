@@ -12,7 +12,8 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 - **Application pipeline** — track each company through 9 stages: Bookmarked → Applied → Ongoing Interview → Offer Proposed → Offer Accepted (and rejection/withdrawal states)
 - **Bookmarked view** — card grid of all tracked companies with notes, cities, and status chips
 - **User accounts** — open registration with per-user data isolation; JWT-authenticated sessions
-- **Profile & preferences** — display name, email, change password, target role, preferred location, work arrangement
+- **Profile & preferences** — display name, change password, target role, preferred location, work arrangement
+- **Forgot password** — email-based password reset via Resend (1-hour signed token, no DB storage)
 - **GDPR compliant** — explicit consent at registration, data minimization, right to deletion
 - **EU AI Act transparency** — notice displayed wherever Google Gemini-generated company summaries appear
 
@@ -22,10 +23,11 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vue 3 + TypeScript + Vite + Tailwind CSS + Pinia + Vue Router |
+| Frontend | Vue 3 + TypeScript + Vite + Pinia + Vue Router |
 | Backend | Azure Functions (.NET 8 isolated worker) |
-| User storage | Azure Table Storage (`iwwzusers` table) |
+| User storage | Azure Table Storage (`iwwzusers`, `iwwzstages` tables) |
 | Auth | JWT HS256 · PBKDF2-SHA256 (100 000 iterations) |
+| Email | Resend (password reset) |
 | Hosting | Cloudflare Pages (frontend) · Azure consumption plan (backend) |
 
 ---
@@ -36,22 +38,24 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 /
 ├── backend/                 Azure Functions (.NET 8)
 │   ├── Functions/
-│   │   ├── AuthFunction.cs          POST /api/auth/*
-│   │   ├── DashboardCrudFunction.cs GET|POST|PUT|DELETE /api/dashboard/*
+│   │   ├── AuthFunction.cs              POST /api/auth/*
+│   │   ├── DashboardCrudFunction.cs     GET|POST|PUT|DELETE /api/dashboard/*
 │   │   └── MonthlyIndSponsorSyncFunction.cs  timer trigger
 │   ├── Models/              UserEntity, SponsorCompany, ApplicationStage, AuthModels
-│   └── Services/            PasswordHasher, TokenService, UserStore, SponsorStore
+│   └── Services/            PasswordHasher, TokenService, EmailService,
+│                            UserStore, StageStore, SponsorStore
 │
-├── backend.Tests/           xUnit tests (80 tests)
+├── backend.Tests/           xUnit tests (104 tests)
 │
 ├── frontend/                Vue 3 SPA
 │   └── src/
-│       ├── components/      AppNavbar, AppLogo, CompanyPanel, PasswordField, FormMessage
-│       ├── views/           DashboardView, BookmarkedView, ProfileView, LoginView, RegisterView
+│       ├── components/      AppNavbar, AppLogo, CompanyPanel, PasswordField
+│       ├── views/           Dashboard, Bookmarked, Profile, Login, Register,
+│       │                    ForgotPassword, ResetPassword
 │       ├── stores/          auth (Pinia), companies (Pinia)
 │       └── router/          index.ts — auth-guard navigation
 │
-└── frontend/src/**/__tests__/  Vitest tests (156 tests)
+└── frontend/src/**/__tests__/  Vitest tests (160 tests)
 ```
 
 ---
@@ -62,26 +66,29 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/auth/login` | — | Email + password → JWT |
-| `POST` | `/api/auth/register` | — | Register with GDPR consent → JWT |
-| `PUT`  | `/api/auth/profile` | Bearer | Update name / preferences → new JWT |
-| `POST` | `/api/auth/change-password` | Bearer | Verify current password and set new one |
+| `POST`   | `/api/auth/login`            | —      | Email + password → JWT |
+| `POST`   | `/api/auth/register`         | —      | Register with GDPR consent → JWT |
+| `PUT`    | `/api/auth/profile`          | Bearer | Update name / preferences → new JWT |
+| `POST`   | `/api/auth/change-password`  | Bearer | Verify current password and set new one |
+| `DELETE` | `/api/auth/account`          | Bearer | Delete account and all data (GDPR erasure) |
+| `POST`   | `/api/auth/forgot-password`  | —      | Send password-reset email (always 204, anti-enumeration) |
+| `POST`   | `/api/auth/reset-password`   | —      | Validate signed token and set new password |
 
 ### Dashboard (`/api/dashboard/`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET`    | `/api/dashboard/sponsors` | Bearer | All IND sponsor companies |
-| `GET`    | `/api/dashboard/stages`   | Bearer | User's application records |
-| `POST`   | `/api/dashboard/stages`   | Bearer | Create application record |
-| `PUT`    | `/api/dashboard/stages/{id}` | Bearer | Update application record |
-| `DELETE` | `/api/dashboard/stages/{id}` | Bearer | Delete application record |
+| `GET`    | `/api/dashboard/sponsors`       | Bearer | All IND sponsor companies |
+| `GET`    | `/api/dashboard/stages`         | Bearer | User's application records |
+| `POST`   | `/api/dashboard/stages`         | Bearer | Create application record |
+| `PUT`    | `/api/dashboard/stages/{id}`    | Bearer | Update application record |
+| `DELETE` | `/api/dashboard/stages/{id}`    | Bearer | Delete application record |
 
 ### Timer
 
 | Trigger | Schedule | Description |
 |---------|----------|-------------|
-| `MonthlyIndSponsorSync` | Monthly (cron) | Fetches the IND public register and refreshes the in-memory sponsor list |
+| `MonthlyIndSponsorSync` | Monthly (20th) | Fetches the IND public register and refreshes the sponsor list |
 
 ---
 
@@ -98,29 +105,33 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 ```bash
 cd backend
-# Copy and fill in secrets — never commit this file
+# Copy and fill in secrets — never commit local.settings.json
 cp local.settings.example.json local.settings.json
 
 func start
 # Listens on http://localhost:7071
 ```
 
-**Required environment variables** (set in `local.settings.json` or Azure App Settings):
+**Environment variables** (set in `local.settings.json` for local dev, or as Azure App Settings in production):
 
-| Variable | Description |
-|---|---|
-| `JWT_SECRET` | Random string ≥ 32 chars used to sign/verify JWTs |
-| `AzureWebJobsStorage` | Connection string for Azure Table Storage (user accounts) |
-| `GEMINI_API_KEY` | Google Gemini API key for company summary enrichment |
-| `IND_REGISTER_URL` | URL of the IND public sponsor register (CSV/JSON) |
-| `ALLOWED_ORIGIN` | Allowed CORS origin — set to `https://iwwz.nogoibay.org` in production (defaults to `*` locally) |
+| Variable | Required | Description |
+|---|---|---|
+| `AzureWebJobsStorage` | ✅ | Storage connection string (Azurite locally, real account in prod) |
+| `JWT_SECRET` | ✅ | Random string ≥ 32 chars — signs and verifies JWTs and password-reset tokens |
+| `GEMINI_API_KEY` | ✅ | Google Gemini API key for AI company summaries |
+| `ALLOWED_ORIGIN` | ✅ | CORS origin — `http://localhost:5173` locally, `https://iwwz.nogoibay.org` in prod |
+| `RESEND_API_KEY` | — | Resend API key — if absent, password reset emails are silently skipped (fine for local dev) |
+| `RESEND_FROM` | — | From address for password-reset emails (default: `noreply@iwwz.nogoibay.org`) |
 
 Secrets are deployed separately and never committed:
 
 ```bash
 az functionapp config appsettings set \
   --name <app-name> --resource-group <rg> \
-  --settings JWT_SECRET="..." GEMINI_API_KEY="..." ALLOWED_ORIGIN="https://iwwz.nogoibay.org"
+  --settings \
+    JWT_SECRET="..." \
+    GEMINI_API_KEY="..." \
+    RESEND_API_KEY="..."
 ```
 
 ### Frontend
@@ -136,30 +147,61 @@ pnpm dev
 
 ## Testing
 
-### Backend (xUnit · 80 tests)
+### Backend (xUnit · 104 tests)
 
 ```bash
 dotnet test backend.Tests
 ```
 
-Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`), seed data integrity.
+Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`, `GetUserId`, reset token creation and validation), seed data integrity.
 
-### Frontend (Vitest · 156 tests)
+### Frontend (Vitest · 160 tests)
 
 ```bash
 cd frontend
 pnpm test
 ```
 
-Covers: auth store (login, register, updateProfile, changePassword, JWT parsing, logout), companies store, `PasswordField` / `FormMessage` / `AppLogo` components, router navigation guards (auth redirect, login redirect for authenticated users), `LoginView` and `RegisterView` (form state, GDPR enforcement, API calls, navigation).
+Covers: auth store (login, register, updateProfile, changePassword, deleteAccount, JWT parsing, URL-safe base64, logout), companies store, `PasswordField` / `AppLogo` components, router navigation guards, `LoginView` and `RegisterView` (form state, GDPR enforcement, API calls, navigation).
+
+---
+
+## CI/CD Setup
+
+The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test → build → deploy on every push to `main`. It requires the following GitHub repository secrets and variables:
+
+### Secrets (Settings → Secrets and variables → Actions)
+
+| Name | Value |
+|------|-------|
+| `AZURE_CLIENT_ID` | Service principal client ID |
+| `AZURE_TENANT_ID` | Azure tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Pages:Edit permission |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+| `JWT_SECRET` | Random string ≥ 32 chars |
+| `GEMINI_API_KEY` | Google Gemini API key |
+| `RESEND_API_KEY` | Resend API key |
+
+### Variables (Settings → Secrets and variables → Actions → Variables)
+
+| Name | Example value |
+|------|--------------|
+| `AZURE_RESOURCE_GROUP` | `iwwz-rg` |
+| `AZURE_FUNCTION_APP_NAME` | `iwwz-api` |
+| `AZURE_STORAGE_ACCOUNT` | `iwwzstorage` |
+| `CLOUDFLARE_PAGES_PROJECT` | `iwwz` |
+| `VITE_API_BASE_URL` | `https://iwwz-api.azurewebsites.net` |
 
 ---
 
 ## Security Notes
 
-- Passwords hashed with PBKDF2-SHA256, 100 000 iterations, 16-byte random salt — stored as `SHA256.<iter>.<b64salt>.<b64hash>`
-- Constant-time comparison (`CryptographicOperations.FixedTimeEquals`) prevents timing attacks
+- Passwords hashed with PBKDF2-SHA256, 100 000 iterations, 16-byte random salt
+- Constant-time comparison (`CryptographicOperations.FixedTimeEquals`) prevents timing attacks on login and password-reset token validation
 - Login returns the same `"Invalid credentials"` message for unknown email and wrong password to prevent user enumeration
+- Forgot-password always returns 204 regardless of whether the email exists
+- Password-reset tokens are stateless HMAC-SHA256 signatures (`userId.exp.sig`), expire after 1 hour
 - JWTs expire after 7 days; no refresh tokens (re-login required)
 - All protected routes verified server-side via `Authorization: Bearer <token>` header
 
