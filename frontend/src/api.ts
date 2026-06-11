@@ -19,14 +19,31 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (window.location.pathname !== '/login') window.location.href = '/login'
     throw new Error('Unauthorized')
   }
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) {
+    let msg = `${res.status} ${res.statusText}`
+    try { const j = await res.json(); if (j.message) msg = j.message } catch { /* ignore */ }
+    throw new Error(msg)
+  }
   if (res.status === 204) return undefined as T
   return res.json()
 }
 
 export const api = {
-  login: (password: string) =>
-    request<{ token: string }>('POST', '/api/auth/login', { password }),
+  login: (email: string, password: string) =>
+    request<{ token: string }>('POST', '/api/auth/login', { email, password }),
+
+  register: (data: {
+    firstName: string; lastName: string; email: string; password: string
+    preferences?: { targetRole?: string; location?: string; workType?: string }
+    gdprConsentAt: string
+  }) =>
+    request<{ token: string }>('POST', '/api/auth/register', data),
+
+  updateProfile: (data: { firstName: string; lastName: string; preferences: unknown }) =>
+    request<{ token: string }>('PUT', '/api/auth/profile', data),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>('POST', '/api/auth/change-password', { currentPassword, newPassword }),
 
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
