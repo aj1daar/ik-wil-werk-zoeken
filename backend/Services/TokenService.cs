@@ -95,6 +95,41 @@ public sealed class TokenService
         catch { return null; }
     }
 
+    public string CreateResetToken(string userId)
+    {
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var exp    = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
+        var data   = $"{userId}.{exp}";
+        var sig    = Base64UrlEncode(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+        return $"{userId}.{exp}.{sig}";
+    }
+
+    // Returns userId if valid and not expired; null otherwise. Constant-time HMAC compare.
+    public string? ValidateResetToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        var parts = token.Split('.');
+        if (parts.Length != 3) return null;
+
+        var userId = parts[0];
+        var expStr = parts[1];
+        var sig    = parts[2];
+
+        if (string.IsNullOrEmpty(userId) || !long.TryParse(expStr, out var exp)) return null;
+        if (exp <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return null;
+
+        var secret      = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var data        = $"{userId}.{exp}";
+        var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(sig), Encoding.UTF8.GetBytes(expectedSig))
+            ? userId
+            : null;
+    }
+
     private static string? ExtractToken(string? bearerOrToken)
     {
         if (string.IsNullOrWhiteSpace(bearerOrToken)) return null;

@@ -22,10 +22,16 @@ builder.Services.AddHttpClient("gemini", client =>
     client.Timeout = TimeSpan.FromSeconds(60);
 });
 
+builder.Services.AddHttpClient("resend", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+
 builder.Services.AddSingleton<SponsorStore>();
 builder.Services.AddSingleton<IndSponsorScraper>();
 builder.Services.AddSingleton<CompanyEnricher>();
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<EmailService>();
 builder.Services.AddSingleton<UserStore>();
 builder.Services.AddSingleton<StageStore>();
 

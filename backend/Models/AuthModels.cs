@@ -36,6 +36,25 @@ public sealed class ChangePasswordRequest
     [JsonPropertyName("newPassword")]     public string NewPassword     { get; set; } = string.Empty;
 }
 
+public sealed class ForgotPasswordRequest
+{
+    [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
+}
+
+public sealed class ResetPasswordRequest
+{
+    [JsonPropertyName("token")]       public string Token       { get; set; } = string.Empty;
+    [JsonPropertyName("newPassword")] public string NewPassword { get; set; } = string.Empty;
+}
+
+internal sealed class ResendEmailRequest
+{
+    [JsonPropertyName("from")]    public string   From    { get; set; } = string.Empty;
+    [JsonPropertyName("to")]      public string[] To      { get; set; } = [];
+    [JsonPropertyName("subject")] public string   Subject { get; set; } = string.Empty;
+    [JsonPropertyName("html")]    public string   Html    { get; set; } = string.Empty;
+}
+
 public sealed class PreferencesPayload
 {
     [JsonPropertyName("targetRole")] public string? TargetRole { get; set; }

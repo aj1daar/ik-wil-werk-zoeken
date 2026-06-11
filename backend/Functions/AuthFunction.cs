@@ -13,12 +13,14 @@ public sealed class AuthFunction
     private readonly TokenService _tokens;
     private readonly UserStore    _users;
     private readonly StageStore   _stages;
+    private readonly EmailService _email;
 
-    public AuthFunction(TokenService tokens, UserStore users, StageStore stages)
+    public AuthFunction(TokenService tokens, UserStore users, StageStore stages, EmailService email)
     {
         _tokens = tokens;
         _users  = users;
         _stages = stages;
+        _email  = email;
     }
 
     // POST /api/auth/login
@@ -227,6 +229,71 @@ public sealed class AuthFunction
         var res = req.CreateResponse(HttpStatusCode.NoContent);
         AddCors(res);
         return res;
+    }
+
+    // POST /api/auth/forgot-password
+    [Function("ForgotPassword")]
+    public async Task<HttpResponseData> ForgotPassword(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "auth/forgot-password")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        ForgotPasswordRequest? body = null;
+        try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.ForgotPasswordRequest); }
+        catch { /* malformed JSON */ }
+
+        if (!string.IsNullOrWhiteSpace(body?.Email))
+        {
+            var email = body.Email.Trim().ToLowerInvariant();
+            var user  = await _users.GetByEmailAsync(email);
+            if (user is not null)
+            {
+                var token     = _tokens.CreateResetToken(user.UserId);
+                var origin    = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+                var resetLink = $"{origin}/reset-password?token={Uri.EscapeDataString(token)}";
+                await _email.SendPasswordResetAsync(email, resetLink);
+            }
+        }
+
+        // Always 204 to prevent email enumeration
+        var res = req.CreateResponse(HttpStatusCode.NoContent);
+        AddCors(res);
+        return res;
+    }
+
+    // POST /api/auth/reset-password
+    [Function("ResetPassword")]
+    public async Task<HttpResponseData> ResetPassword(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "auth/reset-password")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        ResetPasswordRequest? body = null;
+        try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.ResetPasswordRequest); }
+        catch { /* malformed JSON */ }
+
+        if (body is null || string.IsNullOrWhiteSpace(body.Token) || string.IsNullOrWhiteSpace(body.NewPassword))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "token and newPassword are required");
+
+        var userId = _tokens.ValidateResetToken(body.Token);
+        if (userId is null)
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "Reset link is invalid or has expired");
+
+        if (!ValidPassword(body.NewPassword, out var pwErr))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, pwErr);
+
+        var user = await _users.GetByUserIdAsync(userId);
+        if (user is null)
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "Reset link is invalid or has expired");
+
+        user.PasswordHash = PasswordHasher.Hash(body.NewPassword);
+        await _users.UpdateAsync(user);
+
+        var response = req.CreateResponse(HttpStatusCode.NoContent);
+        AddCors(response);
+        return response;
     }
 
     // ── validation helpers ────────────────────────────────────────────────────
