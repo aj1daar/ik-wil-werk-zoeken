@@ -420,6 +420,129 @@ public sealed class TokenServiceTests : IDisposable
         Assert.Equal("id-bbb", svc.GetUserId(t2));
     }
 
+    // ── CreateResetToken ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void CreateResetToken_ReturnsThreePartToken()
+    {
+        var token = new TokenService().CreateResetToken("user-guid-123");
+        Assert.Equal(3, token.Split('.').Length);
+    }
+
+    [Fact]
+    public void CreateResetToken_ProducedTokenIsImmediatelyValid()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateResetToken("user-guid-123");
+        Assert.Equal("user-guid-123", svc.ValidateResetToken(token));
+    }
+
+    [Fact]
+    public void CreateResetToken_DifferentUsers_ProduceDifferentTokens()
+    {
+        var svc = new TokenService();
+        var t1  = svc.CreateResetToken("user-aaa");
+        var t2  = svc.CreateResetToken("user-bbb");
+        Assert.NotEqual(t1, t2);
+    }
+
+    [Fact]
+    public void CreateResetToken_ExpEmbeddedInToken_IsOneHourAhead()
+    {
+        var now   = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var token = new TokenService().CreateResetToken("some-user");
+        var exp   = long.Parse(token.Split('.')[1]);
+        Assert.InRange(exp, now + 3590, now + 3610); // within 10 s of exactly 1 hour
+    }
+
+    // ── ValidateResetToken ───────────────────────────────────────────────────
+
+    [Fact]
+    public void ValidateResetToken_ValidToken_ReturnsUserId()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateResetToken("my-user-id");
+        Assert.Equal("my-user-id", svc.ValidateResetToken(token));
+    }
+
+    [Fact]
+    public void ValidateResetToken_Null_ReturnsNull() =>
+        Assert.Null(new TokenService().ValidateResetToken(null));
+
+    [Fact]
+    public void ValidateResetToken_Empty_ReturnsNull() =>
+        Assert.Null(new TokenService().ValidateResetToken(""));
+
+    [Fact]
+    public void ValidateResetToken_Whitespace_ReturnsNull() =>
+        Assert.Null(new TokenService().ValidateResetToken("   "));
+
+    [Fact]
+    public void ValidateResetToken_WrongPartCount_ReturnsNull()
+    {
+        Assert.Null(new TokenService().ValidateResetToken("only.two"));
+        Assert.Null(new TokenService().ValidateResetToken("a"));
+        Assert.Null(new TokenService().ValidateResetToken("too.many.parts.here"));
+    }
+
+    [Fact]
+    public void ValidateResetToken_TamperedSignature_ReturnsNull()
+    {
+        var svc   = new TokenService();
+        var parts = svc.CreateResetToken("user-xyz").Split('.');
+        Assert.Null(svc.ValidateResetToken($"{parts[0]}.{parts[1]}.INVALIDSIGXXXXXX"));
+    }
+
+    [Fact]
+    public void ValidateResetToken_TamperedUserId_ReturnsNull()
+    {
+        var svc   = new TokenService();
+        var parts = svc.CreateResetToken("real-user").Split('.');
+        // Swap in a different userId — sig was computed over "real-user.exp"
+        Assert.Null(svc.ValidateResetToken($"attacker-user.{parts[1]}.{parts[2]}"));
+    }
+
+    [Fact]
+    public void ValidateResetToken_ExpiredToken_ReturnsNull()
+    {
+        var svc   = new TokenService();
+        var token = CraftResetToken(Secret, "user-x", DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeSeconds());
+        Assert.Null(svc.ValidateResetToken(token));
+    }
+
+    [Fact]
+    public void ValidateResetToken_ExpiresExactlyNow_ReturnsNull()
+    {
+        var token = CraftResetToken(Secret, "user-x", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        Assert.Null(new TokenService().ValidateResetToken(token));
+    }
+
+    [Fact]
+    public void ValidateResetToken_FutureExp_ReturnsUserId()
+    {
+        var token = CraftResetToken(Secret, "user-future", DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds());
+        Assert.Equal("user-future", new TokenService().ValidateResetToken(token));
+    }
+
+    [Fact]
+    public void ValidateResetToken_WhenSecretMismatches_ReturnsNull()
+    {
+        var token = new TokenService().CreateResetToken("user-x");
+        Environment.SetEnvironmentVariable("JWT_SECRET", "a-completely-different-secret-here!!");
+        Assert.Null(new TokenService().ValidateResetToken(token));
+    }
+
+    [Fact]
+    public void ValidateResetToken_NonNumericExp_ReturnsNull()
+    {
+        var svc = new TokenService();
+        // Build a token where the middle segment is not a number
+        var sig = B64U(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(Secret),
+            Encoding.UTF8.GetBytes("user-x.notanumber")));
+        Assert.Null(svc.ValidateResetToken($"user-x.notanumber.{sig}"));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static UserEntity MakeUser(
@@ -457,6 +580,14 @@ public sealed class TokenServiceTests : IDisposable
         var signing = $"{header}.{payload}";
         var sig     = B64U(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(signing)));
         return $"{header}.{payload}.{sig}";
+    }
+
+    /// <summary>Crafts a correctly-signed reset token with a custom exp.</summary>
+    private static string CraftResetToken(string secret, string userId, long exp)
+    {
+        var data = $"{userId}.{exp}";
+        var sig  = B64U(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+        return $"{userId}.{exp}.{sig}";
     }
 
     private static string B64U(byte[] bytes) =>
