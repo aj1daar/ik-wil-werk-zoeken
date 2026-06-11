@@ -61,6 +61,7 @@ resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
         { name: 'FUNCTIONS_WORKER_RUNTIME_VERSION', value: '8.0' }
         { name: 'ALLOWED_ORIGIN', value: 'https://iwwz.nogoibay.org' }
+        { name: 'RESEND_FROM', value: 'noreply@iwwz.nogoibay.org' }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
       ]
     }
