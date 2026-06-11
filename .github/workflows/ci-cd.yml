@@ -117,7 +117,7 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - name: Publish
-        run: dotnet publish backend/backend.csproj -c Release -p:PublishAot=false -o ./publish
+        run: dotnet publish backend/backend.csproj -c Release -p:PublishAot=false -r win-x64 --self-contained false -o ./publish
       - uses: actions/upload-artifact@v4
         with:
           name: backend-publish
@@ -197,3 +197,21 @@ jobs:
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
             --src-path deploy.zip \
             --type zip
+      - name: Health check
+        run: |
+          echo "Waiting 30s for cold start..."
+          sleep 30
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+              https://${{ vars.AZURE_FUNCTION_APP_NAME }}.azurewebsites.net/api/auth/login \
+              -H "Content-Type: application/json" \
+              -d '{"password":"healthcheck"}')
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "401" ]; then
+              echo "Functions are up."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Health check failed — functions still returning $STATUS"
+          exit 1
