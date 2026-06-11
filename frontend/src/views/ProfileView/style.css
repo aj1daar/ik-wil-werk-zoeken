@@ -1,0 +1,30 @@
+.profile-page    { max-width: 700px; }
+
+.profile-notice {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.875rem 1rem;
+  background: var(--col-accent-lt);
+  border: 1px solid color-mix(in srgb, var(--col-accent) 25%, transparent);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.8125rem;
+  color: var(--col-muted);
+  line-height: 1.5;
+}
+.notice-icon { width: 1.25rem; height: 1.25rem; color: var(--col-accent); flex-shrink: 0; margin-top: 0.1rem; }
+
+.profile-sections { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--col-text);
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--col-border);
+}
+
+.profile-form    { display: flex; flex-direction: column; gap: 0.875rem; }
+.subsection-label { font-size: 0.8125rem; font-weight: 600; color: var(--col-muted); margin: 0; }

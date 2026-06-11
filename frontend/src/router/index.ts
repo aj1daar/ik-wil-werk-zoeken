@@ -1,9 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginView from '../views/LoginView.vue'
-import DashboardView from '../views/DashboardView.vue'
-import BookmarkedView from '../views/BookmarkedView.vue'
-import ProfileView from '../views/ProfileView.vue'
-import RegisterView from '../views/RegisterView.vue'
+import LoginView      from '../views/LoginView/LoginView.vue'
+import DashboardView  from '../views/DashboardView/DashboardView.vue'
+import BookmarkedView from '../views/BookmarkedView/BookmarkedView.vue'
+import ProfileView    from '../views/ProfileView/ProfileView.vue'
+import RegisterView   from '../views/RegisterView/RegisterView.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({

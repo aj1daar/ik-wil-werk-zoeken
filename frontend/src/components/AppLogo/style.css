@@ -1,0 +1,7 @@
+.app-logo       { display: flex; align-items: center; gap: 0.625rem; }
+.app-logo-text  { font-size: 1rem; line-height: 1; }
+.app-logo-light { font-weight: 400; color: var(--col-muted); }
+.app-logo-bold  { font-weight: 700; color: var(--col-accent); }
+
+.app-logo--dark .app-logo-light { color: var(--col-nav-muted); }
+.app-logo--dark .app-logo-bold  { color: var(--col-nav-active); }

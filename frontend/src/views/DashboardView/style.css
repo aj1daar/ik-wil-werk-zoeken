@@ -1,0 +1,81 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px);
+  background: var(--col-bg);
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--col-border);
+  background: var(--col-surface);
+  flex-shrink: 0;
+}
+
+.filter-search {
+  position: relative;
+  flex: 1;
+  min-width: 12rem;
+}
+.filter-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: var(--col-subtle);
+  pointer-events: none;
+}
+.filter-select { width: auto; }
+.filter-city   { width: 9rem; }
+
+.main-split {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.company-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.company-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--col-border-lt);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.company-row:hover   { background: var(--col-surface); }
+.company-row--active { background: var(--col-accent-lt); }
+
+.status-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.row-body     { flex: 1; min-width: 0; }
+.row-name     { font-size: 0.875rem; font-weight: 500; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.row-industry { font-size: 0.75rem; color: var(--col-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.row-untracked { font-size: 0.75rem; color: var(--col-subtle); flex-shrink: 0; }
+.row-chevron   { width: 1rem; height: 1rem; color: var(--col-subtle); flex-shrink: 0; }
+
+.detail-panel {
+  width: 100%;
+  max-width: 420px;
+  border-left: 1px solid var(--col-border);
+  background: var(--col-bg);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-enter-active,
+.panel-leave-active { transition: max-width 0.2s ease, opacity 0.2s ease; }
+.panel-enter-from,
+.panel-leave-to     { max-width: 0; opacity: 0; }
