@@ -116,8 +116,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Publish (AOT, linux-x64)
-        run: dotnet publish backend/backend.csproj -c Release -r linux-x64 --self-contained -o ./publish
+      - name: Publish (linux-x64)
+        run: dotnet publish backend/backend.csproj -c Release -r linux-x64 --self-contained -p:PublishAot=false -o ./publish
       - uses: actions/upload-artifact@v4
         with:
           name: backend-publish
