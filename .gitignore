@@ -24,6 +24,10 @@ hidden/
 publish-manual/
 deploy-manual.zip
 deploy.zip
+
+# Local debug/test artifacts
+iwwz-logs/
+*.zip
 .vs/
 .idea/
 .claude/
