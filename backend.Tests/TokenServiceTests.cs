@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using backend.Models;
 using backend.Services;
 using Xunit;
 
@@ -20,7 +22,7 @@ public sealed class TokenServiceTests : IDisposable
     [Fact]
     public void CreateToken_ReturnsThreePartJwt()
     {
-        var token = new TokenService().CreateToken();
+        var token = new TokenService().CreateToken(MakeUser());
         Assert.NotNull(token);
         Assert.Equal(3, token.Split('.').Length);
     }
@@ -29,28 +31,73 @@ public sealed class TokenServiceTests : IDisposable
     public void CreateToken_WhenSecretMissing_ReturnsNull()
     {
         Environment.SetEnvironmentVariable("JWT_SECRET", null);
-        Assert.Null(new TokenService().CreateToken());
+        Assert.Null(new TokenService().CreateToken(MakeUser()));
     }
 
     [Fact]
     public void CreateToken_WhenSecretIsWhitespace_ReturnsNull()
     {
         Environment.SetEnvironmentVariable("JWT_SECRET", "   ");
-        Assert.Null(new TokenService().CreateToken());
+        Assert.Null(new TokenService().CreateToken(MakeUser()));
     }
 
     [Fact]
     public void CreateToken_WhenSecretIsEmpty_ReturnsNull()
     {
         Environment.SetEnvironmentVariable("JWT_SECRET", "");
-        Assert.Null(new TokenService().CreateToken());
+        Assert.Null(new TokenService().CreateToken(MakeUser()));
     }
 
     [Fact]
     public void CreateToken_ProducedTokenIsImmediatelyValid()
     {
         var svc = new TokenService();
-        Assert.True(svc.ValidateToken(svc.CreateToken()!));
+        Assert.True(svc.ValidateToken(svc.CreateToken(MakeUser())!));
+    }
+
+    // ── CreateToken – user claims in payload ─────────────────────────────────
+
+    [Fact]
+    public void CreateToken_PayloadContainsUserEmail()
+    {
+        var user  = MakeUser(email: "check@example.nl");
+        var token = new TokenService().CreateToken(user)!;
+        Assert.Equal("check@example.nl", DecodePayload(token).GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public void CreateToken_PayloadContainsSubEqualToUserId()
+    {
+        var user  = MakeUser(userId: "uuid-abc-123");
+        var token = new TokenService().CreateToken(user)!;
+        Assert.Equal("uuid-abc-123", DecodePayload(token).GetProperty("sub").GetString());
+    }
+
+    [Fact]
+    public void CreateToken_PayloadContainsFirstAndLastName()
+    {
+        var user    = MakeUser(firstName: "Piet", lastName: "Janssen");
+        var token   = new TokenService().CreateToken(user)!;
+        var payload = DecodePayload(token);
+        Assert.Equal("Piet",    payload.GetProperty("firstName").GetString());
+        Assert.Equal("Janssen", payload.GetProperty("lastName").GetString());
+    }
+
+    [Fact]
+    public void CreateToken_PayloadHasPositiveExp()
+    {
+        var token = new TokenService().CreateToken(MakeUser())!;
+        var exp   = DecodePayload(token).GetProperty("exp").GetInt64();
+        Assert.True(exp > DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+    }
+
+    [Fact]
+    public void CreateToken_DifferentUsers_ProduceDifferentTokens()
+    {
+        var svc = new TokenService();
+        var t1  = svc.CreateToken(MakeUser(email: "a@example.com"))!;
+        var t2  = svc.CreateToken(MakeUser(email: "b@example.com"))!;
+        Assert.NotEqual(t1, t2);
     }
 
     // ── ValidateToken – basic happy path ────────────────────────────────────
@@ -59,28 +106,28 @@ public sealed class TokenServiceTests : IDisposable
     public void ValidateToken_ValidToken_ReturnsTrue()
     {
         var svc = new TokenService();
-        Assert.True(svc.ValidateToken(svc.CreateToken()!));
+        Assert.True(svc.ValidateToken(svc.CreateToken(MakeUser())!));
     }
 
     [Fact]
     public void ValidateToken_WithBearerPrefix_ReturnsTrue()
     {
         var svc = new TokenService();
-        Assert.True(svc.ValidateToken($"Bearer {svc.CreateToken()!}"));
+        Assert.True(svc.ValidateToken($"Bearer {svc.CreateToken(MakeUser())!}"));
     }
 
     [Fact]
     public void ValidateToken_BearerCaseInsensitive_ReturnsTrue()
     {
         var svc = new TokenService();
-        Assert.True(svc.ValidateToken($"bearer {svc.CreateToken()!}"));
+        Assert.True(svc.ValidateToken($"bearer {svc.CreateToken(MakeUser())!}"));
     }
 
     [Fact]
     public void ValidateToken_BearerMixedCase_ReturnsTrue()
     {
         var svc = new TokenService();
-        Assert.True(svc.ValidateToken($"BEARER {svc.CreateToken()!}"));
+        Assert.True(svc.ValidateToken($"BEARER {svc.CreateToken(MakeUser())!}"));
     }
 
     // ── ValidateToken – null / empty / whitespace ────────────────────────────
@@ -133,8 +180,8 @@ public sealed class TokenServiceTests : IDisposable
     [Fact]
     public void ValidateToken_TokenWithEmbeddedNewline_ReturnsFalse()
     {
-        var svc = new TokenService();
-        var parts = svc.CreateToken()!.Split('.');
+        var svc   = new TokenService();
+        var parts = svc.CreateToken(MakeUser())!.Split('.');
         // Injecting a newline into the payload breaks signature binding
         Assert.False(svc.ValidateToken($"{parts[0]}.{parts[1]}\n.{parts[2]}"));
     }
@@ -144,16 +191,16 @@ public sealed class TokenServiceTests : IDisposable
     [Fact]
     public void ValidateToken_TamperedSignature_ReturnsFalse()
     {
-        var svc = new TokenService();
-        var parts = svc.CreateToken()!.Split('.');
+        var svc   = new TokenService();
+        var parts = svc.CreateToken(MakeUser())!.Split('.');
         Assert.False(svc.ValidateToken($"{parts[0]}.{parts[1]}.invalidsignatureXXX"));
     }
 
     [Fact]
     public void ValidateToken_TamperedPayload_ReturnsFalse()
     {
-        var svc = new TokenService();
-        var parts = svc.CreateToken()!.Split('.');
+        var svc   = new TokenService();
+        var parts = svc.CreateToken(MakeUser())!.Split('.');
         // Replace payload with different base64url content, keep original sig
         Assert.False(svc.ValidateToken($"{parts[0]}.dGFtcGVyZWQ.{parts[2]}"));
     }
@@ -161,8 +208,8 @@ public sealed class TokenServiceTests : IDisposable
     [Fact]
     public void ValidateToken_TamperedHeader_ReturnsFalse()
     {
-        var svc = new TokenService();
-        var parts = svc.CreateToken()!.Split('.');
+        var svc   = new TokenService();
+        var parts = svc.CreateToken(MakeUser())!.Split('.');
         // Change the header — breaks the signature over header.payload
         Assert.False(svc.ValidateToken($"dGFtcGVyZWQ.{parts[1]}.{parts[2]}"));
     }
@@ -172,8 +219,8 @@ public sealed class TokenServiceTests : IDisposable
     [Fact]
     public void ValidateToken_WhenSecretMissing_ReturnsFalse()
     {
-        var svc = new TokenService();
-        var token = svc.CreateToken()!;
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser())!;
         Environment.SetEnvironmentVariable("JWT_SECRET", null);
         Assert.False(svc.ValidateToken(token));
     }
@@ -181,8 +228,8 @@ public sealed class TokenServiceTests : IDisposable
     [Fact]
     public void ValidateToken_WhenSecretIsEmpty_ReturnsFalse()
     {
-        var svc = new TokenService();
-        var token = svc.CreateToken()!;
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser())!;
         Environment.SetEnvironmentVariable("JWT_SECRET", "");
         Assert.False(svc.ValidateToken(token));
     }
@@ -190,8 +237,8 @@ public sealed class TokenServiceTests : IDisposable
     [Fact]
     public void ValidateToken_TokenSignedWithDifferentSecret_ReturnsFalse()
     {
-        var svc = new TokenService();
-        var token = svc.CreateToken()!;
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser())!;
         Environment.SetEnvironmentVariable("JWT_SECRET", "completely-different-secret-here!!");
         Assert.False(svc.ValidateToken(token));
     }
@@ -242,17 +289,115 @@ public sealed class TokenServiceTests : IDisposable
         Assert.False(new TokenService().ValidateToken(token));
     }
 
+    // ── GetEmail ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetEmail_ValidToken_ReturnsEmail()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser(email: "jan@example.nl"))!;
+        Assert.Equal("jan@example.nl", svc.GetEmail(token));
+    }
+
+    [Fact]
+    public void GetEmail_BearerPrefixedToken_ReturnsEmail()
+    {
+        var svc   = new TokenService();
+        var token = $"Bearer {svc.CreateToken(MakeUser(email: "user@work.nl"))!}";
+        Assert.Equal("user@work.nl", svc.GetEmail(token));
+    }
+
+    [Fact]
+    public void GetEmail_Null_ReturnsNull() =>
+        Assert.Null(new TokenService().GetEmail(null));
+
+    [Fact]
+    public void GetEmail_Empty_ReturnsNull() =>
+        Assert.Null(new TokenService().GetEmail(""));
+
+    [Fact]
+    public void GetEmail_Whitespace_ReturnsNull() =>
+        Assert.Null(new TokenService().GetEmail("   "));
+
+    [Fact]
+    public void GetEmail_OnePart_ReturnsNull() =>
+        Assert.Null(new TokenService().GetEmail("notajwt"));
+
+    [Fact]
+    public void GetEmail_MalformedBase64Payload_ReturnsNull()
+    {
+        var header = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        Assert.Null(new TokenService().GetEmail($"{header}.!!!notbase64!!!.fakesig"));
+    }
+
+    [Fact]
+    public void GetEmail_PayloadWithoutEmailField_ReturnsNull()
+    {
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"sub":"test","exp":9999999999}"""));
+        Assert.Null(new TokenService().GetEmail($"{header}.{payload}.fakesig"));
+    }
+
+    [Fact]
+    public void GetEmail_PayloadWithEmptyEmail_ReturnsNull()
+    {
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"sub":"test","email":"","exp":9999999999}"""));
+        Assert.Null(new TokenService().GetEmail($"{header}.{payload}.fakesig"));
+    }
+
+    [Fact]
+    public void GetEmail_ExpiredToken_StillReturnsEmail()
+    {
+        // GetEmail does NOT check expiry — it's called after ValidateToken confirms validity
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"sub":"x","email":"old@example.com","exp":1}"""));
+        Assert.Equal("old@example.com", new TokenService().GetEmail($"{header}.{payload}.fakesig"));
+    }
+
+    [Fact]
+    public void GetEmail_InvalidSignature_StillReturnsEmail()
+    {
+        // GetEmail does NOT verify signature — caller must call ValidateToken first
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"sub":"x","email":"tampered@example.com","exp":9999999999}"""));
+        Assert.Equal("tampered@example.com", new TokenService().GetEmail($"{header}.{payload}.wrongsig"));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
+    private static UserEntity MakeUser(
+        string email     = "jan@example.com",
+        string firstName = "Jan",
+        string lastName  = "de Vries",
+        string userId    = "user-test-id") => new UserEntity
+    {
+        UserId    = userId,
+        Email     = email,
+        FirstName = firstName,
+        LastName  = lastName,
+        RowKey    = email.ToLowerInvariant(),
+    };
+
+    private static JsonElement DecodePayload(string token)
+    {
+        var parts  = token.Split('.');
+        var padded = parts[1].Replace('-', '+').Replace('_', '/');
+        padded = (padded.Length % 4) switch { 2 => padded + "==", 3 => padded + "=", _ => padded };
+        var json = Encoding.UTF8.GetString(Convert.FromBase64String(padded));
+        return JsonDocument.Parse(json).RootElement.Clone();
+    }
+
     /// <summary>
-    /// Crafts a correctly-signed JWT with a custom exp claim.
+    /// Crafts a correctly-signed JWT with user claims and a custom exp.
     /// Duplicates TokenService's private Base64Url + HMAC logic intentionally,
     /// so tests are independent of the production implementation.
     /// </summary>
     private static string CraftToken(string secret, long exp)
     {
+        var payloadJson = $"{{\"sub\":\"test\",\"email\":\"craft@test.com\",\"firstName\":\"A\",\"lastName\":\"B\",\"exp\":{exp}}}";
         var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
-        var payload = B64U(Encoding.UTF8.GetBytes($"{{\"exp\":{exp}}}"));
+        var payload = B64U(Encoding.UTF8.GetBytes(payloadJson));
         var signing = $"{header}.{payload}";
         var sig     = B64U(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(signing)));
         return $"{header}.{payload}.{sig}";
