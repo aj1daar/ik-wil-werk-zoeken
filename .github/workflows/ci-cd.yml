@@ -192,7 +192,8 @@ jobs:
       - name: Deploy to Azure Functions
         run: |
           cd ./publish && zip -r ../deploy.zip . && cd ..
-          az functionapp deployment source config-zip \
+          az webapp deploy \
             --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --src deploy.zip
+            --src-path deploy.zip \
+            --type zip
