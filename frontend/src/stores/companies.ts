@@ -10,15 +10,27 @@ export const STATUSES = [
 export type AppStatus = typeof STATUSES[number]
 
 export const STATUS_COLORS: Record<string, string> = {
-  'Bookmarked':        'bg-blue-900/60 text-blue-300 border-blue-700',
-  'Viewed':            'bg-slate-700/60 text-slate-300 border-slate-600',
-  'Abandoned':         'bg-slate-800/60 text-slate-500 border-slate-700',
-  'Applied':           'bg-yellow-900/60 text-yellow-300 border-yellow-700',
-  'Ongoing Interview': 'bg-orange-900/60 text-orange-300 border-orange-700',
-  'Rejected':          'bg-red-900/60 text-red-400 border-red-800',
-  'Declined Offer':    'bg-rose-900/60 text-rose-300 border-rose-800',
-  'Offer Proposed':    'bg-emerald-900/60 text-emerald-300 border-emerald-700',
-  'Offer Accepted':    'bg-green-900/60 text-green-300 border-green-700',
+  'Bookmarked':        'status-bookmarked',
+  'Viewed':            'status-viewed',
+  'Abandoned':         'status-abandoned',
+  'Applied':           'status-applied',
+  'Ongoing Interview': 'status-interview',
+  'Rejected':          'status-rejected',
+  'Declined Offer':    'status-declined',
+  'Offer Proposed':    'status-proposed',
+  'Offer Accepted':    'status-accepted',
+}
+
+export const STATUS_DOT: Record<string, string> = {
+  'Bookmarked':        '#B25E2A',
+  'Viewed':            '#A8958A',
+  'Abandoned':         '#C0B09E',
+  'Applied':           '#C0A030',
+  'Ongoing Interview': '#2E8060',
+  'Rejected':          '#C04A30',
+  'Declined Offer':    '#9E3828',
+  'Offer Proposed':    '#8040A8',
+  'Offer Accepted':    '#2E6E4A',
 }
 
 export interface CompanyRow extends SponsorCompany {

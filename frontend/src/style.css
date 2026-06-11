@@ -2,73 +2,230 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Warm Neutral Palette ─────────────────────────────────────── */
+:root {
+  --col-bg:         #FAF7F2;
+  --col-surface:    #F0EAE0;
+  --col-raised:     #E5D9CC;
+  --col-border:     #D0C4B4;
+  --col-border-lt:  #E0D6C8;
+  --col-text:       #2A1F15;
+  --col-muted:      #7A6555;
+  --col-subtle:     #A8958A;
+  --col-accent:     #B25E2A;
+  --col-accent-dk:  #8F4A1C;
+  --col-accent-lt:  #F5E0CC;
+  --col-nav:        #2A1F15;
+  --col-nav-text:   #FAF7F2;
+  --col-nav-muted:  #A8958A;
+  --col-nav-active: #D4845A;
+  --col-error:      #C04A30;
+  --col-error-lt:   #FAEAE6;
+  --col-success:    #2E6E4A;
+  --col-success-lt: #E8F4EE;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────── */
 body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--col-bg);
+  color: var(--col-text);
 }
 
+/* ─── Components ────────────────────────────────────────────────── */
 @layer components {
-  /* Form labels */
+
+  /* Labels */
   .field-label {
-    @apply block text-xs font-medium text-slate-400 mb-1.5;
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--col-muted);
+    margin-bottom: 0.375rem;
+    letter-spacing: 0.02em;
   }
 
-  /* Panel inputs (dark bg-slate-800 surface, used in CompanyPanel) */
+  /* Panel / form inputs */
   .field-input {
-    @apply w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2
-           text-sm text-slate-100 placeholder-slate-600
-           focus:outline-none focus:border-slate-500 transition;
+    width: 100%;
+    background: var(--col-bg);
+    border: 1px solid var(--col-border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--col-text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  .field-input::placeholder { color: var(--col-subtle); }
+  .field-input:focus {
+    border-color: var(--col-accent);
+    box-shadow: 0 0 0 3px var(--col-accent-lt);
   }
 
-  /* Toolbar / filter inputs (bg-slate-900, used in filter bar) */
+  /* Toolbar filter inputs */
   .filter-input {
-    @apply w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2
-           text-sm text-slate-100 placeholder-slate-600
-           focus:outline-none focus:border-slate-500 transition;
+    width: 100%;
+    background: var(--col-surface);
+    border: 1px solid var(--col-border);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    color: var(--col-text);
+    transition: border-color 0.15s;
+    outline: none;
   }
+  .filter-input::placeholder { color: var(--col-subtle); }
+  .filter-input:focus { border-color: var(--col-accent); }
 
-  /* Login page password input */
+  /* Auth page inputs */
   .auth-input {
-    @apply w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 pr-12
-           text-slate-100 placeholder-slate-500
-           focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition;
+    width: 100%;
+    background: var(--col-surface);
+    border: 1px solid var(--col-border);
+    border-radius: 8px;
+    padding: 0.75rem 3rem 0.75rem 1rem;
+    color: var(--col-text);
+    font-size: 1rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  .auth-input::placeholder { color: var(--col-subtle); }
+  .auth-input:focus {
+    border-color: var(--col-accent);
+    box-shadow: 0 0 0 3px var(--col-accent-lt);
   }
 
-  /* Primary action button (Save / Start tracking) */
+  /* Buttons */
   .btn-primary {
-    @apply bg-slate-600 hover:bg-slate-500 disabled:opacity-40 disabled:cursor-not-allowed
-           text-white text-sm font-medium py-2 px-4 rounded-md transition;
+    background: var(--col-accent);
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
   }
+  .btn-primary:hover:not(:disabled) { background: var(--col-accent-dk); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
-  /* Full-width login submit button */
   .btn-submit {
-    @apply w-full bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed
-           text-slate-100 font-medium py-3 rounded-lg transition;
+    width: 100%;
+    background: var(--col-accent);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.15s;
+    letter-spacing: 0.01em;
   }
+  .btn-submit:hover:not(:disabled) { background: var(--col-accent-dk); }
+  .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
 
-  /* Destructive action button (Remove) */
   .btn-danger {
-    @apply px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-950/30
-           rounded-md border border-red-900/40 transition;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--col-error);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--col-error) 35%, transparent);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
   }
+  .btn-danger:hover { background: var(--col-error-lt); }
 
-  /* Icon-only button (show/hide password, close) */
   .btn-icon {
-    @apply text-slate-500 hover:text-slate-300 transition;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--col-subtle);
+    padding: 0;
+    transition: color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
+  .btn-icon:hover { color: var(--col-muted); }
 
-  /* Highlighted tag (core industry) */
+  .btn-ghost {
+    background: transparent;
+    color: var(--col-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--col-border);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
+
+  /* Tags */
   .tag {
-    @apply px-2 py-0.5 rounded text-xs bg-slate-700 text-slate-300 border border-slate-600;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: var(--col-accent-lt);
+    color: var(--col-accent-dk);
+    border: 1px solid color-mix(in srgb, var(--col-accent) 25%, transparent);
+    white-space: nowrap;
   }
-
-  /* Subdued tag (tech stack, functional) */
   .tag--muted {
-    @apply px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-400 border border-slate-700;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: var(--col-raised);
+    color: var(--col-muted);
+    border: 1px solid var(--col-border);
+    white-space: nowrap;
   }
 
-  /* Inline status badge / city chip */
+  /* Status chips */
   .chip {
-    @apply px-2 py-0.5 rounded text-xs border shrink-0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+
+  .status-bookmarked   { background:#FFF4E8; color:#8A450A; border-color:#DDB580; }
+  .status-viewed       { background:#EEE6DC; color:#6A5545; border-color:#C5B09E; }
+  .status-abandoned    { background:#E8E0D6; color:#8A7868; border-color:#C0B09E; }
+  .status-applied      { background:#FFFBE8; color:#7A5E00; border-color:#DDD080; }
+  .status-interview    { background:#E8F4EE; color:#1E6040; border-color:#80C0A0; }
+  .status-rejected     { background:var(--col-error-lt); color:var(--col-error); border-color:#E0A898; }
+  .status-declined     { background:#F8EAE8; color:#8E3828; border-color:#D09890; }
+  .status-proposed     { background:#F4EEFB; color:#622E8A; border-color:#B888D8; }
+  .status-accepted     { background:var(--col-success-lt); color:var(--col-success); border-color:#88C090; }
+
+  /* Section card */
+  .card {
+    background: var(--col-surface);
+    border: 1px solid var(--col-border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+
+  /* Auth card wrapper */
+  .auth-card {
+    background: var(--col-surface);
+    border: 1px solid var(--col-border);
+    border-radius: 14px;
+    padding: 2rem;
+    box-shadow: 0 4px 24px color-mix(in srgb, var(--col-text) 6%, transparent);
   }
 }
