@@ -37,6 +37,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     serverFarmId: plan.id
     httpsOnly: true
     siteConfig: {
+      linuxFxVersion: 'DOTNET-ISOLATED|8.0'
       cors: {
         allowedOrigins: ['https://iwwz.nogoibay.org']
         supportCredentials: false
