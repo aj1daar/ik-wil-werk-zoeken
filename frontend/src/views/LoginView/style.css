@@ -1,3 +1,5 @@
 .auth-brand-wrap { margin-bottom: 1.75rem; }
 .login-card      { width: 100%; max-width: 400px; }
-.auth-expired    { font-size: 0.8125rem; color: var(--col-accent); margin: 0 0 0.75rem; }
+.auth-expired    { font-size: 0.8125rem; color: var(--col-accent);   margin: 0 0 0.75rem; }
+.auth-success    { font-size: 0.8125rem; color: var(--col-success);  margin: 0 0 0.75rem; }
+.auth-forgot     { font-size: 0.8125rem; text-align: center; margin: 0; }

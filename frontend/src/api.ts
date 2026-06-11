@@ -51,6 +51,12 @@ export const api = {
   deleteAccount: () =>
     request<void>('DELETE', '/api/auth/account'),
 
+  forgotPassword: (email: string) =>
+    request<void>('POST', '/api/auth/forgot-password', { email }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    request<void>('POST', '/api/auth/reset-password', { token, newPassword }),
+
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 

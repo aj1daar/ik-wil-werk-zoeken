@@ -12,12 +12,17 @@ const email    = ref('')
 const password = ref('')
 const error    = ref('')
 const loading  = ref(false)
-const expired  = ref(false)
+const expired       = ref(false)
+const resetSuccess  = ref(false)
 
 onMounted(() => {
   if (sessionStorage.getItem('sessionExpired')) {
     expired.value = true
     sessionStorage.removeItem('sessionExpired')
+  }
+  if (sessionStorage.getItem('passwordReset')) {
+    resetSuccess.value = true
+    sessionStorage.removeItem('passwordReset')
   }
 })
 
@@ -44,7 +49,8 @@ async function submit() {
 
     <div class="auth-card login-card">
       <h1 class="auth-title">Welcome back</h1>
-      <p v-if="expired" class="auth-expired">Your session expired — please sign in again.</p>
+      <p v-if="resetSuccess" class="auth-success">Password updated — please sign in with your new password.</p>
+      <p v-else-if="expired" class="auth-expired">Your session expired — please sign in again.</p>
       <p v-else class="auth-subtitle">Sign in to your account to continue.</p>
 
       <form @submit.prevent="submit" class="auth-form">
@@ -76,6 +82,10 @@ async function submit() {
         <button type="submit" :disabled="loading || !email || !password" class="btn-submit">
           {{ loading ? 'Signing in…' : 'Sign in' }}
         </button>
+
+        <p class="auth-forgot">
+          <router-link to="/forgot-password" class="auth-link">Forgot your password?</router-link>
+        </p>
       </form>
 
       <p class="auth-footer">
