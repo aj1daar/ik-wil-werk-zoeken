@@ -113,13 +113,14 @@ func start
 | `AzureWebJobsStorage` | Connection string for Azure Table Storage (user accounts) |
 | `GEMINI_API_KEY` | Google Gemini API key for company summary enrichment |
 | `IND_REGISTER_URL` | URL of the IND public sponsor register (CSV/JSON) |
+| `ALLOWED_ORIGIN` | Allowed CORS origin — set to `https://iwwz.nogoibay.org` in production (defaults to `*` locally) |
 
 Secrets are deployed separately and never committed:
 
 ```bash
 az functionapp config appsettings set \
   --name <app-name> --resource-group <rg> \
-  --settings JWT_SECRET="..." GEMINI_API_KEY="..."
+  --settings JWT_SECRET="..." GEMINI_API_KEY="..." ALLOWED_ORIGIN="https://iwwz.nogoibay.org"
 ```
 
 ### Frontend
