@@ -110,7 +110,7 @@ jobs:
   build-backend:
     name: Build / Backend
     needs: test-backend
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -165,6 +165,14 @@ jobs:
         with:
           name: backend-publish
           path: ./publish
+      - name: Verify publish artifact
+        run: |
+          echo "=== Publish contents ==="
+          ls -lh ./publish/
+          echo "=== Key files ==="
+          ls ./publish/*.dll 2>/dev/null | head -10 || echo "WARNING: no DLLs found"
+          ls ./publish/host.json 2>/dev/null || echo "WARNING: host.json missing"
+          ls ./publish/runtimes/win-x64/native/ 2>/dev/null | head -5 || echo "WARNING: no win-x64 native binaries"
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -180,6 +188,11 @@ jobs:
               "resourceGroupName=${{ vars.AZURE_RESOURCE_GROUP }}" \
               "functionAppName=${{ vars.AZURE_FUNCTION_APP_NAME }}" \
               "storageAccountName=${{ vars.AZURE_STORAGE_ACCOUNT }}"
+          echo "=== App settings after Bicep ==="
+          az functionapp config appsettings list \
+            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --query "[].name" --output tsv
       - name: Push app secrets
         run: |
           az functionapp config appsettings set \
@@ -189,14 +202,28 @@ jobs:
               APP_PASSWORD="${{ secrets.APP_PASSWORD }}" \
               JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
-      - name: Deploy to Azure Functions
+          echo "=== App settings after secrets push ==="
+          az functionapp config appsettings list \
+            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --query "[].name" --output tsv
+      - name: Package and deploy
         run: |
           cd ./publish && zip -r ../deploy.zip . && cd ..
+          echo "=== deploy.zip size ==="
+          ls -lh deploy.zip
+          echo "=== Deploying to Azure ==="
           az webapp deploy \
             --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
             --src-path deploy.zip \
-            --type zip
+            --type zip \
+            --verbose
+          echo "=== Functions registered after deploy ==="
+          az functionapp function list \
+            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --query "[].name" --output tsv || echo "(none registered yet)"
       - name: Health check
         run: |
           echo "Waiting 30s for cold start..."
