@@ -19,6 +19,11 @@ __azurite_db*.json
 __blobstorage__/
 frontend/.wrangler/
 hidden/
+
+# Local manual deploy artifacts
+publish-manual/
+deploy-manual.zip
+deploy.zip
 .vs/
 .idea/
 .claude/
