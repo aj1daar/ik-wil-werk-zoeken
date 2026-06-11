@@ -31,3 +31,13 @@ iwwz-logs/
 .vs/
 .idea/
 .claude/
+
+# .NET test coverage output
+TestResults/
+*.coverage
+*.coveragexml
+
+# Windows thumbnail/folder metadata
+Thumbs.db
+ehthumbs.db
+Desktop.ini
