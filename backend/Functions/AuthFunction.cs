@@ -10,15 +10,17 @@ namespace backend.Functions;
 
 public sealed class AuthFunction
 {
-    private readonly TokenService _tokens;
-    private readonly UserStore    _users;
-    private readonly EmailService _email;
+    private readonly TokenService      _tokens;
+    private readonly UserStore         _users;
+    private readonly EmailService      _email;
+    private readonly RateLimiterService _limiter;
 
-    public AuthFunction(TokenService tokens, UserStore users, EmailService email)
+    public AuthFunction(TokenService tokens, UserStore users, EmailService email, RateLimiterService limiter)
     {
-        _tokens = tokens;
-        _users  = users;
-        _email  = email;
+        _tokens  = tokens;
+        _users   = users;
+        _email   = email;
+        _limiter = limiter;
     }
 
     // POST /api/auth/login
@@ -28,6 +30,9 @@ public sealed class AuthFunction
         HttpRequestData req)
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        if (!_limiter.IsAllowed($"login:{GetClientIp(req)}", maxRequests: 20, windowSeconds: 600))
+            return await ErrorResponse(req, HttpStatusCode.TooManyRequests, "Too many login attempts. Please wait 10 minutes before trying again.");
 
         LoginRequest? body = null;
         try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.LoginRequest); }
@@ -58,6 +63,9 @@ public sealed class AuthFunction
         HttpRequestData req)
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        if (!_limiter.IsAllowed($"register:{GetClientIp(req)}", maxRequests: 5, windowSeconds: 3600))
+            return await ErrorResponse(req, HttpStatusCode.TooManyRequests, "Too many registration attempts. Please wait before trying again.");
 
         RegisterRequest? body = null;
         try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.RegisterRequest); }
@@ -243,6 +251,13 @@ public sealed class AuthFunction
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
 
+        if (!_limiter.IsAllowed($"forgot:{GetClientIp(req)}", maxRequests: 5, windowSeconds: 600))
+        {
+            var res204 = req.CreateResponse(HttpStatusCode.NoContent);
+            AddCors(res204);
+            return res204;
+        }
+
         ForgotPasswordRequest? body = null;
         try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.ForgotPasswordRequest); }
         catch { /* malformed JSON */ }
@@ -342,6 +357,13 @@ public sealed class AuthFunction
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
 
+        if (!_limiter.IsAllowed($"resend:{GetClientIp(req)}", maxRequests: 5, windowSeconds: 600))
+        {
+            var res204 = req.CreateResponse(HttpStatusCode.NoContent);
+            AddCors(res204);
+            return res204;
+        }
+
         ResendVerificationRequest? body = null;
         try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.ResendVerificationRequest); }
         catch { /* malformed JSON */ }
@@ -432,6 +454,15 @@ public sealed class AuthFunction
             : "any";
 
     // ── infrastructure helpers ────────────────────────────────────────────────
+
+    private static string GetClientIp(HttpRequestData req)
+    {
+        if (req.Headers.TryGetValues("X-Forwarded-For", out var xff))
+            return xff.First().Split(',')[0].Trim();
+        if (req.Headers.TryGetValues("X-Client-IP", out var xip))
+            return xip.First().Trim();
+        return req.Url.Host;
+    }
 
     private static bool IsOptions(HttpRequestData req) =>
         req.Method.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase);

@@ -38,6 +38,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<IndSponsorScraper>();
 builder.Services.AddSingleton<CompanyEnricher>();
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<RateLimiterService>();
 builder.Services.AddSingleton<EmailService>();
 builder.Services.AddScoped<UserStore>();
 builder.Services.AddScoped<StageStore>();
