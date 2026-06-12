@@ -99,7 +99,13 @@ export const api = {
     if (to)   params.set('to', to)
     const qs = params.toString()
     return request<Stats>('GET', `/api/dashboard/stats${qs ? `?${qs}` : ''}`)
-  }
+  },
+
+  getActivityLog: (applicationId: string) =>
+    request<ActivityLog[]>('GET', `/api/dashboard/activity/${applicationId}`),
+
+  bulkUpdateStatus: (ids: string[], status: string) =>
+    request<Application[]>('PATCH', '/api/dashboard/applications', { ids, status }),
 }
 
 export interface SponsorCompany {
@@ -128,7 +134,17 @@ export interface Application {
   contactPersonName?: string
   contactPersonEmail?: string
   locations: string[]
+  followUpDate?: string
   updatedAt: string
+}
+
+export interface ActivityLog {
+  id: string
+  applicationId: string
+  field: string
+  oldValue?: string
+  newValue?: string
+  changedAt: string
 }
 
 export type ApplicationStatus =

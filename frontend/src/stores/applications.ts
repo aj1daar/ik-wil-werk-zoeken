@@ -83,6 +83,15 @@ export const useApplicationsStore = defineStore('applications', {
     async remove(id: string) {
       await api.deleteApplication(id)
       this.applications = this.applications.filter(a => a.id !== id)
+    },
+
+    async bulkUpdate(ids: string[], status: string) {
+      const updated = await api.bulkUpdateStatus(ids, status)
+      for (const u of updated) {
+        const idx = this.applications.findIndex(a => a.id === u.id)
+        if (idx !== -1) this.applications[idx] = u
+      }
+      return updated
     }
   }
 })
