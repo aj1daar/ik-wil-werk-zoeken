@@ -12,5 +12,6 @@ public sealed class User
     public string WorkType { get; set; } = "any";
     public string GdprConsentAt { get; set; } = string.Empty;
     public bool EmailVerified { get; set; } = false;
+    public string Role { get; set; } = "user";
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

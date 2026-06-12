@@ -20,6 +20,7 @@ public sealed class TokenService
             Email     = user.Email,
             FirstName = user.FirstName,
             LastName  = user.LastName,
+            Role      = user.Role,
             Preferences = new PreferencesPayload
             {
                 TargetRole = user.TargetRole,
@@ -77,6 +78,20 @@ public sealed class TokenService
             var payloadBytes = Base64UrlDecode(parts[1]);
             var parsed = JsonSerializer.Deserialize(payloadBytes, AppJsonSerializerContext.Default.JwtPayload);
             return string.IsNullOrEmpty(parsed?.Email) ? null : parsed.Email;
+        }
+        catch { return null; }
+    }
+
+    public string? GetRole(string? bearerOrToken)
+    {
+        var token = ExtractToken(bearerOrToken);
+        if (token is null) return null;
+        try
+        {
+            var parts        = token.Split('.');
+            var payloadBytes = Base64UrlDecode(parts[1]);
+            var parsed = JsonSerializer.Deserialize(payloadBytes, AppJsonSerializerContext.Default.JwtPayload);
+            return string.IsNullOrEmpty(parsed?.Role) ? null : parsed.Role;
         }
         catch { return null; }
     }

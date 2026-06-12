@@ -62,6 +62,20 @@ using (var scope = host.Services.CreateScope())
         db.Sponsors.AddRange(SeedData.Companies);
         await db.SaveChangesAsync();
     }
+
+    // Promote the designated admin account (ADMIN_EMAIL env var) on every startup.
+    // Idempotent: only updates if the user exists and is not already an admin.
+    var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL");
+    if (!string.IsNullOrWhiteSpace(adminEmail))
+    {
+        var adminUser = await db.Users.FirstOrDefaultAsync(
+            u => u.Email == adminEmail.Trim().ToLowerInvariant());
+        if (adminUser is not null && adminUser.Role != "admin")
+        {
+            adminUser.Role = "admin";
+            await db.SaveChangesAsync();
+        }
+    }
 }
 
 host.Run();

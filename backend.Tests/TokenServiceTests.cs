@@ -364,6 +364,96 @@ public sealed class TokenServiceTests : IDisposable
         Assert.Equal("tampered@example.com", new TokenService().GetEmail($"{header}.{payload}.wrongsig"));
     }
 
+    // ── GetRole ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetRole_DefaultUser_ReturnsUser()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser())!;
+        Assert.Equal("user", svc.GetRole(token));
+    }
+
+    [Fact]
+    public void GetRole_AdminUser_ReturnsAdmin()
+    {
+        var svc  = new TokenService();
+        var user = MakeUser();
+        user.Role = "admin";
+        var token = svc.CreateToken(user)!;
+        Assert.Equal("admin", svc.GetRole(token));
+    }
+
+    [Fact]
+    public void GetRole_BearerPrefixed_ReturnsRole()
+    {
+        var svc   = new TokenService();
+        var user  = MakeUser();
+        user.Role = "admin";
+        var token = $"Bearer {svc.CreateToken(user)!}";
+        Assert.Equal("admin", svc.GetRole(token));
+    }
+
+    [Fact]
+    public void GetRole_Null_ReturnsNull() =>
+        Assert.Null(new TokenService().GetRole(null));
+
+    [Fact]
+    public void GetRole_Empty_ReturnsNull() =>
+        Assert.Null(new TokenService().GetRole(""));
+
+    [Fact]
+    public void GetRole_OnePart_ReturnsNull() =>
+        Assert.Null(new TokenService().GetRole("notajwt"));
+
+    [Fact]
+    public void GetRole_MalformedBase64Payload_ReturnsNull()
+    {
+        var header = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        Assert.Null(new TokenService().GetRole($"{header}.!!!bad!!!.sig"));
+    }
+
+    [Fact]
+    public void GetRole_PayloadWithoutRoleField_ReturnsDefaultUser()
+    {
+        // JwtPayload.Role defaults to "user", so a token without the field yields "user"
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"sub":"x","email":"x@x.com","exp":9999999999}"""));
+        Assert.Equal("user", new TokenService().GetRole($"{header}.{payload}.fakesig"));
+    }
+
+    [Fact]
+    public void GetRole_PayloadWithEmptyRole_ReturnsNull()
+    {
+        var header  = B64U(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var payload = B64U(Encoding.UTF8.GetBytes("""{"sub":"x","email":"x@x.com","role":"","exp":9999999999}"""));
+        Assert.Null(new TokenService().GetRole($"{header}.{payload}.fakesig"));
+    }
+
+    [Fact]
+    public void GetRole_TwoUsersDifferentRoles_AreIndependent()
+    {
+        var svc   = new TokenService();
+        var admin = MakeUser(userId: "admin-1", email: "admin@x.nl");
+        admin.Role = "admin";
+        var regular = MakeUser(userId: "user-1", email: "user@x.nl");
+        var ta = svc.CreateToken(admin)!;
+        var tu = svc.CreateToken(regular)!;
+        Assert.Equal("admin", svc.GetRole(ta));
+        Assert.Equal("user",  svc.GetRole(tu));
+    }
+
+    [Fact]
+    public void CreateToken_RoleClaimPresentInPayload()
+    {
+        var svc   = new TokenService();
+        var user  = MakeUser();
+        user.Role = "admin";
+        var token   = svc.CreateToken(user)!;
+        var payload = DecodePayload(token);
+        Assert.Equal("admin", payload.GetProperty("role").GetString());
+    }
+
     // ── GetUserId ─────────────────────────────────────────────────────────────
 
     [Fact]

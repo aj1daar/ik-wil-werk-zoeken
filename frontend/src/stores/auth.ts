@@ -12,6 +12,7 @@ export interface AuthUser {
   email:     string
   firstName: string
   lastName:  string
+  role:      string
   preferences?: UserPreferences
 }
 
@@ -37,6 +38,7 @@ function parseUser(token: string): AuthUser | null {
       email:     payload.email ?? '',
       firstName: payload.firstName ?? '',
       lastName:  payload.lastName ?? '',
+      role:      payload.role ?? 'user',
       preferences: payload.preferences ?? undefined,
     }
   } catch {

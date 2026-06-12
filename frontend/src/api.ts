@@ -69,6 +69,15 @@ export const api = {
   confirmEmailChange: (token: string) =>
     request<{ token: string }>('GET', `/api/auth/confirm-email-change?token=${encodeURIComponent(token)}`),
 
+  adminListUsers: () =>
+    request<AdminUserSummary[]>('GET', '/api/admin/users'),
+
+  adminPromote: (email: string) =>
+    request<AdminUserSummary>('POST', '/api/admin/promote', { email }),
+
+  adminReloadSponsors: () =>
+    request<{ message: string }>('POST', '/api/admin/reload-sponsors'),
+
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 
@@ -141,4 +150,14 @@ export type RejectionReason =
 export interface Stats {
   total: number
   byStatus: Partial<Record<ApplicationStatus, number>>
+}
+
+export interface AdminUserSummary {
+  userId:        string
+  email:         string
+  firstName:     string
+  lastName:      string
+  role:          string
+  emailVerified: boolean
+  createdAt:     string
 }

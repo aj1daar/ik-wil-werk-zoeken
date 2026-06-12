@@ -89,12 +89,29 @@ public sealed class StatsResponse
     [JsonPropertyName("byStatus")] public Dictionary<string, int> ByStatus { get; set; } = new();
 }
 
+public sealed class PromoteRequest
+{
+    [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
+}
+
+public sealed class AdminUserSummary
+{
+    [JsonPropertyName("userId")]        public string UserId        { get; set; } = string.Empty;
+    [JsonPropertyName("email")]         public string Email         { get; set; } = string.Empty;
+    [JsonPropertyName("firstName")]     public string FirstName     { get; set; } = string.Empty;
+    [JsonPropertyName("lastName")]      public string LastName      { get; set; } = string.Empty;
+    [JsonPropertyName("role")]          public string Role          { get; set; } = string.Empty;
+    [JsonPropertyName("emailVerified")] public bool   EmailVerified { get; set; }
+    [JsonPropertyName("createdAt")]     public DateTimeOffset CreatedAt { get; set; }
+}
+
 internal sealed class JwtPayload
 {
     [JsonPropertyName("sub")]         public string Sub       { get; set; } = string.Empty;
     [JsonPropertyName("email")]       public string Email     { get; set; } = string.Empty;
     [JsonPropertyName("firstName")]   public string FirstName { get; set; } = string.Empty;
     [JsonPropertyName("lastName")]    public string LastName  { get; set; } = string.Empty;
+    [JsonPropertyName("role")]        public string Role      { get; set; } = "user";
     [JsonPropertyName("preferences")] public PreferencesPayload? Preferences { get; set; }
     [JsonPropertyName("exp")]         public long   Exp       { get; set; }
 }

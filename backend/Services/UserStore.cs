@@ -29,4 +29,7 @@ public sealed class UserStore(AppDbContext db)
         db.Users.Remove(user);
         await db.SaveChangesAsync();
     }
+
+    public async Task<IReadOnlyList<User>> GetAllAsync() =>
+        await db.Users.OrderBy(u => u.CreatedAt).ToListAsync();
 }
