@@ -1,18 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppNavbar from './components/AppNavbar/AppNavbar.vue'
 import { useAuthStore } from './stores/auth'
+import { useSessionExpiry } from './composables/useSessionExpiry'
 
 const route = useRoute()
 const auth  = useAuthStore()
+const { isExpiringSoon } = useSessionExpiry()
 
 const showNav = computed(() =>
   auth.isAuthenticated && route.path !== '/login' && route.path !== '/register'
 )
+
+const expiryDismissed = ref(false)
 </script>
 
 <template>
   <AppNavbar v-if="showNav" />
+  <div
+    v-if="showNav && isExpiringSoon && !expiryDismissed"
+    class="session-expiry-banner"
+    role="alert"
+  >
+    <span>Your session expires in less than 24 hours. <router-link to="/login" @click="auth.logout()">Sign in again</router-link> to stay logged in.</span>
+    <button @click="expiryDismissed = true" aria-label="Dismiss">✕</button>
+  </div>
   <RouterView />
 </template>

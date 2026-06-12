@@ -165,6 +165,11 @@ async function remove() {
         <label class="field-label">Contact person</label>
         <input v-model="contactName"  placeholder="Name"  class="field-input mb-2" />
         <input v-model="contactEmail" type="email" placeholder="Email" class="field-input" />
+        <a
+          v-if="application.contactPersonEmail"
+          :href="`mailto:${application.contactPersonEmail}`"
+          class="mailto-link"
+        >{{ application.contactPersonEmail }}</a>
       </div>
     </div>
 
@@ -203,4 +208,6 @@ async function remove() {
 .icon { width: 1.25rem; height: 1.25rem; }
 .footer-primary { flex: 1; }
 .btn-danger:disabled { opacity: .5; cursor: not-allowed; }
+.mailto-link { font-size: .8rem; color: var(--col-accent); text-decoration: none; margin-top: .125rem; }
+.mailto-link:hover { text-decoration: underline; }
 </style>

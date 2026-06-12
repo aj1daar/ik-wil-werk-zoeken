@@ -12,13 +12,13 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
 }
 
 export const STATUS_COLOR: Record<ApplicationStatus, string> = {
-  Applied:             'bg-blue-100 text-blue-800',
-  InterviewScheduled:  'bg-purple-100 text-purple-800',
-  OfferReceived:       'bg-green-100 text-green-800',
-  OnHold:              'bg-yellow-100 text-yellow-800',
-  Rejected:            'bg-red-100 text-red-800',
-  Withdrawn:           'bg-gray-100 text-gray-600',
-  Accepted:            'bg-emerald-100 text-emerald-800',
+  Applied:             'chip-applied',
+  InterviewScheduled:  'chip-interview',
+  OfferReceived:       'chip-offer',
+  OnHold:              'chip-hold',
+  Rejected:            'chip-rejected',
+  Withdrawn:           'chip-withdrawn',
+  Accepted:            'chip-accepted',
 }
 
 export const REJECTION_REASON_LABELS: Record<string, string> = {
