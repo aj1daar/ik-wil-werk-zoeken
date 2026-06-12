@@ -92,7 +92,7 @@ public sealed class AuthFunction
         if (existing is not null)
             return await ErrorResponse(req, HttpStatusCode.Conflict, "An account with this email already exists");
 
-        var user = new UserEntity
+        var user = new User
         {
             Email             = email,
             FirstName         = body.FirstName.Trim(),
@@ -102,7 +102,6 @@ public sealed class AuthFunction
             PreferredLocation = body.Preferences?.Location?.Trim(),
             WorkType          = NormalizeWorkType(body.Preferences?.WorkType),
             GdprConsentAt     = body.GdprConsentAt.Trim(),
-            CreatedAt         = DateTimeOffset.UtcNow.ToString("O"),
         };
 
         await _users.CreateAsync(user);

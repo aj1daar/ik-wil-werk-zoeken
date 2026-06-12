@@ -3,17 +3,16 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '../../stores/auth'
 
-// Mirrors the guard logic from src/router/index.ts without importing the
-// singleton router (which would share state across tests).
 function makeRouter() {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/login',      component: { template: '<div/>' } },
       { path: '/register',   component: { template: '<div/>' } },
-      { path: '/',           component: { template: '<div/>' }, meta: { requiresAuth: true } },
-      { path: '/bookmarked', component: { template: '<div/>' }, meta: { requiresAuth: true } },
-      { path: '/profile',    component: { template: '<div/>' }, meta: { requiresAuth: true } },
+      { path: '/',              component: { template: '<div/>' }, meta: { requiresAuth: true } },
+      { path: '/applications',  component: { template: '<div/>' }, meta: { requiresAuth: true } },
+      { path: '/companies',     component: { template: '<div/>' }, meta: { requiresAuth: true } },
+      { path: '/profile',       component: { template: '<div/>' }, meta: { requiresAuth: true } },
       { path: '/:pathMatch(.*)*', redirect: '/' },
     ]
   })
@@ -26,9 +25,6 @@ function makeRouter() {
 }
 
 describe('router navigation guards', () => {
-  // Fresh Pinia (no initialized stores) before each test.
-  // sessionStorage is set per-test BEFORE any navigation so the auth store
-  // lazily initializes with the correct token state when the guard first fires.
   beforeEach(() => {
     sessionStorage.clear()
     setActivePinia(createPinia())
@@ -42,9 +38,15 @@ describe('router navigation guards', () => {
     expect(router.currentRoute.value.path).toBe('/login')
   })
 
-  it('unauthenticated → /bookmarked is redirected to /login', async () => {
+  it('unauthenticated → /applications is redirected to /login', async () => {
     const router = makeRouter()
-    await router.push('/bookmarked')
+    await router.push('/applications')
+    expect(router.currentRoute.value.path).toBe('/login')
+  })
+
+  it('unauthenticated → /companies is redirected to /login', async () => {
+    const router = makeRouter()
+    await router.push('/companies')
     expect(router.currentRoute.value.path).toBe('/login')
   })
 
@@ -75,11 +77,18 @@ describe('router navigation guards', () => {
     expect(router.currentRoute.value.path).toBe('/')
   })
 
-  it('authenticated → /bookmarked is allowed through', async () => {
+  it('authenticated → /applications is allowed through', async () => {
     sessionStorage.setItem('token', 'valid.jwt.token')
     const router = makeRouter()
-    await router.push('/bookmarked')
-    expect(router.currentRoute.value.path).toBe('/bookmarked')
+    await router.push('/applications')
+    expect(router.currentRoute.value.path).toBe('/applications')
+  })
+
+  it('authenticated → /companies is allowed through', async () => {
+    sessionStorage.setItem('token', 'valid.jwt.token')
+    const router = makeRouter()
+    await router.push('/companies')
+    expect(router.currentRoute.value.path).toBe('/companies')
   })
 
   it('authenticated → /profile is allowed through', async () => {
@@ -103,22 +112,20 @@ describe('router navigation guards', () => {
     expect(router.currentRoute.value.path).toBe('/')
   })
 
-  // ── unknown / wildcard routes ────────────────────────────────────────────
+  // ── wildcard ──────────────────────────────────────────────────────────────
 
-  it('unauthenticated → unknown path goes through wildcard→/ then redirects to /login', async () => {
+  it('unauthenticated → unknown path → wildcard → / → /login', async () => {
     const router = makeRouter()
     await router.push('/totally/unknown/path')
     expect(router.currentRoute.value.path).toBe('/login')
   })
 
-  it('authenticated → unknown path goes through wildcard→/ and stays at /', async () => {
+  it('authenticated → unknown path → wildcard → / stays at /', async () => {
     sessionStorage.setItem('token', 'valid.jwt.token')
     const router = makeRouter()
     await router.push('/totally/unknown/path')
     expect(router.currentRoute.value.path).toBe('/')
   })
-
-  // ── guard does not fire on /login twice (no redirect loop) ──────────────
 
   it('unauthenticated → /login stays at /login (no redirect loop)', async () => {
     const router = makeRouter()
@@ -127,7 +134,7 @@ describe('router navigation guards', () => {
     expect(router.currentRoute.value.path).toBe('/login')
   })
 
-  it('authenticated → / navigating to /profile is allowed', async () => {
+  it('authenticated → navigating from / to /profile is allowed', async () => {
     sessionStorage.setItem('token', 'valid.jwt.token')
     const router = makeRouter()
     await router.push('/')

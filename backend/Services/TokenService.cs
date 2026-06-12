@@ -9,7 +9,7 @@ public sealed class TokenService
 {
     private const int TokenLifetimeDays = 7;
 
-    public string? CreateToken(UserEntity user)
+    public string? CreateToken(User user)
     {
         var secret = Environment.GetEnvironmentVariable("JWT_SECRET");
         if (string.IsNullOrWhiteSpace(secret)) return null;

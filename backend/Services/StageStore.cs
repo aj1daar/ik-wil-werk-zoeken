@@ -1,94 +1,36 @@
-using Azure;
-using Azure.Data.Tables;
-using System.Text.Json;
+using backend.Data;
 using backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
-public sealed class StageStore
+public sealed class StageStore(AppDbContext db)
 {
-    private const string TableName = "iwwzstages";
+    public async Task<IReadOnlyList<ApplicationStage>> GetByUserIdAsync(string userId) =>
+        await db.Stages.Where(s => s.UserId == userId).ToListAsync();
 
-    private TableClient GetClient()
-    {
-        var conn = Environment.GetEnvironmentVariable("AzureWebJobsStorage")
-            ?? throw new InvalidOperationException("AzureWebJobsStorage not set");
-        var client = new TableClient(conn, TableName);
-        client.CreateIfNotExists();
-        return client;
-    }
-
-    public async Task<IReadOnlyList<ApplicationStage>> GetByUserIdAsync(string userId)
-    {
-        var stages = new List<ApplicationStage>();
-        await foreach (var entity in GetClient().QueryAsync<StageEntity>(e => e.PartitionKey == userId))
-            stages.Add(ToModel(entity));
-        return stages;
-    }
-
-    public async Task<ApplicationStage?> GetAsync(string userId, string id)
-    {
-        try
-        {
-            var resp = await GetClient().GetEntityAsync<StageEntity>(userId, id);
-            return ToModel(resp.Value);
-        }
-        catch (RequestFailedException e) when (e.Status == 404)
-        {
-            return null;
-        }
-    }
+    public async Task<ApplicationStage?> GetAsync(string userId, string id) =>
+        await db.Stages.FirstOrDefaultAsync(s => s.UserId == userId && s.Id == id);
 
     public async Task UpsertAsync(ApplicationStage stage)
     {
-        await GetClient().UpsertEntityAsync(FromModel(stage), TableUpdateMode.Replace);
+        var existing = await db.Stages.FindAsync(stage.Id);
+        if (existing is null)
+            db.Stages.Add(stage);
+        else
+            db.Entry(existing).CurrentValues.SetValues(stage);
+        await db.SaveChangesAsync();
     }
 
     public async Task<bool> DeleteAsync(string userId, string id)
     {
-        try
-        {
-            await GetClient().DeleteEntityAsync(userId, id, ETag.All);
-            return true;
-        }
-        catch (RequestFailedException e) when (e.Status == 404)
-        {
-            return false;
-        }
+        var entity = await db.Stages.FirstOrDefaultAsync(s => s.UserId == userId && s.Id == id);
+        if (entity is null) return false;
+        db.Stages.Remove(entity);
+        await db.SaveChangesAsync();
+        return true;
     }
 
-    public async Task DeleteAllByUserIdAsync(string userId)
-    {
-        var client = GetClient();
-        await foreach (var entity in client.QueryAsync<StageEntity>(e => e.PartitionKey == userId))
-            await client.DeleteEntityAsync(entity.PartitionKey, entity.RowKey, ETag.All);
-    }
-
-    // ── conversion ────────────────────────────────────────────────────────────
-
-    private static ApplicationStage ToModel(StageEntity e) => new()
-    {
-        Id                 = e.RowKey,
-        UserId             = e.PartitionKey,
-        SponsorCompanyId   = e.SponsorCompanyId,
-        Status             = e.Status,
-        Notes              = e.Notes,
-        ContactPersonName  = e.ContactPersonName,
-        ContactPersonEmail = e.ContactPersonEmail,
-        Cities             = JsonSerializer.Deserialize(e.CitiesJson, AppJsonSerializerContext.Default.StringArray) ?? [],
-        UpdatedAt          = e.UpdatedAt,
-    };
-
-    private static StageEntity FromModel(ApplicationStage s) => new()
-    {
-        PartitionKey       = s.UserId,
-        RowKey             = s.Id,
-        SponsorCompanyId   = s.SponsorCompanyId,
-        Status             = s.Status,
-        Notes              = s.Notes,
-        ContactPersonName  = s.ContactPersonName,
-        ContactPersonEmail = s.ContactPersonEmail,
-        CitiesJson         = JsonSerializer.Serialize(s.Cities, AppJsonSerializerContext.Default.StringArray),
-        UpdatedAt          = s.UpdatedAt,
-    };
+    public async Task DeleteAllByUserIdAsync(string userId) =>
+        await db.Stages.Where(s => s.UserId == userId).ExecuteDeleteAsync();
 }
