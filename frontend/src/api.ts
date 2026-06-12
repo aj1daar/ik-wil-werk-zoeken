@@ -91,6 +91,7 @@ export interface SponsorCompany {
   id: string
   name: string
   kvKNumber: string
+  lastVerifiedAt: string
   summary?: string
   coreIndustry?: string
   techStackTags?: string[]

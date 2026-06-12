@@ -33,6 +33,11 @@ function startApplication(name: string) {
   prefillCompany.value = name
   modalOpen.value = true
 }
+
+function formatSyncDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-NL', { day: 'numeric', month: 'long', year: 'numeric' })
+}
 </script>
 
 <template>
@@ -44,6 +49,9 @@ function startApplication(name: string) {
         </svg>
         <input v-model="search" placeholder="Search by name, industry or tags…" class="filter-input pl-9" />
       </div>
+      <p v-if="store.lastSyncedAt" class="sync-badge">
+        IND data last synced {{ formatSyncDate(store.lastSyncedAt) }}
+      </p>
     </div>
 
     <div class="main-split">
@@ -124,6 +132,7 @@ function startApplication(name: string) {
 
 <style src="../../assets/split-panel.css" scoped></style>
 <style scoped>
+.sync-badge { font-size: .75rem; color: var(--col-subtle); white-space: nowrap; padding-left: .25rem; }
 .panel { display: flex; flex-direction: column; height: 100%; }
 .panel-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border); }
 .panel-title-block { flex: 1; }

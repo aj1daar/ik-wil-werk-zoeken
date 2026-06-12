@@ -12,7 +12,7 @@ vi.mock('../../api', () => ({
 import { api } from '../../api'
 
 function makeCompany(partial: Partial<SponsorCompany> & { id: string; name: string }): SponsorCompany {
-  return { kvKNumber: '00000000', ...partial }
+  return { kvKNumber: '00000000', lastVerifiedAt: '2024-01-01T00:00:00Z', ...partial }
 }
 
 // ── load ─────────────────────────────────────────────────────────────────────

@@ -8,6 +8,17 @@ export const useCompaniesStore = defineStore('companies', {
     error: null as string | null
   }),
 
+  getters: {
+    lastSyncedAt(state): string | null {
+      if (state.companies.length === 0) return null
+      const max = state.companies.reduce((best, c) =>
+        c.lastVerifiedAt > best ? c.lastVerifiedAt : best,
+        state.companies[0].lastVerifiedAt
+      )
+      return max
+    }
+  },
+
   actions: {
     async load() {
       if (this.companies.length > 0) return
