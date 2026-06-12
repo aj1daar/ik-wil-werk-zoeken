@@ -44,6 +44,9 @@
 - [x] Sort order dropdown in ApplicationsView (newest / oldest / last updated / company A–Z)
 - [x] CSV export of all applications
 - [x] `aria-invalid` / `aria-describedby` on form validation errors
+- [x] Dark-mode toggle — CSS vars, moon/sun button in navbar, persisted in localStorage
+- [x] Duplicate detection — warning banner when adding an application to a company already tracked
+- [x] Keyboard shortcuts — `N` opens new application modal, `Esc` closes detail panel
 
 ---
 
@@ -57,10 +60,14 @@
 
 - [ ] **Pagination or virtual scroll in CompaniesView** — sponsor list can grow large
 - [ ] **Application timeline / activity log** — track status changes with timestamps
-- [ ] **Reminder / follow-up date field** — set a date to follow up on an application
-- [ ] **Duplicate detection** — warn when adding an application to a company already in the list
-- [ ] **Dark-mode toggle** — CSS variables are already in place, just needs a second theme set
-- [ ] **Keyboard shortcuts** — e.g. `N` to open new-application modal, `Esc` to close panels
+- [ ] **Reminder / follow-up date field** — set a date to follow up on an application; requires DB migration + backend endpoint
+- [ ] **Contact email mailto: link** — make contact email in ApplicationPanel a clickable link
+- [ ] **Application count badge on nav** — show active (non-terminal) application count next to "My Applications"
+- [ ] **Sticky filter toolbar** — filter bar in ApplicationsView scrolls out of view on long lists
+- [ ] **Session expiry warning** — JWT lifetime is 7 days; show a banner when < 24 h remain
+- [ ] **Bulk status update** — select multiple applications and change status in one action
+- [ ] **Print / PDF export** — browser print stylesheet or jsPDF for career counsellors
+- [ ] **Status chip colors in dark mode** — hardcoded chip backgrounds look flat in dark theme; needs per-status dark overrides
 
 ---
 

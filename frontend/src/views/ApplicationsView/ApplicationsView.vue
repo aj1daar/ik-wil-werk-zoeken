@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
@@ -15,7 +15,15 @@ const sortBy       = ref<SortKey>('newest')
 const selectedId   = ref<string | null>(null)
 const modalOpen    = ref(false)
 
-onMounted(() => store.load())
+function onKey(e: KeyboardEvent) {
+  const tag = (e.target as HTMLElement).tagName.toUpperCase()
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) return
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); modalOpen.value = true }
+  if (e.key === 'Escape') selectedId.value = null
+}
+
+onMounted(() => { store.load(); window.addEventListener('keydown', onKey) })
+onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 const filtered = computed<Application[]>(() => {
   let list = [...store.applications]
@@ -116,7 +124,7 @@ function exportCsv() {
         Export CSV
       </button>
 
-      <button @click="modalOpen = true" class="btn-new">
+      <button @click="modalOpen = true" class="btn-new" title="New application (N)">
         <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
