@@ -15,7 +15,7 @@ public sealed class EmailService
         var apiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey)) return true;
 
-        var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@iwwz.nogoibay.org";
+        var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest
         {
             From    = from,
@@ -45,7 +45,7 @@ public sealed class EmailService
         var apiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey)) return true;
 
-        var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@iwwz.nogoibay.org";
+        var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest
         {
             From    = from,
