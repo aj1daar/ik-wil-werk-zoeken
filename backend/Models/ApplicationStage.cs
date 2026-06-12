@@ -14,5 +14,6 @@ public sealed class ApplicationStage
     public string? ContactPersonName { get; set; }
     public string? ContactPersonEmail { get; set; }
     public string[] Locations { get; set; } = [];
+    public DateTimeOffset? FollowUpDate { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
