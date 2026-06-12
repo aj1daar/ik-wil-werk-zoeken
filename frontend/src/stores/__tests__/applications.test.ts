@@ -16,6 +16,7 @@ vi.mock('../../api', () => ({
     updateApplication: vi.fn(),
     deleteApplication: vi.fn(),
     getStats:          vi.fn(),
+    bulkUpdateStatus:  vi.fn(),
   }
 }))
 
@@ -249,5 +250,81 @@ describe('useApplicationsStore – remove', () => {
     store.$patch({ applications: [makeApp({ id: 'a' }), makeApp({ id: 'b' }), makeApp({ id: 'c' })] })
     await store.remove('b')
     expect(store.applications.map(a => a.id)).toEqual(['a', 'c'])
+  })
+})
+
+// ── bulkUpdate ────────────────────────────────────────────────────────────────
+
+describe('useApplicationsStore – bulkUpdate', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('updates each returned application in the list', async () => {
+    const apps = [
+      makeApp({ id: 'a', status: 'Applied' }),
+      makeApp({ id: 'b', status: 'Applied' }),
+      makeApp({ id: 'c', status: 'Applied' }),
+    ]
+    const updated = [
+      makeApp({ id: 'a', status: 'Rejected' }),
+      makeApp({ id: 'b', status: 'Rejected' }),
+    ]
+    vi.mocked(api.bulkUpdateStatus).mockResolvedValue(updated)
+    const store = useApplicationsStore()
+    store.$patch({ applications: apps })
+    await store.bulkUpdate(['a', 'b'], 'Rejected')
+    expect(store.applications.find(a => a.id === 'a')?.status).toBe('Rejected')
+    expect(store.applications.find(a => a.id === 'b')?.status).toBe('Rejected')
+    expect(store.applications.find(a => a.id === 'c')?.status).toBe('Applied')
+  })
+
+  it('calls API with correct ids and status', async () => {
+    vi.mocked(api.bulkUpdateStatus).mockResolvedValue([])
+    const store = useApplicationsStore()
+    await store.bulkUpdate(['id1', 'id2'], 'Withdrawn')
+    expect(api.bulkUpdateStatus).toHaveBeenCalledWith(['id1', 'id2'], 'Withdrawn')
+  })
+
+  it('returns the updated applications', async () => {
+    const updated = [makeApp({ id: 'x', status: 'Accepted' })]
+    vi.mocked(api.bulkUpdateStatus).mockResolvedValue(updated)
+    const store = useApplicationsStore()
+    store.$patch({ applications: [makeApp({ id: 'x' })] })
+    const result = await store.bulkUpdate(['x'], 'Accepted')
+    expect(result).toHaveLength(1)
+    expect(result[0].status).toBe('Accepted')
+  })
+
+  it('does not modify applications not in the returned list', async () => {
+    const apps = [makeApp({ id: 'a' }), makeApp({ id: 'b' })]
+    vi.mocked(api.bulkUpdateStatus).mockResolvedValue([makeApp({ id: 'a', status: 'Accepted' })])
+    const store = useApplicationsStore()
+    store.$patch({ applications: apps })
+    await store.bulkUpdate(['a'], 'Accepted')
+    expect(store.applications.find(a => a.id === 'b')?.status).toBe('Applied')
+  })
+
+  it('empty API response leaves list unchanged', async () => {
+    const apps = [makeApp({ id: 'a', status: 'Applied' })]
+    vi.mocked(api.bulkUpdateStatus).mockResolvedValue([])
+    const store = useApplicationsStore()
+    store.$patch({ applications: apps })
+    await store.bulkUpdate(['a'], 'Rejected')
+    expect(store.applications[0].status).toBe('Applied')
+  })
+
+  it('propagates API error', async () => {
+    vi.mocked(api.bulkUpdateStatus).mockRejectedValue(new Error('Server error'))
+    const store = useApplicationsStore()
+    await expect(store.bulkUpdate(['a'], 'Rejected')).rejects.toThrow('Server error')
+  })
+
+  it('attacker supplying more than 100 ids is rejected by backend — API call still passes ids through', async () => {
+    // The store forwards all ids to the API; the 100-id cap is enforced by the backend.
+    // This test documents that the store does not silently truncate.
+    const ids = Array.from({ length: 150 }, (_, i) => `id-${i}`)
+    vi.mocked(api.bulkUpdateStatus).mockResolvedValue([])
+    const store = useApplicationsStore()
+    await store.bulkUpdate(ids, 'Rejected')
+    expect(api.bulkUpdateStatus).toHaveBeenCalledWith(ids, 'Rejected')
   })
 })

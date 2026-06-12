@@ -1,0 +1,297 @@
+using backend.Functions;
+using backend.Models;
+using Xunit;
+
+namespace backend.Tests;
+
+// Unit tests for DashboardCrudFunction helpers exposed as internal.
+// These validate pure business logic without network or DB calls.
+
+public sealed class DashboardFunctionTests
+{
+    // ── BuildActivityLogs ────────────────────────────────────────────────────
+
+    private static ApplicationStage MakeStage(string id = "s1", string userId = "u1") => new()
+    {
+        Id          = id,
+        UserId      = userId,
+        CompanyName = "Acme",
+        Position    = "Engineer",
+        AppliedAt   = new DateTimeOffset(2026, 1, 15, 0, 0, 0, TimeSpan.Zero),
+        Status      = "Applied",
+        Locations   = [],
+        UpdatedAt   = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero),
+    };
+
+    [Fact]
+    public void BuildActivityLogs_NoChanges_ReturnsEmpty()
+    {
+        var stage = MakeStage();
+        var logs = DashboardCrudFunction.BuildActivityLogs(stage, stage, "u1");
+        Assert.Empty(logs);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_StatusChange_LogsStatus()
+    {
+        var before = MakeStage();
+        var after  = MakeStage(); after.Status = "Rejected";
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        Assert.Single(logs);
+        Assert.Equal("Status",   logs[0].Field);
+        Assert.Equal("Applied",  logs[0].OldValue);
+        Assert.Equal("Rejected", logs[0].NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_MultipleFieldsChanged_LogsAll()
+    {
+        var before = MakeStage();
+        var after  = MakeStage();
+        after.Status      = "InterviewScheduled";
+        after.CompanyName = "NewCo";
+        after.Position    = "Senior Engineer";
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var fields = logs.Select(l => l.Field).ToHashSet();
+        Assert.Contains("Status",      fields);
+        Assert.Contains("CompanyName", fields);
+        Assert.Contains("Position",    fields);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_NotesAddedFromNull_OldValueIsNull()
+    {
+        var before = MakeStage(); before.Notes = null;
+        var after  = MakeStage(); after.Notes  = "Follow up on Friday";
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var noteLog = Assert.Single(logs, l => l.Field == "Notes");
+        Assert.Null(noteLog.OldValue);
+        Assert.Equal("Follow up on Friday", noteLog.NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_NotesCleared_NewValueIsNull()
+    {
+        var before = MakeStage(); before.Notes = "Some note";
+        var after  = MakeStage(); after.Notes  = null;
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var noteLog = Assert.Single(logs, l => l.Field == "Notes");
+        Assert.Equal("Some note", noteLog.OldValue);
+        Assert.Null(noteLog.NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_LocationsAdded_LogsLocations()
+    {
+        var before = MakeStage();
+        var after  = MakeStage(); after.Locations = ["Amsterdam", "Utrecht"];
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var locLog = Assert.Single(logs, l => l.Field == "Locations");
+        Assert.Null(locLog.OldValue);
+        Assert.Contains("Amsterdam", locLog.NewValue ?? "");
+    }
+
+    [Fact]
+    public void BuildActivityLogs_LocationsOrderNormalized_NoFalsePositive()
+    {
+        var before = MakeStage(); before.Locations = ["Utrecht", "Amsterdam"];
+        var after  = MakeStage(); after.Locations  = ["Amsterdam", "Utrecht"];
+        // Sorted join: both produce "Amsterdam, Utrecht" — no change
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        Assert.Empty(logs);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_FollowUpDateSet_Logged()
+    {
+        var before = MakeStage();
+        var after  = MakeStage(); after.FollowUpDate = new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var fud = Assert.Single(logs, l => l.Field == "FollowUpDate");
+        Assert.Null(fud.OldValue);
+        Assert.Equal("2026-07-01", fud.NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_FollowUpDateCleared_Logged()
+    {
+        var before = MakeStage(); before.FollowUpDate = new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
+        var after  = MakeStage(); after.FollowUpDate  = null;
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var fud = Assert.Single(logs, l => l.Field == "FollowUpDate");
+        Assert.Equal("2026-07-01", fud.OldValue);
+        Assert.Null(fud.NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_AppliedAtDateChange_Logged()
+    {
+        var before = MakeStage();
+        var after  = MakeStage(); after.AppliedAt = new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var dateLog = Assert.Single(logs, l => l.Field == "AppliedAt");
+        Assert.Equal("2026-01-15", dateLog.OldValue);
+        Assert.Equal("2026-03-01", dateLog.NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_AllLogEntriesHaveCorrectApplicationId()
+    {
+        var before = MakeStage("app-123");
+        var after  = MakeStage("app-123"); after.Status = "Rejected";
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        Assert.All(logs, l => Assert.Equal("app-123", l.ApplicationId));
+    }
+
+    [Fact]
+    public void BuildActivityLogs_AllLogEntriesHaveCorrectUserId()
+    {
+        var before = MakeStage("s1", "user-xyz");
+        var after  = MakeStage("s1", "user-xyz"); after.Status = "Accepted";
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "user-xyz");
+        Assert.All(logs, l => Assert.Equal("user-xyz", l.UserId));
+    }
+
+    [Fact]
+    public void BuildActivityLogs_RejectionReasonChange_Logged()
+    {
+        var before = MakeStage(); before.RejectionReason = "dutch_language";
+        var after  = MakeStage(); after.RejectionReason  = "another_candidate";
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var rr = Assert.Single(logs, l => l.Field == "RejectionReason");
+        Assert.Equal("dutch_language",   rr.OldValue);
+        Assert.Equal("another_candidate", rr.NewValue);
+    }
+
+    // ── ValidateStage ────────────────────────────────────────────────────────
+
+    private static ApplicationStage ValidStage() => new()
+    {
+        CompanyName = "Acme",
+        Position    = "Engineer",
+        Status      = "Applied",
+        Locations   = [],
+    };
+
+    [Fact]
+    public void ValidateStage_ValidStage_ReturnsTrue()
+    {
+        Assert.True(DashboardCrudFunction.ValidateStage(ValidStage(), out _));
+    }
+
+    [Fact]
+    public void ValidateStage_EmptyCompanyName_ReturnsFalse()
+    {
+        var s = ValidStage(); s.CompanyName = "   ";
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("companyName", err);
+    }
+
+    [Fact]
+    public void ValidateStage_CompanyNameTooLong_ReturnsFalse()
+    {
+        var s = ValidStage(); s.CompanyName = new string('A', 201);
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("200", err);
+    }
+
+    [Fact]
+    public void ValidateStage_EmptyPosition_ReturnsFalse()
+    {
+        var s = ValidStage(); s.Position = "";
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_InvalidStatus_ReturnsFalse()
+    {
+        var s = ValidStage(); s.Status = "HACKED";
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("HACKED", err);
+    }
+
+    [Theory]
+    [InlineData("Applied")]
+    [InlineData("InterviewScheduled")]
+    [InlineData("OfferReceived")]
+    [InlineData("OnHold")]
+    [InlineData("Rejected")]
+    [InlineData("Withdrawn")]
+    [InlineData("Accepted")]
+    public void ValidateStage_AllValidStatuses_ReturnsTrue(string status)
+    {
+        var s = ValidStage(); s.Status = status;
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_InvalidRejectionReason_ReturnsFalse()
+    {
+        var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "evil_payload";
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("evil_payload", err);
+    }
+
+    [Fact]
+    public void ValidateStage_ValidRejectionReason_ReturnsTrue()
+    {
+        var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "dutch_language";
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_RejectionNoteOver500Chars_ReturnsFalse()
+    {
+        var s = ValidStage(); s.Status = "Rejected"; s.RejectionNote = new string('x', 501);
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("500", err);
+    }
+
+    [Fact]
+    public void ValidateStage_NotesOver5000Chars_ReturnsFalse()
+    {
+        var s = ValidStage(); s.Notes = new string('n', 5001);
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("5000", err);
+    }
+
+    [Fact]
+    public void ValidateStage_TooManyLocations_ReturnsFalse()
+    {
+        var s = ValidStage(); s.Locations = Enumerable.Range(0, 21).Select(i => $"City{i}").ToArray();
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("20", err);
+    }
+
+    [Fact]
+    public void ValidateStage_LocationTooLong_ReturnsFalse()
+    {
+        var s = ValidStage(); s.Locations = [new string('A', 101)];
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("100", err);
+    }
+
+    [Fact]
+    public void ValidateStage_ContactEmailTooLong_ReturnsFalse()
+    {
+        var s = ValidStage(); s.ContactPersonEmail = new string('a', 254) + "@b.c";
+        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.Contains("254", err);
+    }
+
+    [Fact]
+    public void ValidateStage_SqlInjectionInCompanyName_AllowedByBackend_SanitizedByEF()
+    {
+        // SQL injection in a field value: EF Core parameterises all values,
+        // so the string is stored literally. Validation should not reject it.
+        var s = ValidStage(); s.CompanyName = "'; DROP TABLE Stages; --";
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_XssPayloadInNotes_Allowed_SanitizedByClient()
+    {
+        var s = ValidStage(); s.Notes = "<script>alert('xss')</script>";
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+}

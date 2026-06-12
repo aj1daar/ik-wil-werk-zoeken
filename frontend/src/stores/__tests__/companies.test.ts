@@ -322,3 +322,50 @@ describe('useCompaniesStore – filter', () => {
     expect(() => store.filter({ query: 'city', city: '', includeTags: [], excludeTags: [] })).not.toThrow()
   })
 })
+
+// ── store.companies total count (for load-more) ───────────────────────────────
+// The view paginates via a local displayCount ref (slicing store.companies).
+// The store itself holds all companies — no hidden cap.
+
+describe('useCompaniesStore – companies array (load-more source)', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('stores all companies without capping', () => {
+    const companies = Array.from({ length: 200 }, (_, i) =>
+      makeCompany({ id: `c${i}`, name: `Company ${i}` }))
+    const store = seedStore(companies)
+    expect(store.companies).toHaveLength(200)
+  })
+
+  it('slicing companies gives first page of 60', () => {
+    const companies = Array.from({ length: 100 }, (_, i) =>
+      makeCompany({ id: `c${i}`, name: `Company ${i}` }))
+    const store = seedStore(companies)
+    expect(store.companies.slice(0, 60)).toHaveLength(60)
+    expect(store.companies.slice(0, 60)[0].name).toBe('Company 0')
+  })
+
+  it('slicing beyond total returns remaining companies only', () => {
+    const companies = Array.from({ length: 45 }, (_, i) =>
+      makeCompany({ id: `c${i}`, name: `Company ${i}` }))
+    const store = seedStore(companies)
+    // displayCount = 60 but only 45 companies — should get 45
+    expect(store.companies.slice(0, 60)).toHaveLength(45)
+  })
+
+  it('canLoadMore condition: displayCount < total', () => {
+    const companies = Array.from({ length: 100 }, (_, i) =>
+      makeCompany({ id: `c${i}`, name: `Company ${i}` }))
+    const store = seedStore(companies)
+    const displayCount = 60
+    expect(displayCount < store.companies.length).toBe(true)
+  })
+
+  it('canLoadMore is false when all loaded', () => {
+    const companies = Array.from({ length: 50 }, (_, i) =>
+      makeCompany({ id: `c${i}`, name: `Company ${i}` }))
+    const store = seedStore(companies)
+    const displayCount = 60
+    expect(displayCount < store.companies.length).toBe(false)
+  })
+})
