@@ -42,11 +42,12 @@ public sealed class DashboardCrudFunction
 
         var response = (entity.ToLowerInvariant(), req.Method.ToUpperInvariant()) switch
         {
-            ("sponsors", "GET")    => await GetSponsors(req),
-            ("stages",   "GET")    => await GetStages(req, userId),
-            ("stages",   "POST")   => await CreateStage(req, userId),
-            ("stages",   "PUT")    => await UpdateStage(req, userId, id),
-            ("stages",   "DELETE") => await DeleteStage(req, userId, id),
+            ("sponsors",     "GET")    => await GetSponsors(req),
+            ("applications", "GET")    => await GetApplications(req, userId),
+            ("applications", "POST")   => await CreateApplication(req, userId),
+            ("applications", "PUT")    => await UpdateApplication(req, userId, id),
+            ("applications", "DELETE") => await DeleteApplication(req, userId, id),
+            ("stats",        "GET")    => await GetStats(req, userId),
             _ => await ErrorResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
         };
 
@@ -64,9 +65,36 @@ public sealed class DashboardCrudFunction
         return response;
     }
 
-    // ── stages ────────────────────────────────────────────────────────────────
+    // ── stats ─────────────────────────────────────────────────────────────────
 
-    private async Task<HttpResponseData> GetStages(HttpRequestData req, string userId)
+    private async Task<HttpResponseData> GetStats(HttpRequestData req, string userId)
+    {
+        var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        DateTimeOffset? from = DateTimeOffset.TryParse(query["from"], out var f) ? f : null;
+        DateTimeOffset? to   = DateTimeOffset.TryParse(query["to"],   out var t) ? t : null;
+
+        var all = await _stages.GetByUserIdAsync(userId);
+        var filtered = all
+            .Where(s => from == null || s.AppliedAt >= from.Value)
+            .Where(s => to   == null || s.AppliedAt <= to.Value)
+            .ToList();
+
+        var stats = new StatsResponse
+        {
+            Total    = filtered.Count,
+            ByStatus = filtered
+                .GroupBy(s => s.Status)
+                .ToDictionary(g => g.Key, g => g.Count())
+        };
+
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await WriteJson(response, JsonSerializer.Serialize(stats, AppJsonSerializerContext.Default.StatsResponse));
+        return response;
+    }
+
+    // ── applications ──────────────────────────────────────────────────────────
+
+    private async Task<HttpResponseData> GetApplications(HttpRequestData req, string userId)
     {
         var stages = await _stages.GetByUserIdAsync(userId);
         var response = req.CreateResponse(HttpStatusCode.OK);
@@ -75,16 +103,17 @@ public sealed class DashboardCrudFunction
         return response;
     }
 
-    private async Task<HttpResponseData> CreateStage(HttpRequestData req, string userId)
+    private async Task<HttpResponseData> CreateApplication(HttpRequestData req, string userId)
     {
         var item = await DeserializeStage(req.Body);
         if (item is null)
             return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
 
-        if (!ValidateStage(item, out var validationError))
-            return await ErrorResponse(req, HttpStatusCode.BadRequest, validationError);
+        if (!ValidateStage(item, out var err))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, err);
 
         item.UserId    = userId;
+        item.Status    = "Applied";
         item.UpdatedAt = DateTimeOffset.UtcNow;
         await _stages.UpsertAsync(item);
 
@@ -93,7 +122,7 @@ public sealed class DashboardCrudFunction
         return response;
     }
 
-    private async Task<HttpResponseData> UpdateStage(HttpRequestData req, string userId, string? id)
+    private async Task<HttpResponseData> UpdateApplication(HttpRequestData req, string userId, string? id)
     {
         if (string.IsNullOrWhiteSpace(id))
             return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required for update");
@@ -106,19 +135,23 @@ public sealed class DashboardCrudFunction
         if (item is null)
             return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
 
-        if (!ValidateStage(item, out var validationError))
-            return await ErrorResponse(req, HttpStatusCode.BadRequest, validationError);
+        if (!ValidateStage(item, out var err))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, err);
 
         var updated = new ApplicationStage
         {
             Id                 = id,
             UserId             = userId,
-            SponsorCompanyId   = item.SponsorCompanyId,
+            CompanyName        = item.CompanyName,
+            Position           = item.Position,
+            AppliedAt          = item.AppliedAt,
             Status             = item.Status,
+            RejectionReason    = item.Status == "Rejected" ? item.RejectionReason : null,
+            RejectionNote      = item.Status == "Rejected" ? item.RejectionNote   : null,
             Notes              = item.Notes,
             ContactPersonName  = item.ContactPersonName,
             ContactPersonEmail = item.ContactPersonEmail,
-            Cities             = item.Cities,
+            Locations          = item.Locations,
             UpdatedAt          = DateTimeOffset.UtcNow,
         };
         await _stages.UpsertAsync(updated);
@@ -128,7 +161,7 @@ public sealed class DashboardCrudFunction
         return response;
     }
 
-    private async Task<HttpResponseData> DeleteStage(HttpRequestData req, string userId, string? id)
+    private async Task<HttpResponseData> DeleteApplication(HttpRequestData req, string userId, string? id)
     {
         if (string.IsNullOrWhiteSpace(id))
             return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required for delete");
@@ -145,17 +178,37 @@ public sealed class DashboardCrudFunction
 
     private static readonly string[] ValidStatuses =
     [
-        "Bookmarked", "Viewed", "Applied", "Ongoing Interview",
-        "Offer Proposed", "Offer Accepted", "Rejected", "Declined Offer", "Abandoned"
+        "Applied", "InterviewScheduled", "OfferReceived",
+        "OnHold", "Rejected", "Withdrawn", "Accepted"
+    ];
+
+    private static readonly string[] ValidRejectionReasons =
+    [
+        "dutch_language", "another_candidate", "incompatible_profile",
+        "salary_mismatch", "internal_hire", "other"
     ];
 
     private static bool ValidateStage(ApplicationStage s, out string error)
     {
-        if (string.IsNullOrWhiteSpace(s.SponsorCompanyId))
-            { error = "sponsorCompanyId is required"; return false; }
+        if (string.IsNullOrWhiteSpace(s.CompanyName))
+            { error = "companyName is required"; return false; }
+        if (s.CompanyName.Length > 200)
+            { error = "companyName must not exceed 200 characters"; return false; }
+
+        if (string.IsNullOrWhiteSpace(s.Position))
+            { error = "position is required"; return false; }
+        if (s.Position.Length > 200)
+            { error = "position must not exceed 200 characters"; return false; }
 
         if (!ValidStatuses.Contains(s.Status))
             { error = $"Invalid status '{s.Status}'"; return false; }
+
+        if (s.Status == "Rejected" && s.RejectionReason is not null
+            && !ValidRejectionReasons.Contains(s.RejectionReason))
+            { error = $"Invalid rejectionReason '{s.RejectionReason}'"; return false; }
+
+        if (s.RejectionNote?.Length > 500)
+            { error = "rejectionNote must not exceed 500 characters"; return false; }
 
         if (s.Notes?.Length > 5000)
             { error = "notes must not exceed 5000 characters"; return false; }
@@ -166,11 +219,11 @@ public sealed class DashboardCrudFunction
         if (s.ContactPersonEmail?.Length > 254)
             { error = "contactPersonEmail must not exceed 254 characters"; return false; }
 
-        if (s.Cities.Length > 20)
-            { error = "cities must not exceed 20 entries"; return false; }
+        if (s.Locations.Length > 20)
+            { error = "locations must not exceed 20 entries"; return false; }
 
-        if (s.Cities.Any(c => c.Length > 100))
-            { error = "each city must not exceed 100 characters"; return false; }
+        if (s.Locations.Any(l => l.Length > 100))
+            { error = "each location must not exceed 100 characters"; return false; }
 
         error = string.Empty;
         return true;

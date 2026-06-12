@@ -67,6 +67,12 @@ public sealed class ErrorResponse
     [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;
 }
 
+public sealed class StatsResponse
+{
+    [JsonPropertyName("total")]    public int Total { get; set; }
+    [JsonPropertyName("byStatus")] public Dictionary<string, int> ByStatus { get; set; } = new();
+}
+
 internal sealed class JwtPayload
 {
     [JsonPropertyName("sub")]         public string Sub       { get; set; } = string.Empty;

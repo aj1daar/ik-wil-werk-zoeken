@@ -21,7 +21,7 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<ApplicationStage>(e =>
         {
             e.HasKey(s => s.Id);
-            e.Property(s => s.Cities).HasColumnType("text[]");
+            e.Property(s => s.Locations).HasColumnType("text[]");
             e.HasOne<User>()
              .WithMany()
              .HasForeignKey(s => s.UserId)
