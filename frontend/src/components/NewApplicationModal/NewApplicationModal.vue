@@ -115,8 +115,10 @@ async function submit() {
   display: flex; align-items: center; justify-content: center; z-index: 50;
 }
 .modal {
-  background: white; border-radius: .75rem; width: 100%; max-width: 480px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.2); display: flex; flex-direction: column;
+  background: var(--col-bg); border-radius: .75rem; width: 100%; max-width: 480px;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--col-text) 12%, transparent),
+              0 24px 64px color-mix(in srgb, var(--col-text) 16%, transparent);
+  display: flex; flex-direction: column;
   max-height: 90vh; overflow: hidden;
 }
 .modal-header {

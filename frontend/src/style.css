@@ -107,9 +107,15 @@ body {
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    transition: background 0.15s;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--col-accent) 30%, transparent);
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
   }
-  .btn-primary:hover:not(:disabled) { background: var(--col-accent-dk); }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--col-accent-dk);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--col-accent) 40%, transparent);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
   .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-submit {
@@ -122,10 +128,16 @@ body {
     border: none;
     cursor: pointer;
     font-size: 1rem;
-    transition: background 0.15s;
     letter-spacing: 0.01em;
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--col-accent) 30%, transparent);
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
   }
-  .btn-submit:hover:not(:disabled) { background: var(--col-accent-dk); }
+  .btn-submit:hover:not(:disabled) {
+    background: var(--col-accent-dk);
+    box-shadow: 0 6px 22px color-mix(in srgb, var(--col-accent) 42%, transparent);
+    transform: translateY(-1px);
+  }
+  .btn-submit:active:not(:disabled) { transform: translateY(0); }
   .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-danger {
@@ -218,6 +230,7 @@ body {
     border: 1px solid var(--col-border);
     border-radius: 10px;
     padding: 1.25rem;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 5%, transparent);
   }
 
   /* Auth card wrapper */
@@ -226,7 +239,9 @@ body {
     border: 1px solid var(--col-border);
     border-radius: 14px;
     padding: 2rem;
-    box-shadow: 0 4px 24px color-mix(in srgb, var(--col-text) 6%, transparent);
+    box-shadow:
+      0 4px 16px color-mix(in srgb, var(--col-text) 6%, transparent),
+      0 16px 48px color-mix(in srgb, var(--col-text) 8%, transparent);
   }
 
   /* ── Auth page layout ─────────────────────────────── */

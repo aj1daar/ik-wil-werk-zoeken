@@ -6,7 +6,10 @@
   padding: 0 1.5rem;
   background: var(--col-nav);
   border-bottom: 1px solid color-mix(in srgb, var(--col-nav-text) 10%, transparent);
+  box-shadow: 0 2px 16px color-mix(in srgb, var(--col-nav) 50%, transparent);
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 
 .nav-left {
