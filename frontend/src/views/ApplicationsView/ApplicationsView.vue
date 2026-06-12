@@ -7,15 +7,18 @@ import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel
 
 const store = useApplicationsStore()
 
+type SortKey = 'newest' | 'oldest' | 'updated' | 'company'
+
 const search       = ref('')
 const filterStatus = ref<ApplicationStatus | ''>('')
+const sortBy       = ref<SortKey>('newest')
 const selectedId   = ref<string | null>(null)
 const modalOpen    = ref(false)
 
 onMounted(() => store.load())
 
 const filtered = computed<Application[]>(() => {
-  let list = store.applications
+  let list = [...store.applications]
   if (filterStatus.value) list = list.filter(a => a.status === filterStatus.value)
   if (search.value.trim()) {
     const q = search.value.trim().toLowerCase()
@@ -24,6 +27,14 @@ const filtered = computed<Application[]>(() => {
       a.position.toLowerCase().includes(q)
     )
   }
+  list.sort((a, b) => {
+    switch (sortBy.value) {
+      case 'newest':  return new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
+      case 'oldest':  return new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime()
+      case 'updated': return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      case 'company': return a.companyName.localeCompare(b.companyName)
+    }
+  })
   return list
 })
 
@@ -46,6 +57,29 @@ function onPanelClose() {
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
+
+function exportCsv() {
+  const cols = ['Company', 'Position', 'Status', 'Applied', 'Updated', 'Locations', 'Notes', 'Contact name', 'Contact email']
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const rows = store.applications.map(a => [
+    a.companyName,
+    a.position,
+    STATUS_LABELS[a.status],
+    a.appliedAt.slice(0, 10),
+    a.updatedAt.slice(0, 10),
+    a.locations.join('; '),
+    a.notes ?? '',
+    a.contactPersonName ?? '',
+    a.contactPersonEmail ?? '',
+  ].map(esc).join(','))
+  const csv = [cols.map(esc).join(','), ...rows].join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `applications-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
@@ -62,6 +96,25 @@ function formatDate(iso: string) {
         <option value="">All statuses</option>
         <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
       </select>
+
+      <select v-model="sortBy" class="filter-input filter-select">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="updated">Recently updated</option>
+        <option value="company">Company A→Z</option>
+      </select>
+
+      <button
+        v-if="store.applications.length > 0"
+        @click="exportCsv"
+        class="btn-export"
+        title="Export all applications as CSV"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Export CSV
+      </button>
 
       <button @click="modalOpen = true" class="btn-new">
         <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -120,14 +173,20 @@ function formatDate(iso: string) {
 <style scoped>
 .btn-new {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: #1a1a1a; color: white; border: none; border-radius: .375rem;
+  background: var(--col-text); color: var(--col-nav-text); border: none; border-radius: .375rem;
   padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
   white-space: nowrap;
 }
-.btn-new:hover { background: #333; }
+.btn-new:hover { opacity: .85; }
 .btn-new-icon { width: 1rem; height: 1rem; }
 .row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; flex-shrink: 0; }
-.row-date { font-size: .7rem; color: #9ca3af; }
+.row-date { font-size: .7rem; color: var(--col-subtle); }
 .chip { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
-.add-first-link { background: none; border: none; color: #1a1a1a; cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
+.add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
+.btn-export {
+  display: inline-flex; align-items: center; gap: .375rem;
+  background: var(--col-surface); color: var(--col-muted); border: 1px solid var(--col-border);
+  border-radius: .375rem; padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
+}
+.btn-export:hover { background: var(--col-raised); }
 </style>
