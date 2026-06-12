@@ -192,7 +192,8 @@ jobs:
             --parameters \
               "resourceGroupName=${{ vars.AZURE_RESOURCE_GROUP }}" \
               "functionAppName=${{ vars.AZURE_FUNCTION_APP_NAME }}" \
-              "storageAccountName=${{ vars.AZURE_STORAGE_ACCOUNT }}"
+              "storageAccountName=${{ vars.AZURE_STORAGE_ACCOUNT }}" \
+              "postgresPassword=${{ secrets.POSTGRES_PASSWORD }}"
           echo "=== App settings after Bicep ==="
           az functionapp config appsettings list \
             --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \

@@ -4,6 +4,9 @@ param resourceGroupName string
 param location string = 'westeurope'
 param functionAppName string
 param storageAccountName string
+param postgresAdminUser string = 'iwwzadmin'
+@secure()
+param postgresPassword string
 
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: resourceGroupName
@@ -17,5 +20,7 @@ module app 'resources.bicep' = {
     functionAppName: functionAppName
     storageAccountName: storageAccountName
     location: location
+    postgresAdminUser: postgresAdminUser
+    postgresPassword: postgresPassword
   }
 }

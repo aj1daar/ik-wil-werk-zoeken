@@ -1,6 +1,9 @@
 param functionAppName string
 param storageAccountName string
 param location string = resourceGroup().location
+param postgresAdminUser string = 'iwwzadmin'
+@secure()
+param postgresPassword string
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: '${functionAppName}-ai'
@@ -24,6 +27,41 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
+resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview' = {
+  name: '${functionAppName}-pg'
+  location: location
+  sku: {
+    name: 'Standard_B1ms'
+    tier: 'Burstable'
+  }
+  properties: {
+    administratorLogin: postgresAdminUser
+    administratorLoginPassword: postgresPassword
+    version: '16'
+    storage: { storageSizeGB: 32 }
+    backup: { backupRetentionDays: 7, geoRedundantBackup: 'Disabled' }
+    highAvailability: { mode: 'Disabled' }
+  }
+}
+
+resource postgresDb 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-06-01-preview' = {
+  parent: postgresServer
+  name: 'iwwz'
+  properties: {
+    charset: 'UTF8'
+    collation: 'en_US.utf8'
+  }
+}
+
+resource postgresFirewall 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2023-06-01-preview' = {
+  parent: postgresServer
+  name: 'AllowAzureServices'
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
+}
+
 resource plan 'Microsoft.Web/serverfarms@2022-03-01' = {
   name: '${functionAppName}-plan'
   location: location
@@ -39,6 +77,7 @@ resource plan 'Microsoft.Web/serverfarms@2022-03-01' = {
 }
 
 var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
+var databaseUrl = 'Host=${postgresServer.name}.postgres.database.azure.com;Database=iwwz;Username=${postgresAdminUser};Password=${postgresPassword};SSL Mode=Require'
 
 resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
   name: functionAppName
@@ -63,6 +102,7 @@ resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
         { name: 'ALLOWED_ORIGIN', value: 'https://iwwz.nogoibay.org' }
         { name: 'RESEND_FROM', value: 'noreply@iwwz.nogoibay.org' }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
+        { name: 'DATABASE_URL', value: databaseUrl }
       ]
     }
   }
