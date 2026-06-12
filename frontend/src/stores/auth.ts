@@ -112,6 +112,27 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    async changeEmail(currentPassword: string, newEmail: string): Promise<string | null> {
+      try {
+        await api.changeEmail(currentPassword, newEmail)
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Email change request failed'
+      }
+    },
+
+    async confirmEmailChange(token: string): Promise<string | null> {
+      try {
+        const data = await api.confirmEmailChange(token)
+        this.token = data.token
+        this.user  = parseUser(data.token)
+        sessionStorage.setItem('token', data.token)
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Email confirmation failed'
+      }
+    },
+
     async deleteAccount(): Promise<string | null> {
       try {
         await api.deleteAccount()

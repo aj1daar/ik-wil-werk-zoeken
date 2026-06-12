@@ -349,6 +349,95 @@ public sealed class AuthFunction
         return await JsonOk(req, new LoginResponse { Token = jwtToken }, AppJsonSerializerContext.Default.LoginResponse);
     }
 
+    // POST /api/auth/change-email
+    [Function("ChangeEmail")]
+    public async Task<HttpResponseData> ChangeEmail(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "auth/change-email")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        req.Headers.TryGetValues("Authorization", out var authHeader);
+        var rawToken = authHeader?.FirstOrDefault();
+        if (!_tokens.ValidateToken(rawToken))
+            return await ErrorResponse(req, HttpStatusCode.Unauthorized, "Unauthorized");
+
+        var email = _tokens.GetEmail(rawToken);
+        if (email is null)
+            return await ErrorResponse(req, HttpStatusCode.Unauthorized, "Unauthorized");
+
+        if (!_limiter.IsAllowed($"change-email:{GetClientIp(req)}", maxRequests: 5, windowSeconds: 3600))
+            return await ErrorResponse(req, HttpStatusCode.TooManyRequests, "Too many requests. Please wait before trying again.");
+
+        ChangeEmailRequest? body = null;
+        try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.ChangeEmailRequest); }
+        catch { }
+
+        if (body is null || string.IsNullOrWhiteSpace(body.CurrentPassword) || string.IsNullOrWhiteSpace(body.NewEmail))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "currentPassword and newEmail are required");
+
+        if (!ValidEmail(body.NewEmail, out var emailErr))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, emailErr);
+
+        var user = await _users.GetByEmailAsync(email);
+        if (user is null || !PasswordHasher.Verify(body.CurrentPassword, user.PasswordHash))
+            return await ErrorResponse(req, HttpStatusCode.Unauthorized, "Current password is incorrect");
+
+        var newEmail = body.NewEmail.Trim().ToLowerInvariant();
+        if (newEmail == user.Email)
+            return await ErrorResponse(req, HttpStatusCode.Conflict, "The new email is the same as your current one");
+
+        var existing = await _users.GetByEmailAsync(newEmail);
+        if (existing is not null)
+            return await ErrorResponse(req, HttpStatusCode.Conflict, "An account with this email already exists");
+
+        var changeToken = _tokens.CreateEmailChangeToken(user.UserId, newEmail);
+        var origin      = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+        var confirmLink = $"{origin}/confirm-email-change?token={Uri.EscapeDataString(changeToken)}";
+        await _email.SendEmailChangeAsync(newEmail, confirmLink);
+
+        var res = req.CreateResponse(HttpStatusCode.NoContent);
+        AddCors(res);
+        return res;
+    }
+
+    // GET /api/auth/confirm-email-change?token=
+    [Function("ConfirmEmailChange")]
+    public async Task<HttpResponseData> ConfirmEmailChange(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "options", Route = "auth/confirm-email-change")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        var qs    = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        var token = qs["token"];
+
+        var result = _tokens.ValidateEmailChangeToken(token);
+        if (result is null)
+            return await ErrorResponse(req, HttpStatusCode.BadRequest,
+                "Confirmation link is invalid or has expired. Please request a new one.");
+
+        var (userId, newEmail) = result.Value;
+
+        var taken = await _users.GetByEmailAsync(newEmail);
+        if (taken is not null)
+            return await ErrorResponse(req, HttpStatusCode.Conflict, "This email address is already in use.");
+
+        var user = await _users.GetByUserIdAsync(userId);
+        if (user is null)
+            return await ErrorResponse(req, HttpStatusCode.BadRequest,
+                "Confirmation link is invalid or has expired.");
+
+        user.Email = newEmail;
+        await _users.UpdateAsync(user);
+
+        var jwtToken = _tokens.CreateToken(user);
+        if (jwtToken is null)
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError, "JWT_SECRET not configured");
+
+        return await JsonOk(req, new LoginResponse { Token = jwtToken }, AppJsonSerializerContext.Default.LoginResponse);
+    }
+
     // POST /api/auth/resend-verification
     [Function("ResendVerification")]
     public async Task<HttpResponseData> ResendVerification(

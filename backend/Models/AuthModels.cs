@@ -52,6 +52,12 @@ public sealed class ResendVerificationRequest
     [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
 }
 
+public sealed class ChangeEmailRequest
+{
+    [JsonPropertyName("currentPassword")] public string CurrentPassword { get; set; } = string.Empty;
+    [JsonPropertyName("newEmail")]        public string NewEmail        { get; set; } = string.Empty;
+}
+
 public sealed class MessageResponse
 {
     [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;

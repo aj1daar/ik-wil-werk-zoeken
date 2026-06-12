@@ -63,6 +63,12 @@ export const api = {
   resetPassword: (token: string, newPassword: string) =>
     request<void>('POST', '/api/auth/reset-password', { token, newPassword }),
 
+  changeEmail: (currentPassword: string, newEmail: string) =>
+    request<void>('POST', '/api/auth/change-email', { currentPassword, newEmail }),
+
+  confirmEmailChange: (token: string) =>
+    request<{ token: string }>('GET', `/api/auth/confirm-email-change?token=${encodeURIComponent(token)}`),
+
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 

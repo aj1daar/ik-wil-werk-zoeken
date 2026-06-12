@@ -18,6 +18,11 @@ const currentPw  = ref('')
 const newPw      = ref('')
 const confirmPw  = ref('')
 
+const emailCurrentPw = ref('')
+const newEmail       = ref('')
+const emailSaving    = ref(false)
+const emailMsg       = ref<{text:string;ok:boolean}|null>(null)
+
 const profileSaving  = ref(false)
 const profileMsg     = ref<{text:string;ok:boolean}|null>(null)
 const passwordSaving = ref(false)
@@ -60,6 +65,25 @@ async function changePassword() {
   passwordSaving.value = false
   passwordMsg.value = err ? { text: err, ok: false } : { text: 'Password updated.', ok: true }
   if (!err) { currentPw.value = ''; newPw.value = ''; confirmPw.value = '' }
+}
+
+async function requestEmailChange() {
+  const trimmed = newEmail.value.trim().toLowerCase()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+    emailMsg.value = { text: 'Please enter a valid email address.', ok: false }
+    return
+  }
+  emailSaving.value = true
+  emailMsg.value = null
+  const err = await auth.changeEmail(emailCurrentPw.value, trimmed)
+  emailSaving.value = false
+  if (err) {
+    emailMsg.value = { text: err, ok: false }
+  } else {
+    emailMsg.value = { text: `A confirmation link has been sent to ${trimmed}. Click it to confirm the change.`, ok: true }
+    emailCurrentPw.value = ''
+    newEmail.value = ''
+  }
 }
 
 async function deleteAccount() {
@@ -167,6 +191,32 @@ async function deleteAccount() {
           <div class="form-actions">
             <button type="submit" :disabled="passwordSaving" class="btn-primary">
               {{ passwordSaving ? 'Updating…' : 'Update password' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Change email address</h2>
+        <p class="section-hint">A confirmation link will be sent to your new address. The change takes effect when you click it.</p>
+        <form @submit.prevent="requestEmailChange" class="profile-form">
+          <div>
+            <label class="field-label" for="em-new">New email address</label>
+            <input id="em-new" v-model="newEmail" type="email" class="field-input" autocomplete="email" required />
+          </div>
+          <PasswordField
+            id="em-pw"
+            label="Current password (to confirm)"
+            autocomplete="current-password"
+            v-model="emailCurrentPw"
+            :required="true"
+          />
+
+          <FormMessage :message="emailMsg" />
+
+          <div class="form-actions">
+            <button type="submit" :disabled="emailSaving || !newEmail || !emailCurrentPw" class="btn-primary">
+              {{ emailSaving ? 'Sending…' : 'Send confirmation link' }}
             </button>
           </div>
         </form>

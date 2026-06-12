@@ -166,6 +166,48 @@ public sealed class TokenService
             : null;
     }
 
+    // Email-change tokens encode new email as Base64Url so dots in the address don't break splitting.
+    // Token: {userId}.{base64UrlEmail}.{exp}.{sig}   HMAC: "email-change.{userId}.{newEmail}.{exp}"
+    public string CreateEmailChangeToken(string userId, string newEmail)
+    {
+        var secret       = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var exp          = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds();
+        var encodedEmail = Base64UrlEncode(Encoding.UTF8.GetBytes(newEmail));
+        var data         = $"email-change.{userId}.{newEmail}.{exp}";
+        var sig          = Base64UrlEncode(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+        return $"{userId}.{encodedEmail}.{exp}.{sig}";
+    }
+
+    public (string UserId, string NewEmail)? ValidateEmailChangeToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        var parts = token.Split('.');
+        if (parts.Length != 4) return null;
+
+        var userId       = parts[0];
+        var encodedEmail = parts[1];
+        var expStr       = parts[2];
+        var sig          = parts[3];
+
+        if (string.IsNullOrEmpty(userId) || !long.TryParse(expStr, out var exp)) return null;
+        if (exp <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return null;
+
+        string newEmail;
+        try { newEmail = Encoding.UTF8.GetString(Base64UrlDecode(encodedEmail)); }
+        catch { return null; }
+
+        var secret      = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var data        = $"email-change.{userId}.{newEmail}.{exp}";
+        var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(sig), Encoding.UTF8.GetBytes(expectedSig))
+            ? (userId, newEmail)
+            : null;
+    }
+
     private static string? ExtractToken(string? bearerOrToken)
     {
         if (string.IsNullOrWhiteSpace(bearerOrToken)) return null;

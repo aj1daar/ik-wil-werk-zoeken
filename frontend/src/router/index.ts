@@ -8,7 +8,8 @@ import RegisterView       from '../views/RegisterView/RegisterView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView/ForgotPasswordView.vue'
 import ResetPasswordView  from '../views/ResetPasswordView/ResetPasswordView.vue'
 import PrivacyView        from '../views/PrivacyView/PrivacyView.vue'
-import VerifyEmailView    from '../views/VerifyEmailView/VerifyEmailView.vue'
+import VerifyEmailView           from '../views/VerifyEmailView/VerifyEmailView.vue'
+import ConfirmEmailChangeView   from '../views/ConfirmEmailChangeView/ConfirmEmailChangeView.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
@@ -19,7 +20,8 @@ const router = createRouter({
     { path: '/forgot-password', component: ForgotPasswordView, meta: { title: 'Forgot Password — IWWZ' } },
     { path: '/reset-password',  component: ResetPasswordView,  meta: { title: 'Reset Password — IWWZ' } },
     { path: '/privacy',       component: PrivacyView,     meta: { title: 'Privacy Policy — IWWZ' } },
-    { path: '/verify-email',  component: VerifyEmailView, meta: { title: 'Verify Email — IWWZ' } },
+    { path: '/verify-email',         component: VerifyEmailView,          meta: { title: 'Verify Email — IWWZ' } },
+    { path: '/confirm-email-change', component: ConfirmEmailChangeView,   meta: { title: 'Confirm Email Change — IWWZ' } },
     { path: '/',              component: HomeView,         meta: { requiresAuth: true, title: 'Dashboard — IWWZ' } },
     { path: '/applications',  component: ApplicationsView, meta: { requiresAuth: true, title: 'Applications — IWWZ' } },
     { path: '/companies',     component: CompaniesView,    meta: { requiresAuth: true, title: 'Companies — IWWZ' } },
