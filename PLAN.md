@@ -45,6 +45,7 @@
 - [x] CSV export of all applications
 - [x] `aria-invalid` / `aria-describedby` on form validation errors
 - [x] Dark-mode toggle — CSS vars, moon/sun button in navbar, persisted in localStorage
+- [x] Dark-mode readability fix — `--col-invert-bg`/`--col-invert-text` vars so pill buttons stay legible in both themes
 - [x] Duplicate detection — warning banner when adding an application to a company already tracked
 - [x] Keyboard shortcuts — `N` opens new application modal, `Esc` closes detail panel
 
@@ -58,16 +59,31 @@
 
 ## Ideas / Backlog
 
+### HIGH
+
+- [ ] **Mobile responsiveness** — full responsive layout for iPhone 15 Pro Max (430 px) and iPhone 17; navbar collapses, split-panel becomes full-screen, filter bars stack
+- [ ] **Application detail as modal** — the side-panel edit view should become a centered modal overlay (better on mobile, less disorienting on desktop)
+- [ ] **Company location / city field** — add `City` column to Sponsors table (DB migration); surface in CompaniesView card and filter; data from IND register if available, otherwise manually enriched
+
+### MEDIUM
+
+- [ ] **Companies advanced filtering** — depends on location field; filter by name (already have search), city, and tag include/exclude (show companies matching ALL selected tags, exclude companies matching any excluded tag)
+- [ ] **Admin system** — role field on User (`user` / `admin`); admin-only endpoints protected by role check in JWT; initial admin designated by environment variable (never hard-coded); future: admin UI to manage users and sponsor data
+  - Admin email for the initial account: stored in env var `ADMIN_EMAIL`, seeded at startup if user exists
+  - Never commit email addresses or role grants to source code
 - [ ] **Pagination or virtual scroll in CompaniesView** — sponsor list can grow large
 - [ ] **Application timeline / activity log** — track status changes with timestamps
 - [ ] **Reminder / follow-up date field** — set a date to follow up on an application; requires DB migration + backend endpoint
+
+### LOW
+
 - [ ] **Contact email mailto: link** — make contact email in ApplicationPanel a clickable link
 - [ ] **Application count badge on nav** — show active (non-terminal) application count next to "My Applications"
 - [ ] **Sticky filter toolbar** — filter bar in ApplicationsView scrolls out of view on long lists
 - [ ] **Session expiry warning** — JWT lifetime is 7 days; show a banner when < 24 h remain
 - [ ] **Bulk status update** — select multiple applications and change status in one action
 - [ ] **Print / PDF export** — browser print stylesheet or jsPDF for career counsellors
-- [ ] **Status chip colors in dark mode** — hardcoded chip backgrounds look flat in dark theme; needs per-status dark overrides
+- [ ] **Status chip colors in dark mode** — hardcoded chip backgrounds look washed-out in dark theme; needs per-status dark overrides
 
 ---
 
