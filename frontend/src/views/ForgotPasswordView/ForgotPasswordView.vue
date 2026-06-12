@@ -48,7 +48,7 @@ async function submit() {
             />
           </div>
 
-          <p v-if="error" class="auth-error">{{ error }}</p>
+          <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
 
           <button type="submit" :disabled="loading || !email" class="btn-submit">
             {{ loading ? 'Sending…' : 'Send reset link' }}

@@ -177,7 +177,7 @@ async function deleteAccount() {
         <p class="danger-description">
           Permanently delete your account and all your application records. This cannot be undone.
         </p>
-        <p v-if="deleteError" class="danger-error">{{ deleteError }}</p>
+        <p v-if="deleteError" class="danger-error" role="alert">{{ deleteError }}</p>
         <div v-if="!deleteConfirm" class="form-actions">
           <button @click="deleteConfirm = true" class="btn-danger">Delete my account</button>
         </div>

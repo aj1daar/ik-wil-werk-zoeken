@@ -49,7 +49,7 @@ function startApplication(name: string) {
     <div class="main-split">
       <div :class="['company-list', selectedCompany ? 'hidden md:block' : '']">
         <div v-if="store.loading" class="state-msg">Loading…</div>
-        <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
+        <div v-else-if="store.error" class="state-msg state-msg--error" role="alert">{{ store.error }}</div>
         <div v-else-if="rows.length === 0" class="state-msg">
           {{ search ? 'No companies match your search.' : 'No IND sponsor companies loaded yet.' }}
         </div>

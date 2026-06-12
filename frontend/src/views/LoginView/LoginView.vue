@@ -95,7 +95,7 @@ async function resendVerification() {
         />
 
         <template v-if="error">
-          <p class="auth-error">{{ error }}</p>
+          <p class="auth-error" role="alert">{{ error }}</p>
           <template v-if="isUnverified">
             <p v-if="resendSent" class="auth-success">Verification email sent — check your inbox.</p>
             <button v-else @click.prevent="resendVerification" :disabled="resendLoading" class="btn-resend">

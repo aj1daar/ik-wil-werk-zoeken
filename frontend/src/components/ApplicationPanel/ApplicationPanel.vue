@@ -169,7 +169,7 @@ async function remove() {
     </div>
 
     <div class="panel-footer">
-      <p v-if="saveError" class="save-error">{{ saveError }}</p>
+      <p v-if="saveError" class="save-error" role="alert">{{ saveError }}</p>
       <div class="footer-actions">
         <button @click="save" :disabled="saving || deleting" class="btn-primary footer-primary">
           {{ saving ? 'Saving…' : 'Save changes' }}

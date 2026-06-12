@@ -70,7 +70,7 @@ async function submit() {
           :required="true"
         />
 
-        <p v-if="error" class="auth-error">{{ error }}</p>
+        <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
 
         <button
           type="submit"

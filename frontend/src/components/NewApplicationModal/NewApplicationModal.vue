@@ -97,7 +97,7 @@ async function submit() {
       </div>
 
       <div class="modal-footer">
-        <p v-if="error" class="save-error">{{ error }}</p>
+        <p v-if="error" class="save-error" role="alert">{{ error }}</p>
         <div class="footer-actions">
           <button @click="$emit('close')" class="btn-secondary">Cancel</button>
           <button @click="submit" :disabled="saving" class="btn-primary">
