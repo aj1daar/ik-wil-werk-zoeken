@@ -543,6 +543,172 @@ public sealed class TokenServiceTests : IDisposable
         Assert.Null(svc.ValidateResetToken($"user-x.notanumber.{sig}"));
     }
 
+    // ── CreateEmailChangeToken ───────────────────────────────────────────────
+
+    [Fact]
+    public void CreateEmailChangeToken_ReturnsFourPartToken()
+    {
+        var token = new TokenService().CreateEmailChangeToken("user-1", "new@example.nl");
+        Assert.Equal(4, token.Split('.').Length);
+    }
+
+    [Fact]
+    public void CreateEmailChangeToken_ProducedTokenIsImmediatelyValid()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateEmailChangeToken("user-1", "new@example.nl");
+        var result = svc.ValidateEmailChangeToken(token);
+        Assert.NotNull(result);
+        Assert.Equal("user-1",          result!.Value.UserId);
+        Assert.Equal("new@example.nl",  result!.Value.NewEmail);
+    }
+
+    [Fact]
+    public void CreateEmailChangeToken_EmailWithDots_RoundTripsCorrectly()
+    {
+        var svc   = new TokenService();
+        var email = "first.last+tag@sub.domain.example.com";
+        var token = svc.CreateEmailChangeToken("uid", email);
+        var result = svc.ValidateEmailChangeToken(token);
+        Assert.NotNull(result);
+        Assert.Equal(email, result!.Value.NewEmail);
+    }
+
+    [Fact]
+    public void CreateEmailChangeToken_DifferentEmails_ProduceDifferentTokens()
+    {
+        var svc = new TokenService();
+        var t1  = svc.CreateEmailChangeToken("user-1", "a@example.com");
+        var t2  = svc.CreateEmailChangeToken("user-1", "b@example.com");
+        Assert.NotEqual(t1, t2);
+    }
+
+    [Fact]
+    public void CreateEmailChangeToken_DifferentUsers_ProduceDifferentTokens()
+    {
+        var svc = new TokenService();
+        var t1  = svc.CreateEmailChangeToken("user-aaa", "same@example.com");
+        var t2  = svc.CreateEmailChangeToken("user-bbb", "same@example.com");
+        Assert.NotEqual(t1, t2);
+    }
+
+    [Fact]
+    public void CreateEmailChangeToken_ExpIsApproximately24HoursAhead()
+    {
+        var now   = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var token = new TokenService().CreateEmailChangeToken("uid", "x@x.nl");
+        var exp   = long.Parse(token.Split('.')[2]);
+        Assert.InRange(exp, now + 86390, now + 86410); // within 10 s of 24 h
+    }
+
+    // ── ValidateEmailChangeToken ─────────────────────────────────────────────
+
+    [Fact]
+    public void ValidateEmailChangeToken_ValidToken_ReturnsUserIdAndEmail()
+    {
+        var svc    = new TokenService();
+        var token  = svc.CreateEmailChangeToken("uid-xyz", "updated@test.nl");
+        var result = svc.ValidateEmailChangeToken(token);
+        Assert.NotNull(result);
+        Assert.Equal("uid-xyz",       result!.Value.UserId);
+        Assert.Equal("updated@test.nl", result!.Value.NewEmail);
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_Null_ReturnsNull() =>
+        Assert.Null(new TokenService().ValidateEmailChangeToken(null));
+
+    [Fact]
+    public void ValidateEmailChangeToken_Empty_ReturnsNull() =>
+        Assert.Null(new TokenService().ValidateEmailChangeToken(""));
+
+    [Fact]
+    public void ValidateEmailChangeToken_Whitespace_ReturnsNull() =>
+        Assert.Null(new TokenService().ValidateEmailChangeToken("   "));
+
+    [Fact]
+    public void ValidateEmailChangeToken_WrongPartCount_ReturnsNull()
+    {
+        Assert.Null(new TokenService().ValidateEmailChangeToken("only.three.parts"));
+        Assert.Null(new TokenService().ValidateEmailChangeToken("a.b"));
+        Assert.Null(new TokenService().ValidateEmailChangeToken("five.parts.not.valid.here"));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_TamperedSignature_ReturnsNull()
+    {
+        var svc   = new TokenService();
+        var parts = svc.CreateEmailChangeToken("uid", "e@x.nl").Split('.');
+        Assert.Null(svc.ValidateEmailChangeToken($"{parts[0]}.{parts[1]}.{parts[2]}.INVALIDSIGXXX"));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_TamperedUserId_ReturnsNull()
+    {
+        var svc   = new TokenService();
+        var parts = svc.CreateEmailChangeToken("real-uid", "e@x.nl").Split('.');
+        Assert.Null(svc.ValidateEmailChangeToken($"attacker.{parts[1]}.{parts[2]}.{parts[3]}"));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_TamperedEmail_ReturnsNull()
+    {
+        var svc          = new TokenService();
+        var parts        = svc.CreateEmailChangeToken("uid", "legit@x.nl").Split('.');
+        var altEmail     = B64U(Encoding.UTF8.GetBytes("attacker@evil.com"));
+        Assert.Null(svc.ValidateEmailChangeToken($"{parts[0]}.{altEmail}.{parts[2]}.{parts[3]}"));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_ExpiredToken_ReturnsNull()
+    {
+        var token = CraftEmailChangeToken(Secret, "uid", "e@x.nl",
+            DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeSeconds());
+        Assert.Null(new TokenService().ValidateEmailChangeToken(token));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_ExpiresExactlyNow_ReturnsNull()
+    {
+        var token = CraftEmailChangeToken(Secret, "uid", "e@x.nl",
+            DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        Assert.Null(new TokenService().ValidateEmailChangeToken(token));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_FutureExp_ReturnsResult()
+    {
+        var token = CraftEmailChangeToken(Secret, "uid", "e@x.nl",
+            DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds());
+        Assert.NotNull(new TokenService().ValidateEmailChangeToken(token));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_WrongSecret_ReturnsNull()
+    {
+        var token = new TokenService().CreateEmailChangeToken("uid", "e@x.nl");
+        Environment.SetEnvironmentVariable("JWT_SECRET", "totally-different-secret-XXXXX!!");
+        Assert.Null(new TokenService().ValidateEmailChangeToken(token));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_CannotBeUsedAsResetToken()
+    {
+        // Cross-use attack: email-change token must not validate as a reset token
+        var svc   = new TokenService();
+        var token = svc.CreateEmailChangeToken("uid", "e@x.nl");
+        // ValidateResetToken expects 3 parts; email-change has 4 → must fail
+        Assert.Null(svc.ValidateResetToken(token));
+    }
+
+    [Fact]
+    public void ValidateEmailChangeToken_CannotBeUsedAsVerificationToken()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateEmailChangeToken("uid", "e@x.nl");
+        Assert.Null(svc.ValidateVerificationToken(token));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static User MakeUser(
@@ -587,6 +753,16 @@ public sealed class TokenServiceTests : IDisposable
         var data = $"reset.{userId}.{exp}";
         var sig  = B64U(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
         return $"{userId}.{exp}.{sig}";
+    }
+
+    /// <summary>Crafts a correctly-signed email-change token with a custom exp.</summary>
+    private static string CraftEmailChangeToken(string secret, string userId, string newEmail, long exp)
+    {
+        var encodedEmail = B64U(Encoding.UTF8.GetBytes(newEmail));
+        var data         = $"email-change.{userId}.{newEmail}.{exp}";
+        var sig          = B64U(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+        return $"{userId}.{encodedEmail}.{exp}.{sig}";
     }
 
     private static string B64U(byte[] bytes) =>
