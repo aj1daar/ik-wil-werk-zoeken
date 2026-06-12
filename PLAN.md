@@ -30,37 +30,22 @@
 - [x] Warm-tinted shadows on navbar, cards, buttons, panels, modal
 - [x] AppLogo inline SVG (orange rounded square with magnifying glass)
 - [x] favicon.svg matches AppLogo design
+- [x] CSS consistency — all hardcoded hex colors replaced with CSS variables across all views
+- [x] Privacy Policy page (`/privacy`) — GDPR-compliant with data table, AI notice, right to erasure
+- [x] Per-route `<title>` tags via `meta.title` + `router.afterEach`
+- [x] HomeView error state for stats (`store.statsError` shown on API failure)
 
 ---
 
 ## In Progress / Next
 
-### CRITICAL
-
-- [ ] **Privacy Policy page** (`/privacy` route)
-  - RegisterView links to `/privacy` (opens new tab) but route does not exist — GDPR violation
-  - Create `PrivacyView.vue` with: data collected, purpose, AI notice (Gemini), right to deletion, contact
-  - Add `/privacy` route (public, no auth required)
-
 ### HIGH
 
-- [ ] **CSS consistency across all views**
-  - ApplicationPanel, HomeView, CompaniesView panel styles use hardcoded Tailwind-grey colors
-    (`#1a1a1a`, `#6b7280`, `#d1d5db`, `#e5e7eb`, `white`, `#9ca3af`, `#374151`, `#ef4444`)
-    that clash with the warm palette (--col-text, --col-muted, --col-border, etc.)
-  - Worst offender: ApplicationPanel has local `.btn-primary` overriding the global orange button with **black**
-  - CompaniesView tags use indigo (`#e0e7ff` / `#3730a3`) instead of palette accent
-  - Fix: remove local duplicates of global classes, replace hex literals with CSS variables
-
-- [ ] **Per-route `<title>` tags**
-  - All pages show "IWWZ" regardless of current route
-  - Add `meta.title` to every route, add `router.afterEach` to set `document.title`
+- [ ] **Rate limiting on auth endpoints**
+  - Login, register, forgot-password have no rate limiting in backend
+  - Options: Azure API Management, middleware per-IP counter (in-memory), or 429 after N attempts
 
 ### MEDIUM
-
-- [ ] **HomeView error state for stats**
-  - `store.loadStats` silently swallows API errors — user sees blank screen
-  - Add `statsError` to applications store, show error message in HomeView
 
 - [ ] **Rate limiting on auth endpoints**
   - Login, register, forgot-password have no rate limiting in backend
@@ -84,6 +69,6 @@
 
 ## Infrastructure
 
-- [ ] Register `microsoft.operationalinsights` provider on Azure subscription
+- [X] Register `microsoft.operationalinsights` provider on Azure subscription
   (Application Insights Bicep fails until this provider is registered)
   → Azure Portal → Subscriptions → Resource providers → search "operationalinsights" → Register
