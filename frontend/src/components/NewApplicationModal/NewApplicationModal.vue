@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useApplicationsStore } from '../../stores/applications'
+import { ref, computed } from 'vue'
+import { useApplicationsStore, STATUS_LABELS } from '../../stores/applications'
+import type { ApplicationStatus } from '../../api'
+
+const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted'])
 
 const props = defineProps<{ prefillCompany?: string }>()
 const emit  = defineEmits<{ close: [] }>()
@@ -14,6 +17,14 @@ const locationInput = ref('')
 const locations    = ref<string[]>([])
 const saving       = ref(false)
 const error        = ref('')
+
+const activeMatch = computed(() => {
+  const name = companyName.value.trim().toLowerCase()
+  if (!name) return null
+  return store.applications.find(
+    a => a.companyName.toLowerCase() === name && !TERMINAL.has(a.status)
+  ) ?? null
+})
 
 function addLocation() {
   const l = locationInput.value.trim()
@@ -96,6 +107,10 @@ async function submit() {
         </div>
       </div>
 
+      <div v-if="activeMatch" class="dup-warning" role="status" aria-live="polite">
+        You already have an active <strong>{{ STATUS_LABELS[activeMatch.status] }}</strong> application to <strong>{{ activeMatch.companyName }}</strong>. You can still add another.
+      </div>
+
       <div class="modal-footer">
         <p v-if="error" class="save-error" role="alert">{{ error }}</p>
         <div class="footer-actions">
@@ -138,6 +153,15 @@ async function submit() {
 .city-remove { background: none; border: none; cursor: pointer; color: var(--col-subtle); font-size: 1rem; line-height: 1; padding: 0; }
 .city-remove:hover { color: var(--col-error); }
 .save-error { color: var(--col-error); font-size: .875rem; margin-bottom: .5rem; }
+.dup-warning {
+  margin: 0 1.5rem;
+  padding: .5rem .75rem;
+  font-size: .8125rem;
+  background: var(--col-accent-lt);
+  border: 1px solid color-mix(in srgb, var(--col-accent) 35%, transparent);
+  color: var(--col-accent-dk);
+  border-radius: 6px;
+}
 .icon { width: 1.25rem; height: 1.25rem; }
 .btn-secondary { background: var(--col-bg); color: var(--col-muted); border: 1px solid var(--col-border); border-radius: .375rem; padding: .5rem 1.25rem; font-size: .875rem; cursor: pointer; }
 .btn-secondary:hover { background: var(--col-surface); }
