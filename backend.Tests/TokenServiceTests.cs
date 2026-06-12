@@ -584,7 +584,7 @@ public sealed class TokenServiceTests : IDisposable
     /// <summary>Crafts a correctly-signed reset token with a custom exp.</summary>
     private static string CraftResetToken(string secret, string userId, long exp)
     {
-        var data = $"{userId}.{exp}";
+        var data = $"reset.{userId}.{exp}";
         var sig  = B64U(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
         return $"{userId}.{exp}.{sig}";
     }
