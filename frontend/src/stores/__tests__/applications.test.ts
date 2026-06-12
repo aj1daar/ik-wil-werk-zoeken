@@ -60,10 +60,9 @@ describe('STATUS_COLOR', () => {
     expect(Object.keys(STATUS_COLOR)).toHaveLength(7)
   })
 
-  it('every color contains bg- and text- classes', () => {
-    for (const classes of Object.values(STATUS_COLOR)) {
-      expect(classes).toMatch(/bg-/)
-      expect(classes).toMatch(/text-/)
+  it('every status has a chip CSS class name', () => {
+    for (const cls of Object.values(STATUS_COLOR)) {
+      expect(cls).toMatch(/^chip-/)
     }
   })
 })

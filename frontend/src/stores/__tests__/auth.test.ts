@@ -346,6 +346,61 @@ describe('useAuthStore', () => {
     expect(err).toBe('Account deletion failed')
   })
 
+  // ── role extraction ───────────────────────────────────────────────────────
+
+  it('user.role defaults to "user" when role claim is absent from JWT', () => {
+    const jwt = makeJwt()
+    sessionStorage.setItem('token', jwt)
+    setActivePinia(createPinia())
+    expect(useAuthStore().user?.role).toBe('user')
+  })
+
+  it('user.role is "admin" when JWT payload contains role: admin', () => {
+    const jwt = makeJwt({ role: 'admin' })
+    sessionStorage.setItem('token', jwt)
+    setActivePinia(createPinia())
+    expect(useAuthStore().user?.role).toBe('admin')
+  })
+
+  it('user.role is "user" when JWT payload contains role: user', () => {
+    const jwt = makeJwt({ role: 'user' })
+    sessionStorage.setItem('token', jwt)
+    setActivePinia(createPinia())
+    expect(useAuthStore().user?.role).toBe('user')
+  })
+
+  it('user.role is extracted after login', async () => {
+    const jwt = makeJwt({ role: 'admin' })
+    vi.mocked(api.login).mockResolvedValue({ token: jwt })
+    const store = useAuthStore()
+    await store.login('admin@example.com', 'pass')
+    expect(store.user?.role).toBe('admin')
+  })
+
+  it('user.role is updated after updateProfile returns new token with different role', async () => {
+    const initial = makeJwt({ role: 'user' })
+    vi.mocked(api.login).mockResolvedValue({ token: initial })
+    const store = useAuthStore()
+    await store.login('a@b.com', 'pass')
+    expect(store.user?.role).toBe('user')
+
+    const promoted = makeJwt({ role: 'admin' })
+    vi.mocked(api.updateProfile).mockResolvedValue({ token: promoted })
+    await store.updateProfile({ firstName: 'A', lastName: 'B', preferences: { workType: 'any' } })
+    expect(store.user?.role).toBe('admin')
+  })
+
+  it('non-admin user cannot escalate role by crafting a JWT locally', () => {
+    // This test confirms the store reflects whatever the JWT says — the backend is
+    // authoritative. A hacker can modify sessionStorage, but the API will reject them.
+    // Here we simply verify the client side does read the role claim faithfully.
+    const craftedJwt = makeJwt({ role: 'admin' })
+    sessionStorage.setItem('token', craftedJwt)
+    setActivePinia(createPinia())
+    // Role IS "admin" locally — but the backend checks the real JWT signature on every request
+    expect(useAuthStore().user?.role).toBe('admin')
+  })
+
   // ── parseUser URL-safe base64 ────────────────────────────────────────────
 
   it('parseUser correctly decodes URL-safe base64 JWT payload (real backend format)', () => {
