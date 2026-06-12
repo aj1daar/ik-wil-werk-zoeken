@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, ALL_STATUSES, REJECTION_REASON_LABELS } from '../../stores/applications'
-import type { Application, RejectionReason } from '../../api'
+import type { Application, ActivityLog, RejectionReason } from '../../api'
+import { api } from '../../api'
 
 const props = defineProps<{ application: Application }>()
 const emit  = defineEmits<{ close: [] }>()
@@ -19,9 +20,15 @@ const contactName      = ref(props.application.contactPersonName ?? '')
 const contactEmail     = ref(props.application.contactPersonEmail ?? '')
 const locationInput    = ref('')
 const locations        = ref<string[]>([...props.application.locations])
+const followUpDate     = ref(props.application.followUpDate?.slice(0, 10) ?? '')
 const saving           = ref(false)
 const deleting         = ref(false)
 const saveError        = ref('')
+
+// Activity log
+const activityLogs     = ref<ActivityLog[]>([])
+const activityLoading  = ref(false)
+const showHistory      = ref(false)
 
 watch(() => props.application, (a) => {
   companyName.value     = a.companyName
@@ -34,10 +41,18 @@ watch(() => props.application, (a) => {
   contactName.value     = a.contactPersonName ?? ''
   contactEmail.value    = a.contactPersonEmail ?? ''
   locations.value       = [...a.locations]
+  followUpDate.value    = a.followUpDate?.slice(0, 10) ?? ''
   saveError.value       = ''
+  activityLogs.value    = []
+  showHistory.value     = false
 })
 
 const isRejected = computed(() => status.value === 'Rejected')
+
+const isFollowUpOverdue = computed(() => {
+  if (!followUpDate.value) return false
+  return new Date(followUpDate.value) < new Date(new Date().toDateString())
+})
 
 const REJECTION_REASONS = Object.entries(REJECTION_REASON_LABELS) as [RejectionReason, string][]
 
@@ -68,7 +83,10 @@ async function save() {
       contactPersonName:  contactName.value || undefined,
       contactPersonEmail: contactEmail.value || undefined,
       locations:          locations.value,
+      followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
     })
+    // Refresh activity log after save
+    if (showHistory.value) await loadHistory()
   } catch {
     saveError.value = 'Save failed. Please try again.'
   } finally {
@@ -86,6 +104,45 @@ async function remove() {
     deleting.value = false
   }
 }
+
+async function loadHistory() {
+  activityLoading.value = true
+  try {
+    activityLogs.value = await api.getActivityLog(props.application.id)
+  } catch {
+    // silently ignore; history is non-critical
+  } finally {
+    activityLoading.value = false
+  }
+}
+
+async function toggleHistory() {
+  showHistory.value = !showHistory.value
+  if (showHistory.value && activityLogs.value.length === 0) {
+    await loadHistory()
+  }
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  Status:             'Status',
+  CompanyName:        'Company',
+  Position:           'Position',
+  AppliedAt:          'Applied date',
+  RejectionReason:    'Rejection reason',
+  Notes:              'Notes',
+  ContactPersonName:  'Contact name',
+  ContactPersonEmail: 'Contact email',
+  FollowUpDate:       'Follow-up date',
+  Locations:          'Locations',
+}
+
+function formatLogDate(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 </script>
 
 <template>
@@ -140,6 +197,26 @@ async function remove() {
       </template>
 
       <div class="field">
+        <label class="field-label" for="ap-followup">
+          Follow-up date
+          <span class="optional">(optional)</span>
+          <span v-if="isFollowUpOverdue" class="overdue-badge">overdue</span>
+        </label>
+        <input
+          id="ap-followup"
+          v-model="followUpDate"
+          type="date"
+          :class="['field-input', { 'input-overdue': isFollowUpOverdue }]"
+        />
+        <button
+          v-if="followUpDate"
+          type="button"
+          class="clear-date-btn"
+          @click="followUpDate = ''"
+        >Clear</button>
+      </div>
+
+      <div class="field">
         <label class="field-label">Locations</label>
         <div class="tag-row mb-2">
           <span v-for="l in locations" :key="l" class="city-chip">
@@ -170,6 +247,40 @@ async function remove() {
           :href="`mailto:${application.contactPersonEmail}`"
           class="mailto-link"
         >{{ application.contactPersonEmail }}</a>
+      </div>
+
+      <!-- Activity history -->
+      <div class="history-section">
+        <button class="history-toggle" @click="toggleHistory" :aria-expanded="showHistory">
+          <svg xmlns="http://www.w3.org/2000/svg" class="history-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Change history
+          <svg xmlns="http://www.w3.org/2000/svg" :class="['chevron', { 'chevron--open': showHistory }]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div v-if="showHistory" class="history-body">
+          <div v-if="activityLoading" class="history-empty">Loading…</div>
+          <div v-else-if="activityLogs.length === 0" class="history-empty">No changes recorded yet.</div>
+          <ul v-else class="timeline">
+            <li v-for="log in activityLogs" :key="log.id" class="timeline-item">
+              <span class="timeline-dot"></span>
+              <div class="timeline-content">
+                <span class="timeline-field">{{ fieldLabel(log.field) }}</span>
+                <div class="timeline-change">
+                  <span class="timeline-old">{{ log.oldValue ?? '—' }}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="timeline-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  <span class="timeline-new">{{ log.newValue ?? '—' }}</span>
+                </div>
+                <span class="timeline-date">{{ formatLogDate(log.changedAt) }}</span>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -210,4 +321,30 @@ async function remove() {
 .btn-danger:disabled { opacity: .5; cursor: not-allowed; }
 .mailto-link { font-size: .8rem; color: var(--col-accent); text-decoration: none; margin-top: .125rem; }
 .mailto-link:hover { text-decoration: underline; }
+
+/* follow-up date */
+.overdue-badge { display: inline-block; background: var(--col-error); color: #fff; font-size: .65rem; font-weight: 700; border-radius: 9999px; padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }
+.input-overdue { border-color: var(--col-error) !important; }
+.clear-date-btn { align-self: flex-start; background: none; border: none; color: var(--col-accent); font-size: .8rem; cursor: pointer; padding: 0; margin-top: .125rem; }
+.clear-date-btn:hover { text-decoration: underline; }
+
+/* history */
+.history-section { border-top: 1px solid var(--col-border); margin-top: .25rem; padding-top: .75rem; }
+.history-toggle { display: flex; align-items: center; gap: .4rem; background: none; border: none; cursor: pointer; color: var(--col-muted); font-size: .875rem; font-weight: 500; padding: 0; }
+.history-toggle:hover { color: var(--col-text); }
+.history-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
+.chevron { width: .875rem; height: .875rem; margin-left: auto; transition: transform .18s ease; }
+.chevron--open { transform: rotate(180deg); }
+.history-body { margin-top: .75rem; }
+.history-empty { font-size: .8rem; color: var(--col-subtle); padding: .25rem 0; }
+.timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .625rem; }
+.timeline-item { display: flex; gap: .625rem; align-items: flex-start; }
+.timeline-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--col-accent); flex-shrink: 0; margin-top: .3rem; }
+.timeline-content { flex: 1; min-width: 0; }
+.timeline-field { font-size: .75rem; font-weight: 600; color: var(--col-text); }
+.timeline-change { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; margin-top: .125rem; }
+.timeline-old { font-size: .75rem; color: var(--col-subtle); text-decoration: line-through; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-new { font-size: .75rem; color: var(--col-text); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-arrow { width: .75rem; height: .75rem; color: var(--col-subtle); flex-shrink: 0; }
+.timeline-date { display: block; font-size: .7rem; color: var(--col-subtle); margin-top: .125rem; }
 </style>
