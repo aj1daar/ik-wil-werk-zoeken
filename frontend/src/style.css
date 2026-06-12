@@ -25,6 +25,29 @@
   --col-success-lt: #E8F4EE;
 }
 
+/* ─── Dark Theme ────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --col-bg:         #1C1410;
+  --col-surface:    #251D16;
+  --col-raised:     #302520;
+  --col-border:     #4A3828;
+  --col-border-lt:  #3D3028;
+  --col-text:       #F0E8DC;
+  --col-muted:      #B09070;
+  --col-subtle:     #7A6048;
+  --col-accent:     #D4784A;
+  --col-accent-dk:  #E89060;
+  --col-accent-lt:  #2A160A;
+  --col-nav:        #120E08;
+  --col-nav-text:   #F0E8DC;
+  --col-nav-muted:  #8A7050;
+  --col-nav-active: #E08060;
+  --col-error:      #E06050;
+  --col-error-lt:   #2A0E0A;
+  --col-success:    #5AB070;
+  --col-success-lt: #0A2014;
+}
+
 /* ─── Base ──────────────────────────────────────────────────────── */
 body {
   margin: 0;
