@@ -85,6 +85,8 @@ function count(status: ApplicationStatus): number {
 
     <div v-if="store.statsLoading" class="state-msg">Loading…</div>
 
+    <div v-else-if="store.statsError" class="state-msg state-msg--error">{{ store.statsError }}</div>
+
     <template v-else-if="store.stats">
       <div class="total-card">
         <span class="total-number">{{ store.stats.total }}</span>
@@ -104,31 +106,32 @@ function count(status: ApplicationStatus): number {
 <style scoped>
 .page { max-width: 860px; margin: 0 auto; padding: 2rem 1rem; }
 .page-header { margin-bottom: 1.5rem; }
-.page-title { font-size: 1.5rem; font-weight: 700; color: #1a1a1a; }
-.page-subtitle { color: #6b7280; margin-top: .25rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; color: var(--col-text); }
+.page-subtitle { color: var(--col-muted); margin-top: .25rem; }
 
 .range-bar { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
 .range-btn {
-  padding: .375rem .875rem; border-radius: 9999px; border: 1px solid #d1d5db;
-  background: white; cursor: pointer; font-size: .875rem; color: #374151;
+  padding: .375rem .875rem; border-radius: 9999px; border: 1px solid var(--col-border);
+  background: var(--col-bg); cursor: pointer; font-size: .875rem; color: var(--col-muted);
   transition: all .15s;
 }
-.range-btn--active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+.range-btn--active { background: var(--col-text); color: var(--col-nav-text); border-color: var(--col-text); }
 
 .custom-range { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .custom-range-field { display: flex; flex-direction: column; gap: .25rem; }
-.field-label { font-size: .75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
-.field-input { border: 1px solid #d1d5db; border-radius: .375rem; padding: .375rem .625rem; font-size: .875rem; }
 
-.state-msg { color: #6b7280; padding: 2rem 0; text-align: center; }
+.state-msg { color: var(--col-muted); padding: 2rem 0; text-align: center; }
+.state-msg--error { color: var(--col-error); }
 
 .total-card {
   display: flex; align-items: baseline; gap: .75rem;
-  padding: 1.5rem; background: #f9fafb; border-radius: .75rem;
+  padding: 1.5rem; background: var(--col-surface); border-radius: .75rem;
+  border: 1px solid var(--col-border);
   margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 5%, transparent);
 }
-.total-number { font-size: 3rem; font-weight: 800; color: #1a1a1a; line-height: 1; }
-.total-label  { font-size: 1rem; color: #6b7280; }
+.total-number { font-size: 3rem; font-weight: 800; color: var(--col-text); line-height: 1; }
+.total-label  { font-size: 1rem; color: var(--col-muted); }
 
 .stats-grid {
   display: grid;
@@ -137,12 +140,13 @@ function count(status: ApplicationStatus): number {
 }
 .stat-card {
   display: flex; flex-direction: column; align-items: flex-start; gap: .5rem;
-  padding: 1.25rem 1rem; background: white;
-  border: 1px solid #e5e7eb; border-radius: .75rem;
+  padding: 1.25rem 1rem; background: var(--col-surface);
+  border: 1px solid var(--col-border); border-radius: .75rem;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 4%, transparent);
 }
 .stat-chip {
   display: inline-block; padding: .2rem .6rem; border-radius: 9999px;
   font-size: .75rem; font-weight: 600;
 }
-.stat-count { font-size: 2rem; font-weight: 700; color: #1a1a1a; }
+.stat-count { font-size: 2rem; font-weight: 700; color: var(--col-text); }
 </style>

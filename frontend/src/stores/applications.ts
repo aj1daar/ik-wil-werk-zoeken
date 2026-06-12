@@ -39,6 +39,7 @@ export const useApplicationsStore = defineStore('applications', {
     loading: false,
     statsLoading: false,
     error: null as string | null,
+    statsError: null as string | null,
   }),
 
   actions: {
@@ -56,8 +57,11 @@ export const useApplicationsStore = defineStore('applications', {
 
     async loadStats(from?: string, to?: string) {
       this.statsLoading = true
+      this.statsError = null
       try {
         this.stats = await api.getStats(from, to)
+      } catch {
+        this.statsError = 'Could not load stats. Please try again.'
       } finally {
         this.statsLoading = false
       }

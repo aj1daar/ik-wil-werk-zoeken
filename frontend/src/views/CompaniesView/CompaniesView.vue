@@ -125,21 +125,18 @@ function startApplication(name: string) {
 <style src="../../assets/split-panel.css" scoped></style>
 <style scoped>
 .panel { display: flex; flex-direction: column; height: 100%; }
-.panel-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 1.25rem 1.5rem; border-bottom: 1px solid #e5e7eb; }
+.panel-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border); }
 .panel-title-block { flex: 1; }
-.panel-title { font-size: 1.125rem; font-weight: 700; color: #1a1a1a; }
-.panel-subtitle { font-size: .75rem; color: #9ca3af; margin-top: .125rem; }
+.panel-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); }
+.panel-subtitle { font-size: .75rem; color: var(--col-subtle); margin-top: .125rem; }
 .panel-body { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-.panel-body-text { font-size: .875rem; color: #374151; line-height: 1.6; }
-.ai-notice { font-size: .7rem; color: #9ca3af; margin-top: .5rem; }
+.panel-body-text { font-size: .875rem; color: var(--col-muted); line-height: 1.6; }
+.ai-notice { font-size: .7rem; color: var(--col-subtle); margin-top: .5rem; }
 .field { display: flex; flex-direction: column; gap: .375rem; }
-.field-label { font-size: .75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
 .tag-row { display: flex; flex-wrap: wrap; gap: .375rem; }
-.tag { background: #e0e7ff; color: #3730a3; padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 500; }
-.tag--muted { background: #f3f4f6; color: #6b7280; padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; }
-.panel-footer { padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; }
-.btn-icon { background: none; border: none; cursor: pointer; padding: .25rem; color: #6b7280; }
-.btn-icon:hover { color: #1a1a1a; }
+.tag { background: var(--col-accent-lt); color: var(--col-accent-dk); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 500; }
+.tag--muted { background: var(--col-raised); color: var(--col-muted); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; }
+.panel-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); }
 .icon { width: 1.25rem; height: 1.25rem; }
 .footer-primary { width: 100%; }
 </style>
