@@ -60,14 +60,15 @@
 - [x] `/admin` route with guard (non-admins redirected to `/`)
 - [x] AdminView — promote-user form, reload-sponsors button, users table
 
----
-
-## In Progress / Next
-
-- [ ] **Company City field** — `City` column on `SponsorCompany`; captured from IND register (3rd column); shown in card and detail panel; used for city filter
-- [ ] **Companies advanced filtering** — filter by city (dropdown), tag include/exclude multiselect
-- [ ] **Application detail as modal** — replace slide-in side panel with centered modal overlay; better on mobile, less disorienting on desktop
-- [ ] **Mobile responsiveness** — hamburger navbar (≤ 767 px), full-screen modal/list on mobile, stacked filter bars
+### Companies & Applications Polish
+- [x] **Company City field** — `City` column on `SponsorCompany`; captured from IND register (3rd `<td>`); shown in card and detail panel; city search supported
+- [x] **Companies advanced filtering** — city dropdown (exact match), tag include/exclude multiselect (3-state toggle); `store.filter()` capped at 100
+- [x] **Application detail as modal** — centered `<teleport>` overlay with backdrop; bottom-sheet on mobile; keyboard accessible
+- [x] **Mobile responsiveness** — hamburger navbar (≤ 767 px), full-screen modal on mobile, detail panel hidden on small screens
+- [x] **Session expiry warning** — dismissible banner when JWT < 24 h from expiry; `useSessionExpiry` composable
+- [x] **Application count badge on nav** — active (non-terminal) count shown next to "My Applications"
+- [x] **Contact email mailto: link** — clickable `<a href="mailto:…">` in ApplicationPanel
+- [x] **Status chip colors in dark mode** — per-status CSS classes (`chip-applied`, etc.) with `:root[data-theme="dark"]` overrides
 
 ---
 
@@ -85,9 +86,5 @@
 
 ### LOW
 
-- [ ] **Session expiry warning** — JWT lifetime is 7 days; show a dismissible banner when < 24 h remain
-- [ ] **Application count badge on nav** — show active (non-terminal) application count next to "My Applications"
-- [ ] **Contact email mailto: link** — make contact email in ApplicationPanel a clickable `<a href="mailto:…">` link
-- [ ] **Status chip colors in dark mode** — per-status dark overrides so chip backgrounds are legible in dark theme
 - [ ] **Sticky filter toolbar** — filter bar in ApplicationsView scrolls out of view on long lists; `position: sticky`
 - [ ] **Print / PDF export** — browser print stylesheet or jsPDF for career counsellors
