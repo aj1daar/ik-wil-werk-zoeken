@@ -99,7 +99,7 @@ public sealed class TokenService
     {
         var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
         var exp    = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var data   = $"{userId}.{exp}";
+        var data   = $"reset.{userId}.{exp}";
         var sig    = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
         return $"{userId}.{exp}.{sig}";
@@ -120,7 +120,43 @@ public sealed class TokenService
         if (exp <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return null;
 
         var secret      = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-        var data        = $"{userId}.{exp}";
+        var data        = $"reset.{userId}.{exp}";
+        var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(sig), Encoding.UTF8.GetBytes(expectedSig))
+            ? userId
+            : null;
+    }
+
+    // Verification tokens use "verify." prefix in HMAC data so they cannot be swapped with reset tokens.
+    // Expiry: 72 hours.
+    public string CreateVerificationToken(string userId)
+    {
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var exp    = DateTimeOffset.UtcNow.AddHours(72).ToUnixTimeSeconds();
+        var data   = $"verify.{userId}.{exp}";
+        var sig    = Base64UrlEncode(HMACSHA256.HashData(
+            Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
+        return $"{userId}.{exp}.{sig}";
+    }
+
+    public string? ValidateVerificationToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        var parts = token.Split('.');
+        if (parts.Length != 3) return null;
+
+        var userId = parts[0];
+        var expStr = parts[1];
+        var sig    = parts[2];
+
+        if (string.IsNullOrEmpty(userId) || !long.TryParse(expStr, out var exp)) return null;
+        if (exp <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return null;
+
+        var secret      = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var data        = $"verify.{userId}.{exp}";
         var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
 

@@ -13,6 +13,8 @@ namespace backend;
 [JsonSerializable(typeof(ChangePasswordRequest))]
 [JsonSerializable(typeof(ForgotPasswordRequest))]
 [JsonSerializable(typeof(ResetPasswordRequest))]
+[JsonSerializable(typeof(ResendVerificationRequest))]
+[JsonSerializable(typeof(MessageResponse))]
 [JsonSerializable(typeof(ResendEmailRequest))]
 [JsonSerializable(typeof(ErrorResponse))]
 [JsonSerializable(typeof(JwtPayload))]

@@ -40,6 +40,10 @@ public sealed class AuthFunction
         if (user is null || !PasswordHasher.Verify(body.Password, user.PasswordHash))
             return await ErrorResponse(req, HttpStatusCode.Unauthorized, "Invalid credentials");
 
+        if (!user.EmailVerified)
+            return await ErrorResponse(req, HttpStatusCode.Forbidden,
+                "Please verify your email before signing in. Check your inbox or request a new verification link.");
+
         var token = _tokens.CreateToken(user);
         if (token is null)
             return await ErrorResponse(req, HttpStatusCode.InternalServerError, "JWT_SECRET not configured");
@@ -100,15 +104,19 @@ public sealed class AuthFunction
             PreferredLocation = body.Preferences?.Location?.Trim(),
             WorkType          = NormalizeWorkType(body.Preferences?.WorkType),
             GdprConsentAt     = body.GdprConsentAt.Trim(),
+            EmailVerified     = false,
         };
 
         await _users.CreateAsync(user);
 
-        var token = _tokens.CreateToken(user);
-        if (token is null)
-            return await ErrorResponse(req, HttpStatusCode.InternalServerError, "JWT_SECRET not configured");
+        var verifyToken = _tokens.CreateVerificationToken(user.UserId);
+        var origin      = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+        var verifyLink  = $"{origin}/verify-email?token={Uri.EscapeDataString(verifyToken)}";
+        await _email.SendVerificationAsync(email, verifyLink);
 
-        return await JsonOk(req, new LoginResponse { Token = token }, AppJsonSerializerContext.Default.LoginResponse,
+        return await JsonOk(req,
+            new MessageResponse { Message = "Account created. Please check your email to verify your address." },
+            AppJsonSerializerContext.Default.MessageResponse,
             HttpStatusCode.Created);
     }
 
@@ -290,6 +298,71 @@ public sealed class AuthFunction
         var response = req.CreateResponse(HttpStatusCode.NoContent);
         AddCors(response);
         return response;
+    }
+
+    // GET /api/auth/verify-email?token=
+    [Function("VerifyEmail")]
+    public async Task<HttpResponseData> VerifyEmail(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "options", Route = "auth/verify-email")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        var qs    = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        var token = qs["token"];
+
+        var userId = _tokens.ValidateVerificationToken(token);
+        if (userId is null)
+            return await ErrorResponse(req, HttpStatusCode.BadRequest,
+                "Verification link is invalid or has expired. Please request a new one.");
+
+        var user = await _users.GetByUserIdAsync(userId);
+        if (user is null)
+            return await ErrorResponse(req, HttpStatusCode.BadRequest,
+                "Verification link is invalid or has expired. Please request a new one.");
+
+        if (!user.EmailVerified)
+        {
+            user.EmailVerified = true;
+            await _users.UpdateAsync(user);
+        }
+
+        var jwtToken = _tokens.CreateToken(user);
+        if (jwtToken is null)
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError, "JWT_SECRET not configured");
+
+        return await JsonOk(req, new LoginResponse { Token = jwtToken }, AppJsonSerializerContext.Default.LoginResponse);
+    }
+
+    // POST /api/auth/resend-verification
+    [Function("ResendVerification")]
+    public async Task<HttpResponseData> ResendVerification(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "auth/resend-verification")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        ResendVerificationRequest? body = null;
+        try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.ResendVerificationRequest); }
+        catch { /* malformed JSON */ }
+
+        if (!string.IsNullOrWhiteSpace(body?.Email))
+        {
+            var email = body.Email.Trim().ToLowerInvariant();
+            var user  = await _users.GetByEmailAsync(email);
+            if (user is not null && !user.EmailVerified)
+            {
+                var verifyToken = _tokens.CreateVerificationToken(user.UserId);
+                var origin      = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+                var verifyLink  = $"{origin}/verify-email?token={Uri.EscapeDataString(verifyToken)}";
+                await _email.SendVerificationAsync(email, verifyLink);
+            }
+        }
+
+        // Always 204 — prevent email enumeration
+        var res = req.CreateResponse(HttpStatusCode.NoContent);
+        AddCors(res);
+        return res;
     }
 
     // ── validation helpers ────────────────────────────────────────────────────

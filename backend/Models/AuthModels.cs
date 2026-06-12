@@ -47,6 +47,16 @@ public sealed class ResetPasswordRequest
     [JsonPropertyName("newPassword")] public string NewPassword { get; set; } = string.Empty;
 }
 
+public sealed class ResendVerificationRequest
+{
+    [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
+}
+
+public sealed class MessageResponse
+{
+    [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;
+}
+
 internal sealed class ResendEmailRequest
 {
     [JsonPropertyName("from")]    public string   From    { get; set; } = string.Empty;
