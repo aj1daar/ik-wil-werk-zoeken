@@ -60,16 +60,25 @@ export const api = {
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 
-  getRecords: () =>
-    request<ApplicationRecord[]>('GET', '/api/dashboard/stages'),
+  getApplications: () =>
+    request<Application[]>('GET', '/api/dashboard/applications'),
 
-  saveRecord: (id: string, record: Partial<ApplicationRecord>, isNew: boolean) =>
-    isNew
-      ? request<ApplicationRecord>('POST', '/api/dashboard/stages', { ...record, id, sponsorCompanyId: id })
-      : request<ApplicationRecord>('PUT', `/api/dashboard/stages/${id}`, { ...record, id, sponsorCompanyId: id }),
+  createApplication: (data: Omit<Application, 'id' | 'userId' | 'status' | 'updatedAt'>) =>
+    request<Application>('POST', '/api/dashboard/applications', data),
 
-  deleteRecord: (id: string) =>
-    request<void>('DELETE', `/api/dashboard/stages/${id}`)
+  updateApplication: (id: string, data: Partial<Application>) =>
+    request<Application>('PUT', `/api/dashboard/applications/${id}`, data),
+
+  deleteApplication: (id: string) =>
+    request<void>('DELETE', `/api/dashboard/applications/${id}`),
+
+  getStats: (from?: string, to?: string) => {
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (to)   params.set('to', to)
+    const qs = params.toString()
+    return request<Stats>('GET', `/api/dashboard/stats${qs ? `?${qs}` : ''}`)
+  }
 }
 
 export interface SponsorCompany {
@@ -83,13 +92,40 @@ export interface SponsorCompany {
   enrichedAt?: string
 }
 
-export interface ApplicationRecord {
+export interface Application {
   id: string
-  sponsorCompanyId: string
-  status: string
+  userId: string
+  companyName: string
+  position: string
+  appliedAt: string
+  status: ApplicationStatus
+  rejectionReason?: RejectionReason
+  rejectionNote?: string
   notes?: string
   contactPersonName?: string
   contactPersonEmail?: string
-  cities: string[]
+  locations: string[]
   updatedAt: string
+}
+
+export type ApplicationStatus =
+  | 'Applied'
+  | 'InterviewScheduled'
+  | 'OfferReceived'
+  | 'OnHold'
+  | 'Rejected'
+  | 'Withdrawn'
+  | 'Accepted'
+
+export type RejectionReason =
+  | 'dutch_language'
+  | 'another_candidate'
+  | 'incompatible_profile'
+  | 'salary_mismatch'
+  | 'internal_hire'
+  | 'other'
+
+export interface Stats {
+  total: number
+  byStatus: Partial<Record<ApplicationStatus, number>>
 }

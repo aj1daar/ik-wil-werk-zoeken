@@ -13,9 +13,10 @@ function signOut() {
 }
 
 const NAV_LINKS = [
-  { to: '/',           label: 'Home' },
-  { to: '/bookmarked', label: 'Bookmarked' },
-  { to: '/profile',    label: 'Profile' },
+  { to: '/',             label: 'Home' },
+  { to: '/applications', label: 'My Applications' },
+  { to: '/companies',    label: 'Companies' },
+  { to: '/profile',      label: 'Profile' },
 ]
 </script>
 
