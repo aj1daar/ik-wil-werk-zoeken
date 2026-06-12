@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import AppLogo from '../../components/AppLogo/AppLogo.vue'
 import PasswordField from '../../components/PasswordField/PasswordField.vue'
 
-const router = useRouter()
-const auth   = useAuthStore()
+const auth = useAuthStore()
 
 const firstName   = ref('')
 const lastName    = ref('')
@@ -18,6 +16,7 @@ const workType    = ref<'any'|'onsite'|'hybrid'|'remote'>('any')
 const gdprConsent = ref(false)
 const error       = ref('')
 const loading     = ref(false)
+const submitted   = ref(false)
 
 const WORK_TYPES = [
   { value: 'any',    label: 'Any arrangement' },
@@ -47,7 +46,7 @@ async function submit() {
   })
   loading.value = false
   if (err) error.value = err
-  else router.push('/')
+  else submitted.value = true
 }
 </script>
 
@@ -57,7 +56,22 @@ async function submit() {
       <AppLogo :size="40" />
     </div>
 
-    <div class="auth-card register-card">
+    <div v-if="submitted" class="auth-card register-card">
+      <h1 class="auth-title">Check your inbox</h1>
+      <p class="auth-subtitle">
+        We sent a verification link to <strong>{{ email }}</strong>.
+        Click the link in that email to activate your account.
+      </p>
+      <p class="auth-subtitle" style="margin-top: 0.5rem; font-size: 0.8125rem;">
+        The link expires in 72 hours. Check your spam folder if you don't see it.
+      </p>
+      <p class="auth-footer" style="margin-top: 1.5rem;">
+        Already have an account?
+        <router-link to="/login" class="auth-link">Sign in</router-link>
+      </p>
+    </div>
+
+    <div v-else class="auth-card register-card">
       <h1 class="auth-title">Create your account</h1>
       <p class="auth-subtitle">Track Dutch IND sponsors and manage your job search in one place.</p>
 
@@ -132,7 +146,7 @@ async function submit() {
         Already have an account?
         <router-link to="/login" class="auth-link">Sign in</router-link>
       </p>
-    </div>
+    </div><!-- /v-else auth-card -->
   </div>
 </template>
 

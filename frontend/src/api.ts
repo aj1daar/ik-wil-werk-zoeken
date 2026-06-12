@@ -40,7 +40,13 @@ export const api = {
     preferences?: { targetRole?: string; location?: string; workType?: string }
     gdprConsentAt: string
   }) =>
-    request<{ token: string }>('POST', '/api/auth/register', data),
+    request<void>('POST', '/api/auth/register', data),
+
+  verifyEmail: (token: string) =>
+    request<{ token: string }>('GET', `/api/auth/verify-email?token=${encodeURIComponent(token)}`),
+
+  resendVerification: (email: string) =>
+    request<void>('POST', '/api/auth/resend-verification', { email }),
 
   updateProfile: (data: { firstName: string; lastName: string; preferences: unknown }) =>
     request<{ token: string }>('PUT', '/api/auth/profile', data),

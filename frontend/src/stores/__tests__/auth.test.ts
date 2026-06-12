@@ -160,9 +160,8 @@ describe('useAuthStore', () => {
 
   // ── register ──────────────────────────────────────────────────────────────
 
-  it('register sets token and user on success', async () => {
-    const jwt = makeJwt({ email: 'new@example.com', sub: 'new-id' })
-    vi.mocked(api.register).mockResolvedValue({ token: jwt })
+  it('register returns null on success without setting a session token', async () => {
+    vi.mocked(api.register).mockResolvedValue(undefined)
     const store = useAuthStore()
     const err = await store.register({
       firstName: 'New', lastName: 'User',
@@ -170,10 +169,10 @@ describe('useAuthStore', () => {
       gdprConsentAt: new Date().toISOString(),
     })
     expect(err).toBeNull()
-    expect(store.token).toBe(jwt)
-    expect(store.user?.email).toBe('new@example.com')
-    expect(store.user?.userId).toBe('new-id')
-    expect(sessionStorage.getItem('token')).toBe(jwt)
+    // Registration no longer issues a JWT — user must verify email first
+    expect(store.token).toBeNull()
+    expect(store.user).toBeNull()
+    expect(sessionStorage.getItem('token')).toBeNull()
   })
 
   it('register returns error message on failure', async () => {

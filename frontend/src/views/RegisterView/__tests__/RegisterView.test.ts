@@ -15,11 +15,6 @@ vi.mock('../../../api', () => ({
 
 import { api } from '../../../api'
 
-function makeJwt(email = 'new@example.com'): string {
-  const b64 = (obj: unknown) => btoa(JSON.stringify(obj))
-  const payload = { sub: 'u1', email, firstName: 'Jan', lastName: 'de Vries', exp: 9999999999 }
-  return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(payload)}.fakesig`
-}
 
 function makeRouter() {
   return createRouter({
@@ -123,7 +118,7 @@ describe('RegisterView', () => {
   // ── GDPR enforcement ─────────────────────────────────────────────────────
 
   it('submitting without gdprConsent shows an error without calling api.register', async () => {
-    vi.mocked(api.register).mockResolvedValue({ token: makeJwt() })
+    vi.mocked(api.register).mockResolvedValue(undefined)
     const w = mountView()
     await fillRequired(w)
     // Do NOT check consent, force-trigger submit
@@ -136,7 +131,7 @@ describe('RegisterView', () => {
   // ── successful registration ──────────────────────────────────────────────
 
   it('calls api.register with trimmed data and a gdprConsentAt timestamp', async () => {
-    vi.mocked(api.register).mockResolvedValue({ token: makeJwt() })
+    vi.mocked(api.register).mockResolvedValue(undefined)
     const w = mountView()
     await w.find('#firstName').setValue('  Jan  ')
     await w.find('#lastName').setValue('  de Vries  ')
@@ -154,20 +149,22 @@ describe('RegisterView', () => {
     expect(call.gdprConsentAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 
-  it('navigates to / on successful registration', async () => {
-    vi.mocked(api.register).mockResolvedValue({ token: makeJwt() })
+  it('shows "check your inbox" screen on successful registration', async () => {
+    vi.mocked(api.register).mockResolvedValue(undefined)
     const w = mountView()
     await fillRequired(w)
     await w.find('input[type="checkbox"]').setValue(true)
     await w.find('form').trigger('submit')
     await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/')
+    // No redirect — user must verify email first
+    expect(router.currentRoute.value.path).toBe('/register')
+    expect(w.text()).toContain('Check your inbox')
   })
 
   // ── optional preference fields ───────────────────────────────────────────
 
   it('includes targetRole in preferences when filled', async () => {
-    vi.mocked(api.register).mockResolvedValue({ token: makeJwt() })
+    vi.mocked(api.register).mockResolvedValue(undefined)
     const w = mountView()
     await fillRequired(w)
     await w.find('#targetRole').setValue('Software Engineer')
@@ -179,7 +176,7 @@ describe('RegisterView', () => {
   })
 
   it('targetRole is undefined when left empty', async () => {
-    vi.mocked(api.register).mockResolvedValue({ token: makeJwt() })
+    vi.mocked(api.register).mockResolvedValue(undefined)
     const w = mountView()
     await fillRequired(w)
     await w.find('input[type="checkbox"]').setValue(true)

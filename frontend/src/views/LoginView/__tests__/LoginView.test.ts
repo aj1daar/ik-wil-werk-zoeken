@@ -130,7 +130,7 @@ describe('LoginView', () => {
     await w.find('form').trigger('submit')
     await flushPromises()
     expect(w.find('.auth-error').exists()).toBe(true)
-    expect(w.text()).toContain('Login failed')
+    expect(w.text()).toContain('Bad credentials')
   })
 
   it('shows "Incorrect email or password" for Unauthorized error', async () => {

@@ -3,3 +3,15 @@
 .auth-expired    { font-size: 0.8125rem; color: var(--col-accent);   margin: 0 0 0.75rem; }
 .auth-success    { font-size: 0.8125rem; color: var(--col-success);  margin: 0 0 0.75rem; }
 .auth-forgot     { font-size: 0.8125rem; text-align: center; margin: 0; }
+.btn-resend {
+  display: inline-block;
+  font-size: 0.8125rem;
+  color: var(--col-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-bottom: 0.5rem;
+}
+.btn-resend:disabled { opacity: 0.6; cursor: not-allowed; }

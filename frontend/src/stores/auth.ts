@@ -70,13 +70,22 @@ export const useAuthStore = defineStore('auth', {
 
     async register(payload: RegisterData): Promise<string | null> {
       try {
-        const data = await api.register(payload)
+        await api.register(payload)
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Registration failed'
+      }
+    },
+
+    async verifyEmail(token: string): Promise<string | null> {
+      try {
+        const data = await api.verifyEmail(token)
         this.token = data.token
         this.user  = parseUser(data.token)
         sessionStorage.setItem('token', data.token)
         return null
       } catch (e) {
-        return e instanceof Error ? e.message : 'Registration failed'
+        return e instanceof Error ? e.message : 'Verification failed'
       }
     },
 
