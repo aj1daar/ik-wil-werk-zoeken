@@ -35,13 +35,13 @@ var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-builder.Services.AddSingleton<SponsorStore>();
 builder.Services.AddSingleton<IndSponsorScraper>();
 builder.Services.AddSingleton<CompanyEnricher>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<EmailService>();
 builder.Services.AddScoped<UserStore>();
 builder.Services.AddScoped<StageStore>();
+builder.Services.AddScoped<SponsorStore>();
 
 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
 {
@@ -52,13 +52,15 @@ if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHT
 
 var host = builder.Build();
 
+// Seed sponsor companies on first run (table must already exist — migrations run in CI)
 using (var scope = host.Services.CreateScope())
 {
-    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (!await db.Sponsors.AnyAsync())
+    {
+        db.Sponsors.AddRange(SeedData.Companies);
+        await db.SaveChangesAsync();
+    }
 }
-
-var store = host.Services.GetRequiredService<SponsorStore>();
-foreach (var c in SeedData.Companies)
-    store.Companies[c.Id] = c;
 
 host.Run();

@@ -25,11 +25,10 @@ public sealed class MonthlyIndSponsorSyncFunction
         var logger = context.GetLogger<MonthlyIndSponsorSyncFunction>();
         logger.LogInformation("IND sponsor sync started at {Timestamp}", DateTimeOffset.UtcNow);
 
-        IReadOnlyList<backend.Models.SponsorCompany> companies;
-
+        IReadOnlyList<backend.Models.SponsorCompany> freshCompanies;
         try
         {
-            companies = await _scraper.FetchAsync();
+            freshCompanies = await _scraper.FetchAsync();
         }
         catch (Exception ex)
         {
@@ -37,36 +36,39 @@ public sealed class MonthlyIndSponsorSyncFunction
             return;
         }
 
+        // Load existing from DB to preserve enrichment data written by previous syncs
+        var existing = (await _store.GetAllAsync()).ToDictionary(c => c.Id);
+
         var added = 0;
         var updated = 0;
 
-        foreach (var company in companies)
+        foreach (var company in freshCompanies)
         {
-            // Preserve enrichment data on update — scraper produces unenriched objects
-            if (_store.Companies.TryGetValue(company.Id, out var existing))
+            if (existing.TryGetValue(company.Id, out var prev))
             {
-                company.Summary = existing.Summary;
-                company.CoreIndustry = existing.CoreIndustry;
-                company.TechStackTags = existing.TechStackTags;
-                company.FunctionalTags = existing.FunctionalTags;
-                company.EnrichedAt = existing.EnrichedAt;
+                company.Summary        = prev.Summary;
+                company.CoreIndustry   = prev.CoreIndustry;
+                company.TechStackTags  = prev.TechStackTags;
+                company.FunctionalTags = prev.FunctionalTags;
+                company.EnrichedAt     = prev.EnrichedAt;
                 updated++;
             }
             else
             {
                 added++;
             }
-            _store.Companies[company.Id] = company;
         }
 
-        logger.LogInformation(
-            "Sync complete — added: {Added}, updated: {Updated}, total in store: {Total}",
-            added, updated, _store.Companies.Count);
+        await _store.UpsertAllAsync(freshCompanies);
 
-        // Enrich companies that have no LLM data yet (concurrent, max 5 at a time)
-        var toEnrich = _store.Companies.Values
-            .Where(c => c.EnrichedAt is null)
-            .ToList();
+        logger.LogInformation(
+            "Sync complete — added: {Added}, updated: {Updated}, total: {Total}",
+            added, updated, freshCompanies.Count);
+
+        // Enrich companies that have no LLM data yet
+        // Parallel HTTP calls are fine; each mutates its own object in memory.
+        // DB writes happen sequentially afterwards to avoid DbContext concurrency issues.
+        var toEnrich = freshCompanies.Where(c => c.EnrichedAt is null).ToList();
 
         if (toEnrich.Count == 0)
             return;
@@ -84,6 +86,10 @@ public sealed class MonthlyIndSponsorSyncFunction
                 else
                     Interlocked.Increment(ref enrichFailed);
             });
+
+        // Persist enrichment results sequentially (DbContext is not thread-safe)
+        foreach (var company in toEnrich.Where(c => c.EnrichedAt is not null))
+            await _store.UpsertAsync(company);
 
         logger.LogInformation(
             "Enrichment complete — enriched: {Enriched}, failed: {EnrichFailed} of {Total}",

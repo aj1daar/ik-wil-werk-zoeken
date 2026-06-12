@@ -9,6 +9,7 @@ public sealed class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<ApplicationStage> Stages => Set<ApplicationStage>();
+    public DbSet<SponsorCompany> Sponsors => Set<SponsorCompany>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,13 @@ public sealed class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(s => s.UserId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SponsorCompany>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.TechStackTags).HasColumnType("text[]");
+            e.Property(s => s.FunctionalTags).HasColumnType("text[]");
         });
     }
 }
