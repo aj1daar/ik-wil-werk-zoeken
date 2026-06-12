@@ -13,9 +13,9 @@ vi.mock('../../../api', () => ({
   }
 }))
 
-import { api } from '../../../api'
+import { api, type Application } from '../../../api'
 
-function makeCreatedApp() {
+function makeCreatedApp(): Application {
   return {
     id: 'new-1', userId: 'u1', companyName: 'Acme', position: 'Engineer',
     appliedAt: '2026-01-01T00:00:00Z', status: 'Applied', locations: [], updatedAt: '2026-01-01T00:00:00Z',
