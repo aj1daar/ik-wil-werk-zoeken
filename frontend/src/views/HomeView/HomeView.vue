@@ -132,7 +132,7 @@ function count(status: ApplicationStatus): number {
   background: var(--col-bg); cursor: pointer; font-size: .875rem; color: var(--col-muted);
   transition: all .15s;
 }
-.range-btn--active { background: var(--col-text); color: var(--col-nav-text); border-color: var(--col-text); }
+.range-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); }
 
 .custom-range { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .custom-range-field { display: flex; flex-direction: column; gap: .25rem; }

@@ -181,7 +181,7 @@ function exportCsv() {
 <style scoped>
 .btn-new {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-text); color: var(--col-nav-text); border: none; border-radius: .375rem;
+  background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: .375rem;
   padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
   white-space: nowrap;
 }

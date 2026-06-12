@@ -23,6 +23,8 @@
   --col-error-lt:   #FAEAE6;
   --col-success:    #2E6E4A;
   --col-success-lt: #E8F4EE;
+  --col-invert-bg:   #2A1F15; /* always-dark bg for pill/badge on light surfaces */
+  --col-invert-text: #FAF7F2; /* always-light text on col-invert-bg */
 }
 
 /* ─── Dark Theme ────────────────────────────────────────────────── */
@@ -46,6 +48,8 @@
   --col-error-lt:   #2A0E0A;
   --col-success:    #5AB070;
   --col-success-lt: #0A2014;
+  --col-invert-bg:   #D4784A; /* accent orange — contrast on dark surfaces */
+  --col-invert-text: #FAF7F2;
 }
 
 /* ─── Base ──────────────────────────────────────────────────────── */
