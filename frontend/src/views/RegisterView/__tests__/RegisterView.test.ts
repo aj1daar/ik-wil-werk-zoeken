@@ -20,9 +20,10 @@ function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/register', component: RegisterView },
-      { path: '/',         component: { template: '<div id="home"/>' } },
-      { path: '/login',    component: { template: '<div id="login"/>' } },
+      { path: '/register',       component: RegisterView },
+      { path: '/',               component: { template: '<div id="home"/>' } },
+      { path: '/login',          component: { template: '<div id="login"/>' } },
+      { path: '/forgot-password', component: { template: '<div id="forgot"/>' } },
     ]
   })
 }
@@ -116,6 +117,27 @@ describe('RegisterView', () => {
     expect(w.find('button[type="submit"]').attributes('disabled')).toBeDefined()
   })
 
+  it('submit button is disabled when password is shorter than 8 characters', async () => {
+    const w = mountView()
+    await w.find('#firstName').setValue('Jan')
+    await w.find('#lastName').setValue('de Vries')
+    await w.find('#reg-email').setValue('jan@example.com')
+    await w.find('#reg-password').setValue('short')
+    await w.find('#reg-confirm-password').setValue('short')
+    await w.find('input[type="checkbox"]').setValue(true)
+    expect(w.find('button[type="submit"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('shows password requirement hint only after typing', async () => {
+    const w = mountView()
+    expect(w.find('.pw-reqs').exists()).toBe(false)
+    await w.find('#reg-password').setValue('ab')
+    expect(w.find('.pw-reqs').exists()).toBe(true)
+    expect(w.find('.req-fail').exists()).toBe(true)
+    await w.find('#reg-password').setValue('password123')
+    expect(w.find('.req-ok').exists()).toBe(true)
+  })
+
   // ── GDPR enforcement ─────────────────────────────────────────────────────
 
   it('submitting without gdprConsent shows an error without calling api.register', async () => {
@@ -199,6 +221,18 @@ describe('RegisterView', () => {
     await flushPromises()
     expect(w.find('.auth-error').exists()).toBe(true)
     expect(w.text()).toContain('409 Email already in use')
+  })
+
+  it('shows sign-in and reset links when email is already registered', async () => {
+    vi.mocked(api.register).mockRejectedValue(new Error('An account with this email already exists'))
+    const w = mountView()
+    await fillRequired(w)
+    await w.find('input[type="checkbox"]').setValue(true)
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.text()).toContain('This email is already registered')
+    expect(w.find('a[href="/login"]').exists()).toBe(true)
+    expect(w.find('a[href="/forgot-password"]').exists()).toBe(true)
   })
 
   it('stays on /register after a failed registration', async () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import AppLogo from '../../components/AppLogo/AppLogo.vue'
 import PasswordField from '../../components/PasswordField/PasswordField.vue'
@@ -18,6 +18,15 @@ const gdprConsent = ref(false)
 const error       = ref('')
 const loading     = ref(false)
 const submitted   = ref(false)
+
+const pwLongEnough  = computed(() => password.value.length >= 8)
+const pwTouched     = computed(() => password.value.length > 0)
+const isEmailTaken  = computed(() => error.value.toLowerCase().includes('already exists'))
+const emailInvalid  = ref(false)
+
+function checkEmail() {
+  emailInvalid.value = !!email.value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value.trim())
+}
 
 const WORK_TYPES = [
   { value: 'any',    label: 'Any arrangement' },
@@ -94,7 +103,18 @@ async function submit() {
 
         <div>
           <label class="field-label" for="reg-email">Email</label>
-          <input id="reg-email" v-model="email" type="email" placeholder="you@example.com" autocomplete="email" class="auth-input" required />
+          <input
+            id="reg-email"
+            v-model="email"
+            type="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+            class="auth-input"
+            :class="{ 'input-error': emailInvalid }"
+            @blur="checkEmail"
+            required
+          />
+          <p v-if="emailInvalid" class="field-hint field-hint--error">Enter a valid email address.</p>
         </div>
 
         <PasswordField
@@ -107,6 +127,9 @@ async function submit() {
           :required="true"
           :minlength="8"
         />
+        <ul v-if="pwTouched" class="pw-reqs">
+          <li :class="pwLongEnough ? 'req-ok' : 'req-fail'">At least 8 characters</li>
+        </ul>
 
         <div>
           <label class="field-label" for="reg-confirm-password">Confirm password</label>
@@ -155,9 +178,17 @@ async function submit() {
           </span>
         </label>
 
-        <p v-if="error" id="reg-error" class="auth-error" role="alert">{{ error }}</p>
+        <div v-if="error" id="reg-error" role="alert">
+          <p v-if="isEmailTaken" class="auth-error">
+            This email is already registered.
+            <router-link to="/login" class="auth-link">Sign in</router-link>
+            or
+            <router-link to="/forgot-password" class="auth-link">reset your password</router-link>.
+          </p>
+          <p v-else class="auth-error">{{ error }}</p>
+        </div>
 
-        <button type="submit" :disabled="loading || !firstName || !lastName || !email || !password || !confirmPassword || !gdprConsent" class="btn-submit">
+        <button type="submit" :disabled="loading || !firstName || !lastName || !email || emailInvalid || !pwLongEnough || !confirmPassword || !gdprConsent" class="btn-submit">
           {{ loading ? 'Creating account…' : 'Create account' }}
         </button>
       </form>

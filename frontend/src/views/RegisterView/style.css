@@ -18,3 +18,22 @@
   height: 1rem;
 }
 .consent-text { font-size: 0.8125rem; color: var(--col-muted); line-height: 1.5; }
+
+.field-hint { font-size: .75rem; margin-top: .25rem; }
+.field-hint--error { color: var(--col-error); }
+.input-error { border-color: var(--col-error) !important; }
+
+.pw-reqs {
+  list-style: none;
+  padding: 0;
+  margin: .25rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: .125rem;
+}
+.pw-reqs li { font-size: .75rem; display: flex; align-items: center; gap: .375rem; }
+.pw-reqs li::before { content: ''; display: inline-block; width: .75rem; height: .75rem; border-radius: 50%; flex-shrink: 0; }
+.req-ok   { color: var(--col-accent-dk); }
+.req-ok::before   { background: var(--col-accent); }
+.req-fail { color: var(--col-subtle); }
+.req-fail::before { background: var(--col-border); }
