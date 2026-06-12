@@ -12,14 +12,12 @@ public sealed class AuthFunction
 {
     private readonly TokenService _tokens;
     private readonly UserStore    _users;
-    private readonly StageStore   _stages;
     private readonly EmailService _email;
 
-    public AuthFunction(TokenService tokens, UserStore users, StageStore stages, EmailService email)
+    public AuthFunction(TokenService tokens, UserStore users, EmailService email)
     {
         _tokens = tokens;
         _users  = users;
-        _stages = stages;
         _email  = email;
     }
 
@@ -222,8 +220,7 @@ public sealed class AuthFunction
         if (user is null)
             return await ErrorResponse(req, HttpStatusCode.NotFound, "User not found");
 
-        await _stages.DeleteAllByUserIdAsync(user.UserId);
-        await _users.DeleteAsync(user);
+        await _users.DeleteAsync(user); // cascade deletes all Stages via FK
 
         var res = req.CreateResponse(HttpStatusCode.NoContent);
         AddCors(res);
