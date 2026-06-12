@@ -8,6 +8,7 @@
     "IND_REGISTER_URL": "",
     "ALLOWED_ORIGIN": "http://localhost:5173",
     "RESEND_API_KEY": "",
-    "RESEND_FROM": "noreply@iwwz.nogoibay.org"
+    "RESEND_FROM": "noreply@iwwz.nogoibay.org",
+    "DATABASE_URL": "Host=localhost;Database=iwwz;Username=postgres;Password=postgres"
   }
 }

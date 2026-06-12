@@ -545,17 +545,16 @@ public sealed class TokenServiceTests : IDisposable
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static UserEntity MakeUser(
+    private static User MakeUser(
         string email     = "jan@example.com",
         string firstName = "Jan",
         string lastName  = "de Vries",
-        string userId    = "user-test-id") => new UserEntity
+        string userId    = "user-test-id") => new User
     {
         UserId    = userId,
         Email     = email,
         FirstName = firstName,
         LastName  = lastName,
-        RowKey    = email.ToLowerInvariant(),
     };
 
     private static JsonElement DecodePayload(string token)

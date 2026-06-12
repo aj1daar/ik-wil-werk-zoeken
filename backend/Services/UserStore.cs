@@ -1,59 +1,32 @@
-using Azure;
-using Azure.Data.Tables;
+using backend.Data;
 using backend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
-public sealed class UserStore
+public sealed class UserStore(AppDbContext db)
 {
-    private const string TableName = "iwwzusers";
+    public async Task<User?> GetByEmailAsync(string email) =>
+        await db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant());
 
-    private TableClient GetClient()
+    public async Task<User?> GetByUserIdAsync(string userId) =>
+        await db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+
+    public async Task CreateAsync(User user)
     {
-        var conn = Environment.GetEnvironmentVariable("AzureWebJobsStorage")
-            ?? throw new InvalidOperationException("AzureWebJobsStorage not set");
-        var client = new TableClient(conn, TableName);
-        client.CreateIfNotExists();
-        return client;
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
     }
 
-    public async Task<UserEntity?> GetByEmailAsync(string email)
+    public async Task UpdateAsync(User user)
     {
-        var rowKey = email.ToLowerInvariant();
-        try
-        {
-            var resp = await GetClient().GetEntityAsync<UserEntity>("users", rowKey);
-            return resp.Value;
-        }
-        catch (RequestFailedException e) when (e.Status == 404)
-        {
-            return null;
-        }
+        db.Users.Update(user);
+        await db.SaveChangesAsync();
     }
 
-    public async Task<UserEntity?> GetByUserIdAsync(string userId)
+    public async Task DeleteAsync(User user)
     {
-        var client = GetClient();
-        await foreach (var entity in client.QueryAsync<UserEntity>(
-            e => e.PartitionKey == "users" && e.UserId == userId))
-            return entity;
-        return null;
-    }
-
-    public async Task CreateAsync(UserEntity user)
-    {
-        user.PartitionKey = "users";
-        user.RowKey       = user.Email.ToLowerInvariant();
-        await GetClient().AddEntityAsync(user);
-    }
-
-    public async Task UpdateAsync(UserEntity user)
-    {
-        await GetClient().UpdateEntityAsync(user, user.ETag, TableUpdateMode.Replace);
-    }
-
-    public async Task DeleteAsync(UserEntity user)
-    {
-        await GetClient().DeleteEntityAsync(user.PartitionKey, user.RowKey, user.ETag);
+        db.Users.Remove(user);
+        await db.SaveChangesAsync();
     }
 }
