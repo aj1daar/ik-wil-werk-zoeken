@@ -94,6 +94,12 @@ public sealed class PromoteRequest
     [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
 }
 
+public sealed class BulkStatusRequest
+{
+    [JsonPropertyName("ids")]    public string[] Ids    { get; set; } = [];
+    [JsonPropertyName("status")] public string   Status { get; set; } = string.Empty;
+}
+
 public sealed class AdminUserSummary
 {
     [JsonPropertyName("userId")]        public string UserId        { get; set; } = string.Empty;
