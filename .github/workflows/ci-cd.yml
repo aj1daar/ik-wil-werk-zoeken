@@ -216,6 +216,7 @@ jobs:
       - name: Run database migrations
         run: |
           dotnet tool install --global dotnet-ef || dotnet tool update --global dotnet-ef
+          dotnet restore backend/backend.csproj
           DATABASE_URL="Host=${{ vars.AZURE_FUNCTION_APP_NAME }}-pg.postgres.database.azure.com;Database=iwwz;Username=iwwzadmin;Password=${{ secrets.POSTGRES_PASSWORD }};SSL Mode=Require" \
           dotnet ef database update --project backend --startup-project backend
       - name: Package and deploy
