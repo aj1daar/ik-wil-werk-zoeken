@@ -13,6 +13,7 @@ const password    = ref('')
 const targetRole  = ref('')
 const location    = ref('')
 const workType    = ref<'any'|'onsite'|'hybrid'|'remote'>('any')
+const confirmPassword = ref('')
 const gdprConsent = ref(false)
 const error       = ref('')
 const loading     = ref(false)
@@ -26,6 +27,10 @@ const WORK_TYPES = [
 ]
 
 async function submit() {
+  if (password.value !== confirmPassword.value) {
+    error.value = 'Passwords do not match.'
+    return
+  }
   if (!gdprConsent.value) {
     error.value = 'You must agree to the privacy policy to create an account.'
     return
@@ -103,6 +108,21 @@ async function submit() {
           :minlength="8"
         />
 
+        <div>
+          <label class="field-label" for="reg-confirm-password">Confirm password</label>
+          <input
+            id="reg-confirm-password"
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Repeat your password"
+            autocomplete="new-password"
+            class="auth-input"
+            :aria-invalid="error === 'Passwords do not match.' || undefined"
+            aria-describedby="reg-error"
+            required
+          />
+        </div>
+
         <hr class="form-divider" />
         <p class="section-label">Job search preferences <span class="optional">(optional — you can update these later)</span></p>
 
@@ -135,9 +155,9 @@ async function submit() {
           </span>
         </label>
 
-        <p v-if="error" class="auth-error">{{ error }}</p>
+        <p v-if="error" id="reg-error" class="auth-error" role="alert">{{ error }}</p>
 
-        <button type="submit" :disabled="loading || !firstName || !lastName || !email || !password || !gdprConsent" class="btn-submit">
+        <button type="submit" :disabled="loading || !firstName || !lastName || !email || !password || !confirmPassword || !gdprConsent" class="btn-submit">
           {{ loading ? 'Creating account…' : 'Create account' }}
         </button>
       </form>

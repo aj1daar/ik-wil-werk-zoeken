@@ -33,6 +33,7 @@ async function fillRequired(wrapper: ReturnType<typeof mount>) {
   await wrapper.find('#lastName').setValue('de Vries')
   await wrapper.find('#reg-email').setValue('jan@example.com')
   await wrapper.find('#reg-password').setValue('password123')
+  await wrapper.find('#reg-confirm-password').setValue('password123')
 }
 
 describe('RegisterView', () => {
@@ -137,6 +138,7 @@ describe('RegisterView', () => {
     await w.find('#lastName').setValue('  de Vries  ')
     await w.find('#reg-email').setValue('JAN@EXAMPLE.COM')
     await w.find('#reg-password').setValue('password123')
+    await w.find('#reg-confirm-password').setValue('password123')
     await w.find('input[type="checkbox"]').setValue(true)
     await w.find('form').trigger('submit')
     await flushPromises()
