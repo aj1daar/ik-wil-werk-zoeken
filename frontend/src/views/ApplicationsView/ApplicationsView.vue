@@ -50,7 +50,7 @@ const selected = computed<Application | null>(() =>
   store.applications.find(a => a.id === selectedId.value) ?? null
 )
 
-function selectRow(id: string) { selectedId.value = selectedId.value === id ? null : id }
+function selectRow(id: string) { selectedId.value = id }
 
 function onModalClose() {
   modalOpen.value = false
@@ -97,15 +97,15 @@ function exportCsv() {
         <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
         </svg>
-        <input v-model="search" placeholder="Search by company or position…" class="filter-input pl-9" />
+        <input v-model="search" placeholder="Search by company or position…" class="filter-input pl-9" aria-label="Search applications" />
       </div>
 
-      <select v-model="filterStatus" class="filter-input filter-select">
+      <select v-model="filterStatus" class="filter-input filter-select" aria-label="Filter by status">
         <option value="">All statuses</option>
         <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
       </select>
 
-      <select v-model="sortBy" class="filter-input filter-select">
+      <select v-model="sortBy" class="filter-input filter-select" aria-label="Sort order">
         <option value="newest">Newest first</option>
         <option value="oldest">Oldest first</option>
         <option value="updated">Recently updated</option>
@@ -132,46 +132,54 @@ function exportCsv() {
       </button>
     </div>
 
-    <div class="main-split">
-      <div :class="['company-list', selected ? 'hidden md:block' : '']">
-        <div v-if="store.loading" class="state-msg">Loading…</div>
-        <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
-        <div v-else-if="filtered.length === 0" class="state-msg">
-          <template v-if="store.applications.length === 0">
-            No applications yet.
-            <button @click="modalOpen = true" class="add-first-link">Add your first application →</button>
-          </template>
-          <template v-else>No applications match your filters.</template>
-        </div>
-
-        <ul v-else>
-          <li
-            v-for="app in filtered"
-            :key="app.id"
-            @click="selectRow(app.id)"
-            :class="['company-row', { 'company-row--active': selectedId === app.id }]"
-          >
-            <div class="row-body">
-              <p class="row-name">{{ app.companyName }}</p>
-              <p class="row-industry">{{ app.position }}</p>
-            </div>
-            <div class="row-meta">
-              <span :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
-              <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
-            </div>
-            <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </li>
-        </ul>
+    <div class="app-list-wrapper">
+      <div v-if="store.loading" class="state-msg">Loading…</div>
+      <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
+      <div v-else-if="filtered.length === 0" class="state-msg">
+        <template v-if="store.applications.length === 0">
+          No applications yet.
+          <button @click="modalOpen = true" class="add-first-link">Add your first application →</button>
+        </template>
+        <template v-else>No applications match your filters.</template>
       </div>
 
-      <transition name="panel">
-        <div v-if="selected" class="detail-panel">
-          <ApplicationPanel :application="selected" @close="onPanelClose" />
+      <ul v-else>
+        <li
+          v-for="app in filtered"
+          :key="app.id"
+          @click="selectRow(app.id)"
+          :class="['company-row', { 'company-row--active': selectedId === app.id }]"
+          role="button"
+          tabindex="0"
+          :aria-label="`${app.companyName} — ${app.position}`"
+          @keydown.enter="selectRow(app.id)"
+          @keydown.space.prevent="selectRow(app.id)"
+        >
+          <div class="row-body">
+            <p class="row-name">{{ app.companyName }}</p>
+            <p class="row-industry">{{ app.position }}</p>
+          </div>
+          <div class="row-meta">
+            <span :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
+            <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
+          </div>
+          <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Application detail modal -->
+    <teleport to="body">
+      <transition name="modal">
+        <div v-if="selected" class="modal-backdrop" @click.self="onPanelClose" role="dialog" aria-modal="true" :aria-label="`Edit application: ${selected.companyName}`">
+          <div class="modal-box">
+            <ApplicationPanel :application="selected" @close="onPanelClose" />
+          </div>
         </div>
       </transition>
-    </div>
+    </teleport>
 
     <NewApplicationModal v-if="modalOpen" @close="onModalClose" />
   </div>
@@ -179,6 +187,37 @@ function exportCsv() {
 
 <style src="../../assets/split-panel.css" scoped></style>
 <style scoped>
+.app-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-box {
+  background: var(--col-bg);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+}
+
+.modal-enter-active, .modal-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; transform: translateY(8px) scale(0.98); }
+
 .btn-new {
   display: inline-flex; align-items: center; gap: .375rem;
   background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: .375rem;
@@ -197,4 +236,9 @@ function exportCsv() {
   border-radius: .375rem; padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
 }
 .btn-export:hover { background: var(--col-raised); }
+
+@media (max-width: 480px) {
+  .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+}
 </style>

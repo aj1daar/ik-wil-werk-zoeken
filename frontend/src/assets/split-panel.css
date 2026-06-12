@@ -96,3 +96,20 @@
 .panel-leave-active { transition: max-width 0.2s ease, opacity 0.2s ease; }
 .panel-enter-from,
 .panel-leave-to     { max-width: 0; opacity: 0; }
+
+/* ── mobile overrides ──────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .dashboard { height: auto; min-height: calc(100vh - 60px); }
+
+  .filter-bar { gap: 0.5rem; padding: 0.625rem 1rem; }
+  .filter-search { min-width: unset; }
+
+  .filter-input { font-size: 0.8125rem; }
+  .filter-select { flex: 1; min-width: 0; }
+
+  .company-list { min-height: 0; }
+
+  /* Hide panel column on mobile — the modal overlay is used instead */
+  .detail-panel { display: none !important; }
+}
