@@ -63,14 +63,18 @@ public sealed partial class IndSponsorScraper
         foreach (Match m in matches)
         {
             var rawName = WebUtility.HtmlDecode(m.Groups[1].Value.Trim());
-            var kvk = m.Groups[2].Value.Trim();
+            var kvk     = m.Groups[2].Value.Trim();
+            var rawCity = WebUtility.HtmlDecode(m.Groups[3].Value.Trim());
+
             var cleanName = StripLegalSuffix(rawName);
+            var city      = string.IsNullOrWhiteSpace(rawCity) ? null : rawCity;
 
             results.Add(new SponsorCompany
             {
                 Id = kvk,
                 Name = cleanName,
                 KvKNumber = kvk,
+                City = city,
                 IsIndRecognizedSponsor = true,
                 LastVerifiedAt = DateTimeOffset.UtcNow,
             });
@@ -80,7 +84,7 @@ public sealed partial class IndSponsorScraper
         return results;
     }
 
-    internal static string StripLegalSuffix(string name)
+    public static string StripLegalSuffix(string name)
     {
         var span = name.AsSpan().TrimEnd();
 
@@ -103,9 +107,10 @@ public sealed partial class IndSponsorScraper
         return span.ToString();
     }
 
-    // KvK numbers are always exactly 8 digits — use that as an anchor to avoid matching header rows.
+    // Captures: (1) company name, (2) KvK 8-digit, (3) city/place (optional 3rd column).
+    // KvK is always 8 digits — used as anchor to skip header rows.
     [GeneratedRegex(
-        @"<tr[^>]*>\s*<td[^>]*>\s*(.*?)\s*</td>\s*<td[^>]*>\s*(\d{8})\s*</td>",
+        @"<tr[^>]*>\s*<td[^>]*>\s*(.*?)\s*</td>\s*<td[^>]*>\s*(\d{8})\s*</td>\s*(?:<td[^>]*>\s*(.*?)\s*</td>)?",
         RegexOptions.Singleline | RegexOptions.IgnoreCase)]
     private static partial Regex TableRowRegex();
 }

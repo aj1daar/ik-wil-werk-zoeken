@@ -106,6 +106,7 @@ export interface SponsorCompany {
   id: string
   name: string
   kvKNumber: string
+  city?: string
   lastVerifiedAt: string
   summary?: string
   coreIndustry?: string

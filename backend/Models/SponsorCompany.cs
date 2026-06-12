@@ -8,6 +8,9 @@ public sealed class SponsorCompany
     public bool IsIndRecognizedSponsor { get; set; }
     public DateTimeOffset LastVerifiedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    // Captured from IND register (3rd HTML column = Place)
+    public string? City { get; set; }
+
     // LLM enrichment — populated asynchronously after IND sync
     public string? Summary { get; set; }
     public string? CoreIndustry { get; set; }
