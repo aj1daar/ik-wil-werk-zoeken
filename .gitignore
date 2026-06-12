@@ -13,12 +13,21 @@ obj/
 *.sln.docstates
 backend/local.settings.json
 
-# Azurite local storage emulator
+# Azurite local storage emulator (kept for history; no longer used)
 AzuriteConfig
 __azurite_db*.json
 __blobstorage__/
 frontend/.wrangler/
 hidden/
+
+# Package manager debug logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local PostgreSQL data (if running via Docker)
+pgdata/
 
 # Local manual deploy artifacts
 publish-manual/
