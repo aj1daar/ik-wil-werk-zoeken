@@ -53,13 +53,14 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 │
 ├── frontend/                Vue 3 SPA
 │   └── src/
-│       ├── components/      AppNavbar, AppLogo, CompanyPanel, PasswordField
-│       ├── views/           Dashboard, Bookmarked, Profile, Login, Register,
-│       │                    ForgotPassword, ResetPassword
-│       ├── stores/          auth (Pinia), companies (Pinia)
+│       ├── components/      AppNavbar, AppLogo, ApplicationPanel,
+│       │                    NewApplicationModal, PasswordField
+│       ├── views/           Home, Applications, Companies, Profile,
+│       │                    Login, Register, ForgotPassword, ResetPassword
+│       ├── stores/          auth (Pinia), companies (Pinia), applications (Pinia)
 │       └── router/          index.ts — auth-guard navigation
 │
-├── frontend/src/**/__tests__/  Vitest tests (160 tests)
+├── frontend/src/**/__tests__/  Vitest tests (214 tests)
 │
 └── infra/                   Azure Bicep (subscription-scope)
     ├── main.bicep            Resource group + module wiring
@@ -86,11 +87,12 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET`    | `/api/dashboard/sponsors`       | Bearer | All IND sponsor companies |
-| `GET`    | `/api/dashboard/stages`         | Bearer | User's application records |
-| `POST`   | `/api/dashboard/stages`         | Bearer | Create application record |
-| `PUT`    | `/api/dashboard/stages/{id}`    | Bearer | Update application record |
-| `DELETE` | `/api/dashboard/stages/{id}`    | Bearer | Delete application record |
+| `GET`    | `/api/dashboard/sponsors`            | Bearer | All IND sponsor companies |
+| `GET`    | `/api/dashboard/applications`        | Bearer | User's job applications |
+| `POST`   | `/api/dashboard/applications`        | Bearer | Create application |
+| `PUT`    | `/api/dashboard/applications/{id}`   | Bearer | Update application |
+| `DELETE` | `/api/dashboard/applications/{id}`   | Bearer | Delete application |
+| `GET`    | `/api/dashboard/stats?from=&to=`     | Bearer | Counts by status (optional date range) |
 
 ### Timer
 
@@ -161,16 +163,16 @@ pnpm dev
 dotnet test backend.Tests
 ```
 
-Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`, `GetUserId`, reset token creation and validation), seed data integrity.
+Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`, `GetUserId`, reset token creation and validation), `StageStore` (EF Core CRUD, user isolation, not-found handling), seed data integrity.
 
-### Frontend (Vitest · 160 tests)
+### Frontend (Vitest · 214 tests)
 
 ```bash
 cd frontend
 pnpm test
 ```
 
-Covers: auth store (login, register, updateProfile, changePassword, deleteAccount, JWT parsing, URL-safe base64, logout), companies store, `PasswordField` / `AppLogo` components, router navigation guards, `LoginView` and `RegisterView` (form state, GDPR enforcement, API calls, navigation).
+Covers: auth store, companies store, applications store (CRUD, stats, date-range filtering), `AppLogo` / `PasswordField` / `ApplicationPanel` / `NewApplicationModal` components, router navigation guards, `LoginView`, `RegisterView`, `HomeView` (stats dashboard, date filter).
 
 ---
 

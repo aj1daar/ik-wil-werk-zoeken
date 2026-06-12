@@ -5,7 +5,7 @@ import AppLogo from '../AppLogo.vue'
 describe('AppLogo', () => {
   // ── rendering ───────────────────────────────────────────────────────────
 
-  it('renders an SVG element', () => {
+  it('renders an svg element', () => {
     expect(mount(AppLogo).find('svg').exists()).toBe(true)
   })
 
@@ -23,23 +23,23 @@ describe('AppLogo', () => {
 
   // ── size prop ───────────────────────────────────────────────────────────
 
-  it('SVG defaults to width 34', () => {
+  it('svg defaults to width 34', () => {
     expect(mount(AppLogo).find('svg').attributes('width')).toBe('34')
   })
 
-  it('SVG defaults to height 34', () => {
+  it('svg defaults to height 34', () => {
     expect(mount(AppLogo).find('svg').attributes('height')).toBe('34')
   })
 
-  it('size prop changes SVG width', () => {
+  it('size prop changes svg width', () => {
     expect(mount(AppLogo, { props: { size: 44 } }).find('svg').attributes('width')).toBe('44')
   })
 
-  it('size prop changes SVG height', () => {
+  it('size prop changes svg height', () => {
     expect(mount(AppLogo, { props: { size: 44 } }).find('svg').attributes('height')).toBe('44')
   })
 
-  it('size prop of 16 sets correct SVG dimensions', () => {
+  it('size prop of 16 sets correct svg dimensions', () => {
     const w = mount(AppLogo, { props: { size: 16 } })
     expect(w.find('svg').attributes('width')).toBe('16')
     expect(w.find('svg').attributes('height')).toBe('16')
@@ -61,7 +61,7 @@ describe('AppLogo', () => {
 
   // ── accessibility ───────────────────────────────────────────────────────
 
-  it('SVG has aria-hidden=true so screen readers skip the decorative graphic', () => {
+  it('svg has aria-hidden=true so screen readers skip the decorative graphic', () => {
     expect(mount(AppLogo).find('svg').attributes('aria-hidden')).toBe('true')
   })
 
