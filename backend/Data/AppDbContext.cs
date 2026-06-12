@@ -10,6 +10,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<ApplicationStage> Stages => Set<ApplicationStage>();
     public DbSet<SponsorCompany> Sponsors => Set<SponsorCompany>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +35,16 @@ public sealed class AppDbContext : DbContext
             e.HasKey(s => s.Id);
             e.Property(s => s.TechStackTags).HasColumnType("text[]");
             e.Property(s => s.FunctionalTags).HasColumnType("text[]");
+        });
+
+        modelBuilder.Entity<ActivityLog>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.HasIndex(a => a.ApplicationId);
+            e.HasOne<ApplicationStage>()
+             .WithMany()
+             .HasForeignKey(a => a.ApplicationId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
