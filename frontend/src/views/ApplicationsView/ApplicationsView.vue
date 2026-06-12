@@ -15,11 +15,17 @@ const sortBy       = ref<SortKey>('newest')
 const selectedId   = ref<string | null>(null)
 const modalOpen    = ref(false)
 
+// Bulk selection
+const checkedIds   = ref<Set<string>>(new Set())
+const bulkStatus   = ref<ApplicationStatus | ''>('')
+const bulkSaving   = ref(false)
+const bulkError    = ref('')
+
 function onKey(e: KeyboardEvent) {
   const tag = (e.target as HTMLElement).tagName.toUpperCase()
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) return
   if (e.key === 'n' || e.key === 'N') { e.preventDefault(); modalOpen.value = true }
-  if (e.key === 'Escape') selectedId.value = null
+  if (e.key === 'Escape') { selectedId.value = null; clearSelection() }
 }
 
 onMounted(() => { store.load(); window.addEventListener('keydown', onKey) })
@@ -50,7 +56,53 @@ const selected = computed<Application | null>(() =>
   store.applications.find(a => a.id === selectedId.value) ?? null
 )
 
-function selectRow(id: string) { selectedId.value = id }
+const allFilteredChecked = computed(() =>
+  filtered.value.length > 0 && filtered.value.every(a => checkedIds.value.has(a.id))
+)
+
+function selectRow(id: string) {
+  if (checkedIds.value.size > 0) {
+    toggleCheck(id)
+  } else {
+    selectedId.value = id
+  }
+}
+
+function toggleCheck(id: string) {
+  const s = new Set(checkedIds.value)
+  if (s.has(id)) s.delete(id)
+  else           s.add(id)
+  checkedIds.value = s
+}
+
+function toggleAll() {
+  if (allFilteredChecked.value) {
+    checkedIds.value = new Set()
+  } else {
+    checkedIds.value = new Set(filtered.value.map(a => a.id))
+  }
+}
+
+function clearSelection() {
+  checkedIds.value = new Set()
+  bulkStatus.value = ''
+  bulkError.value  = ''
+}
+
+async function applyBulkStatus() {
+  if (!bulkStatus.value || checkedIds.value.size === 0) return
+  bulkSaving.value = true
+  bulkError.value  = ''
+  try {
+    await store.bulkUpdate([...checkedIds.value], bulkStatus.value)
+    clearSelection()
+    store.loadStats()
+  } catch {
+    bulkError.value = 'Bulk update failed. Please try again.'
+  } finally {
+    bulkSaving.value = false
+  }
+}
 
 function onModalClose() {
   modalOpen.value = false
@@ -66,14 +118,25 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+function isOverdue(app: Application) {
+  if (!app.followUpDate) return false
+  return new Date(app.followUpDate) < new Date(new Date().toDateString())
+}
+
+function isDueToday(app: Application) {
+  if (!app.followUpDate) return false
+  return app.followUpDate.slice(0, 10) === new Date().toISOString().slice(0, 10)
+}
+
 function exportCsv() {
-  const cols = ['Company', 'Position', 'Status', 'Applied', 'Updated', 'Locations', 'Notes', 'Contact name', 'Contact email']
+  const cols = ['Company', 'Position', 'Status', 'Applied', 'Follow-up', 'Updated', 'Locations', 'Notes', 'Contact name', 'Contact email']
   const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
   const rows = store.applications.map(a => [
     a.companyName,
     a.position,
     STATUS_LABELS[a.status],
     a.appliedAt.slice(0, 10),
+    a.followUpDate?.slice(0, 10) ?? '',
     a.updatedAt.slice(0, 10),
     a.locations.join('; '),
     a.notes ?? '',
@@ -87,6 +150,10 @@ function exportCsv() {
   a.download = `applications-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function printPage() {
+  window.print()
 }
 </script>
 
@@ -124,12 +191,40 @@ function exportCsv() {
         Export CSV
       </button>
 
+      <button
+        v-if="store.applications.length > 0"
+        @click="printPage"
+        class="btn-export"
+        title="Print / Save as PDF"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Print
+      </button>
+
       <button @click="modalOpen = true" class="btn-new" title="New application (N)">
         <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
         New Application
       </button>
+    </div>
+
+    <!-- Select-all bar shown when list is non-empty -->
+    <div v-if="filtered.length > 0" class="select-bar">
+      <label class="select-all-label">
+        <input
+          type="checkbox"
+          :checked="allFilteredChecked"
+          :indeterminate="checkedIds.size > 0 && !allFilteredChecked"
+          @change="toggleAll"
+          aria-label="Select all visible applications"
+        />
+        <span class="select-all-text">
+          {{ checkedIds.size > 0 ? `${checkedIds.size} selected` : 'Select all' }}
+        </span>
+      </label>
     </div>
 
     <div class="app-list-wrapper">
@@ -148,13 +243,20 @@ function exportCsv() {
           v-for="app in filtered"
           :key="app.id"
           @click="selectRow(app.id)"
-          :class="['company-row', { 'company-row--active': selectedId === app.id }]"
+          :class="['company-row', { 'company-row--active': selectedId === app.id, 'company-row--checked': checkedIds.has(app.id) }]"
           role="button"
           tabindex="0"
           :aria-label="`${app.companyName} — ${app.position}`"
           @keydown.enter="selectRow(app.id)"
           @keydown.space.prevent="selectRow(app.id)"
         >
+          <input
+            type="checkbox"
+            class="row-checkbox"
+            :checked="checkedIds.has(app.id)"
+            @click.stop="toggleCheck(app.id)"
+            :aria-label="`Select ${app.companyName}`"
+          />
           <div class="row-body">
             <p class="row-name">{{ app.companyName }}</p>
             <p class="row-industry">{{ app.position }}</p>
@@ -162,6 +264,8 @@ function exportCsv() {
           <div class="row-meta">
             <span :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
             <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
+            <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠ Follow up</span>
+            <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Follow-up due today">📅 Today</span>
           </div>
           <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -169,6 +273,24 @@ function exportCsv() {
         </li>
       </ul>
     </div>
+
+    <!-- Bulk action bar -->
+    <transition name="bulk-bar">
+      <div v-if="checkedIds.size > 0" class="bulk-bar" role="region" aria-label="Bulk actions">
+        <span class="bulk-count">{{ checkedIds.size }} selected</span>
+        <select v-model="bulkStatus" class="bulk-select" aria-label="New status for selected">
+          <option value="">Change status…</option>
+          <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
+        </select>
+        <button
+          @click="applyBulkStatus"
+          :disabled="!bulkStatus || bulkSaving"
+          class="bulk-apply"
+        >{{ bulkSaving ? 'Saving…' : 'Apply' }}</button>
+        <button @click="clearSelection" class="bulk-clear">Cancel</button>
+        <span v-if="bulkError" class="bulk-error" role="alert">{{ bulkError }}</span>
+      </div>
+    </transition>
 
     <!-- Application detail modal -->
     <teleport to="body">
@@ -192,6 +314,76 @@ function exportCsv() {
   overflow-y: auto;
 }
 
+/* sticky filter bar */
+.filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--col-bg);
+  border-bottom: 1px solid var(--col-border);
+}
+
+/* select-all bar */
+.select-bar {
+  padding: .375rem 1rem;
+  background: var(--col-raised);
+  border-bottom: 1px solid var(--col-border);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.select-all-label { display: flex; align-items: center; gap: .5rem; cursor: pointer; font-size: .8rem; color: var(--col-muted); }
+.select-all-text { user-select: none; }
+
+/* row checkbox */
+.row-checkbox {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--col-accent);
+}
+.company-row--checked { background: color-mix(in srgb, var(--col-accent) 8%, transparent); }
+
+/* follow-up badges */
+.followup-badge { font-size: .65rem; font-weight: 700; padding: .1rem .4rem; border-radius: 9999px; white-space: nowrap; }
+.followup-badge--overdue { background: #fee2e2; color: #b91c1c; }
+.followup-badge--today   { background: #fef3c7; color: #92400e; }
+
+/* bulk action bar */
+.bulk-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background: var(--col-invert-bg);
+  color: var(--col-invert-text);
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .625rem 1rem;
+  flex-wrap: wrap;
+}
+.bulk-count { font-size: .875rem; font-weight: 600; white-space: nowrap; }
+.bulk-select {
+  background: var(--col-bg); color: var(--col-text);
+  border: 1px solid var(--col-border); border-radius: .375rem;
+  padding: .35rem .5rem; font-size: .8rem; flex: 1; min-width: 140px; max-width: 220px;
+}
+.bulk-apply {
+  background: var(--col-accent); color: #fff; border: none; border-radius: .375rem;
+  padding: .35rem .75rem; font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.bulk-apply:disabled { opacity: .5; cursor: not-allowed; }
+.bulk-clear {
+  background: none; border: 1px solid rgba(255,255,255,.3); color: var(--col-invert-text);
+  border-radius: .375rem; padding: .35rem .75rem; font-size: .8rem; cursor: pointer;
+}
+.bulk-clear:hover { background: rgba(255,255,255,.1); }
+.bulk-error { font-size: .8rem; color: #fca5a5; }
+.bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
+.bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
+
+/* modal */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -202,7 +394,6 @@ function exportCsv() {
   justify-content: center;
   padding: 1rem;
 }
-
 .modal-box {
   background: var(--col-bg);
   border-radius: 12px;
@@ -214,7 +405,6 @@ function exportCsv() {
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
 }
-
 .modal-enter-active, .modal-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; transform: translateY(8px) scale(0.98); }
 
@@ -240,5 +430,13 @@ function exportCsv() {
 @media (max-width: 480px) {
   .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
+}
+
+/* print styles */
+@media print {
+  .filter-bar, .select-bar, .bulk-bar, .btn-export, .btn-new { display: none !important; }
+  .app-list-wrapper { overflow: visible; }
+  .modal-backdrop { display: none !important; }
+  .company-row { break-inside: avoid; }
 }
 </style>
