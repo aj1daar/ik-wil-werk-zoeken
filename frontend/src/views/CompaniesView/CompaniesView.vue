@@ -14,12 +14,19 @@ const selectedId  = ref<string | null>(null)
 const modalOpen   = ref(false)
 const prefillCompany = ref('')
 const showFilters = ref(false)
+const displayCount = ref(60)
+
+const PAGE_SIZE = 60
 
 onMounted(() => store.load())
 
+const anyFilter = computed(() =>
+  search.value.trim() !== '' || filterCity.value !== '' ||
+  includeTags.value.length > 0 || excludeTags.value.length > 0
+)
+
 const rows = computed<SponsorCompany[]>(() => {
-  const anyFilter = search.value.trim() || filterCity.value || includeTags.value.length > 0 || excludeTags.value.length > 0
-  if (anyFilter) {
+  if (anyFilter.value) {
     return store.filter({
       query:       search.value,
       city:        filterCity.value,
@@ -27,8 +34,14 @@ const rows = computed<SponsorCompany[]>(() => {
       excludeTags: excludeTags.value,
     })
   }
-  return store.companies.slice(0, 60)
+  return store.companies.slice(0, displayCount.value)
 })
+
+const canLoadMore = computed(() =>
+  !anyFilter.value && displayCount.value < store.companies.length
+)
+
+function loadMore() { displayCount.value += PAGE_SIZE }
 
 const selectedCompany = computed<SponsorCompany | null>(() =>
   store.companies.find(c => c.id === selectedId.value) ?? null
@@ -75,12 +88,10 @@ function clearFilters() {
   filterCity.value = ''
   includeTags.value = []
   excludeTags.value = []
+  displayCount.value = PAGE_SIZE
 }
 
-const hasActiveFilters = computed(() =>
-  search.value.trim() !== '' || filterCity.value !== '' ||
-  includeTags.value.length > 0 || excludeTags.value.length > 0
-)
+const hasActiveFilters = computed(() => anyFilter.value)
 </script>
 
 <template>
@@ -170,6 +181,12 @@ const hasActiveFilters = computed(() =>
             </svg>
           </li>
         </ul>
+
+        <div v-if="canLoadMore" class="load-more-wrap">
+          <button @click="loadMore" class="btn-load-more">
+            Load more ({{ store.companies.length - displayCount }} remaining)
+          </button>
+        </div>
       </div>
 
       <transition name="panel">
@@ -285,4 +302,13 @@ const hasActiveFilters = computed(() =>
 .icon { width: 1.25rem; height: 1.25rem; }
 .footer-primary { width: 100%; }
 .row-city { color: var(--col-accent-dk); }
+
+/* load more */
+.load-more-wrap { padding: .75rem 1rem; text-align: center; }
+.btn-load-more {
+  background: var(--col-surface); color: var(--col-muted);
+  border: 1px solid var(--col-border); border-radius: .375rem;
+  padding: .45rem 1.25rem; font-size: .8rem; cursor: pointer;
+}
+.btn-load-more:hover { background: var(--col-raised); color: var(--col-text); }
 </style>
