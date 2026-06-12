@@ -109,18 +109,24 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 - Node.js 18+ and pnpm
 - .NET 8 SDK
 - Azure Functions Core Tools v4
-- PostgreSQL 16 (local instance or Docker: `docker run -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16`)
+- Docker (for local PostgreSQL)
 
 ### Backend
 
 ```bash
-cd backend
-# Copy and fill in secrets — never commit local.settings.json
-cp local.settings.example.json local.settings.json
+# 1. Start PostgreSQL
+docker compose up -d
 
+# 2. Copy and fill in secrets — never commit local.settings.json
+cp backend/local.settings.example.json backend/local.settings.json
+
+# 3. Apply database migrations (first time, or after pulling new migrations)
+dotnet ef database update --project backend --startup-project backend
+
+# 4. Start the functions host
+cd backend
 func start
 # Listens on http://localhost:7071
-# Applies EF Core migrations automatically on startup
 ```
 
 **Environment variables** (set in `local.settings.json` for local dev, or as Azure App Settings in production):
@@ -137,11 +143,11 @@ func start
 
 ### EF Core migrations
 
-Migrations are applied automatically at startup. To add a new migration during development:
+In production, migrations run automatically in CI before each deploy. To add a new migration during development:
 
 ```bash
-cd backend
-dotnet ef migrations add <MigrationName> --output-dir Data/Migrations
+dotnet ef migrations add <MigrationName> --project backend --startup-project backend
+dotnet ef database update --project backend --startup-project backend
 ```
 
 ### Frontend
@@ -192,6 +198,7 @@ The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test �
 | `JWT_SECRET` | Random string ≥ 32 chars |
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `RESEND_API_KEY` | Resend API key |
+| `POSTGRES_PASSWORD` | PostgreSQL administrator password |
 | `POSTGRES_PASSWORD` | PostgreSQL admin password (used by Bicep to provision the server and construct `DATABASE_URL`) |
 
 ### Variables (Settings → Secrets and variables → Actions → Variables)
