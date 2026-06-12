@@ -49,46 +49,45 @@
 - [x] Duplicate detection — warning banner when adding an application to a company already tracked
 - [x] Keyboard shortcuts — `N` opens new application modal, `Esc` closes detail panel
 
+### Admin System
+- [x] `User.Role` field (`"user"` / `"admin"`) with EF Core migration
+- [x] Admin seeding from `ADMIN_EMAIL` env var at startup (idempotent, never hard-coded)
+- [x] `GET /api/admin/users` — list all users (admin JWT required)
+- [x] `POST /api/admin/promote` — promote user to admin by email (admin JWT required)
+- [x] `POST /api/admin/reload-sponsors` — full IND scrape + upsert + LLM enrichment (admin JWT required)
+- [x] Role claim in JWT; `TokenService.GetRole()` extracts it
+- [x] "Admin Panel" button in navbar (visible only when `role === "admin"`)
+- [x] `/admin` route with guard (non-admins redirected to `/`)
+- [x] AdminView — promote-user form, reload-sponsors button, users table
+
 ---
 
 ## In Progress / Next
 
-*(nothing currently planned — see below for ideas)*
+- [ ] **Company City field** — `City` column on `SponsorCompany`; captured from IND register (3rd column); shown in card and detail panel; used for city filter
+- [ ] **Companies advanced filtering** — filter by city (dropdown), tag include/exclude multiselect
+- [ ] **Application detail as modal** — replace slide-in side panel with centered modal overlay; better on mobile, less disorienting on desktop
+- [ ] **Mobile responsiveness** — hamburger navbar (≤ 767 px), full-screen modal/list on mobile, stacked filter bars
 
 ---
 
-## Ideas / Backlog
+## Backlog
 
 ### HIGH
 
-- [ ] **Mobile responsiveness** — full responsive layout for iPhone 15 Pro Max (430 px) and iPhone 17; navbar collapses, split-panel becomes full-screen, filter bars stack
-- [ ] **Application detail as modal** — the side-panel edit view should become a centered modal overlay (better on mobile, less disorienting on desktop)
-- [ ] **Company location / city field** — add `City` column to Sponsors table (DB migration); surface in CompaniesView card and filter; data from IND register if available, otherwise manually enriched
+- [ ] **Application timeline / activity log** — track every status change with timestamp; backend: new `ActivityLog` table + migration; frontend: timeline in ApplicationPanel
 
 ### MEDIUM
 
-- [ ] **Companies advanced filtering** — depends on location field; filter by name (already have search), city, and tag include/exclude (show companies matching ALL selected tags, exclude companies matching any excluded tag)
-- [ ] **Admin system** — role field on User (`user` / `admin`); admin-only endpoints protected by role check in JWT; initial admin designated by environment variable (never hard-coded); future: admin UI to manage users and sponsor data
-  - Admin email for the initial account: stored in env var `ADMIN_EMAIL`, seeded at startup if user exists
-  - Never commit email addresses or role grants to source code
-- [ ] **Pagination or virtual scroll in CompaniesView** — sponsor list can grow large
-- [ ] **Application timeline / activity log** — track status changes with timestamps
-- [ ] **Reminder / follow-up date field** — set a date to follow up on an application; requires DB migration + backend endpoint
+- [ ] **Pagination or virtual scroll in CompaniesView** — sponsor list can grow large; virtual-scroll with `@tanstack/vue-virtual` or simple page cursor
+- [ ] **Reminder / follow-up date field** — set a date to follow up on an application; requires DB migration + backend endpoint + frontend date picker
+- [ ] **Bulk status update** — select multiple applications and change status in one action
 
 ### LOW
 
-- [ ] **Contact email mailto: link** — make contact email in ApplicationPanel a clickable link
+- [ ] **Session expiry warning** — JWT lifetime is 7 days; show a dismissible banner when < 24 h remain
 - [ ] **Application count badge on nav** — show active (non-terminal) application count next to "My Applications"
-- [ ] **Sticky filter toolbar** — filter bar in ApplicationsView scrolls out of view on long lists
-- [ ] **Session expiry warning** — JWT lifetime is 7 days; show a banner when < 24 h remain
-- [ ] **Bulk status update** — select multiple applications and change status in one action
+- [ ] **Contact email mailto: link** — make contact email in ApplicationPanel a clickable `<a href="mailto:…">` link
+- [ ] **Status chip colors in dark mode** — per-status dark overrides so chip backgrounds are legible in dark theme
+- [ ] **Sticky filter toolbar** — filter bar in ApplicationsView scrolls out of view on long lists; `position: sticky`
 - [ ] **Print / PDF export** — browser print stylesheet or jsPDF for career counsellors
-- [ ] **Status chip colors in dark mode** — hardcoded chip backgrounds look washed-out in dark theme; needs per-status dark overrides
-
----
-
-## Infrastructure
-
-- [X] Register `microsoft.operationalinsights` provider on Azure subscription
-  (Application Insights Bicep fails until this provider is registered)
-  → Azure Portal → Subscriptions → Resource providers → search "operationalinsights" → Register
