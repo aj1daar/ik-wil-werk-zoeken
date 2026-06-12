@@ -5,6 +5,12 @@ import type { ApplicationStatus } from '../../api'
 
 const store = useApplicationsStore()
 
+const showBanner = ref(false)
+function dismissBanner() {
+  showBanner.value = false
+  window.localStorage?.setItem('iwwz_onboarded', '1')
+}
+
 type RangeKey = 'all' | '3m' | '6m' | '1y' | 'custom'
 
 const range      = ref<RangeKey>('all')
@@ -48,7 +54,10 @@ async function fetchStats() {
   await store.loadStats(fromTo.value.from, fromTo.value.to)
 }
 
-onMounted(fetchStats)
+onMounted(() => {
+  showBanner.value = !window.localStorage?.getItem('iwwz_onboarded')
+  return fetchStats()
+})
 watch(fromTo, fetchStats)
 
 function count(status: ApplicationStatus): number {
@@ -61,6 +70,14 @@ function count(status: ApplicationStatus): number {
     <div class="page-header">
       <h1 class="page-title">Dashboard</h1>
       <p class="page-subtitle">Overview of your job search activity.</p>
+    </div>
+
+    <div v-if="showBanner" class="onboarding-banner" role="status" aria-label="Welcome tip">
+      <div class="banner-body">
+        <strong>Welcome to IK WIL WERK ZOEKEN!</strong>
+        <p>Track every job application, explore IND-registered sponsors, and see your progress at a glance. Start by adding your first application from the Applications tab.</p>
+      </div>
+      <button class="banner-close" @click="dismissBanner" aria-label="Dismiss welcome banner">×</button>
     </div>
 
     <div class="range-bar">
@@ -85,7 +102,7 @@ function count(status: ApplicationStatus): number {
 
     <div v-if="store.statsLoading" class="state-msg">Loading…</div>
 
-    <div v-else-if="store.statsError" class="state-msg state-msg--error">{{ store.statsError }}</div>
+    <div v-else-if="store.statsError" class="state-msg state-msg--error" role="alert">{{ store.statsError }}</div>
 
     <template v-else-if="store.stats">
       <div class="total-card">
@@ -119,6 +136,22 @@ function count(status: ApplicationStatus): number {
 
 .custom-range { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .custom-range-field { display: flex; flex-direction: column; gap: .25rem; }
+
+.onboarding-banner {
+  display: flex; align-items: flex-start; gap: 1rem;
+  background: var(--col-accent-lt); border: 1px solid var(--col-accent);
+  border-radius: .75rem; padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.banner-body { flex: 1; font-size: .875rem; color: var(--col-text); }
+.banner-body strong { display: block; margin-bottom: .25rem; }
+.banner-body p { color: var(--col-muted); margin: 0; line-height: 1.5; }
+.banner-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.5rem; line-height: 1; color: var(--col-muted);
+  padding: 0 .25rem; flex-shrink: 0;
+}
+.banner-close:hover { color: var(--col-text); }
 
 .state-msg { color: var(--col-muted); padding: 2rem 0; text-align: center; }
 .state-msg--error { color: var(--col-error); }
