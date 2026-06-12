@@ -44,11 +44,13 @@ async function submit() {
               placeholder="you@example.com"
               autocomplete="email"
               class="auth-input"
+              aria-describedby="fp-error"
+              :aria-invalid="!!error || undefined"
               required
             />
           </div>
 
-          <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
+          <p v-if="error" id="fp-error" class="auth-error" role="alert">{{ error }}</p>
 
           <button type="submit" :disabled="loading || !email" class="btn-submit">
             {{ loading ? 'Sending…' : 'Send reset link' }}

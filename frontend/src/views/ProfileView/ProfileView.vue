@@ -183,10 +183,19 @@ async function deleteAccount() {
           />
           <div>
             <label class="field-label" for="conf-pw">Confirm new password</label>
-            <input id="conf-pw" type="password" v-model="confirmPw" class="field-input" autocomplete="new-password" required />
+            <input
+              id="conf-pw"
+              type="password"
+              v-model="confirmPw"
+              class="field-input"
+              autocomplete="new-password"
+              aria-describedby="pw-form-msg"
+              :aria-invalid="passwordMsg !== null && !passwordMsg.ok || undefined"
+              required
+            />
           </div>
 
-          <FormMessage :message="passwordMsg" />
+          <FormMessage id="pw-form-msg" :message="passwordMsg" />
 
           <div class="form-actions">
             <button type="submit" :disabled="passwordSaving" class="btn-primary">
@@ -202,7 +211,16 @@ async function deleteAccount() {
         <form @submit.prevent="requestEmailChange" class="profile-form">
           <div>
             <label class="field-label" for="em-new">New email address</label>
-            <input id="em-new" v-model="newEmail" type="email" class="field-input" autocomplete="email" required />
+            <input
+              id="em-new"
+              v-model="newEmail"
+              type="email"
+              class="field-input"
+              autocomplete="email"
+              aria-describedby="email-form-msg"
+              :aria-invalid="emailMsg !== null && !emailMsg.ok || undefined"
+              required
+            />
           </div>
           <PasswordField
             id="em-pw"
@@ -210,9 +228,11 @@ async function deleteAccount() {
             autocomplete="current-password"
             v-model="emailCurrentPw"
             :required="true"
+            aria-describedby="email-form-msg"
+            :aria-invalid="emailMsg !== null && !emailMsg.ok || undefined"
           />
 
-          <FormMessage :message="emailMsg" />
+          <FormMessage id="email-form-msg" :message="emailMsg" />
 
           <div class="form-actions">
             <button type="submit" :disabled="emailSaving || !newEmail || !emailCurrentPw" class="btn-primary">

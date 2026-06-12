@@ -25,6 +25,9 @@
 - [x] Stateless HMAC reset tokens (userId.exp.sig), 1-hour expiry
 - [x] Anti-enumeration: forgot-password always returns 204
 - [x] JWT HS256, PBKDF2-SHA256 password hashing
+- [x] Email verification on registration (72-hour HMAC token, resend endpoint)
+- [x] Email change in profile (24-hour HMAC token, confirmation link to new address)
+- [x] Rate limiting on all auth endpoints (in-memory fixed-window per IP)
 
 ### Frontend Polish
 - [x] Warm-tinted shadows on navbar, cards, buttons, panels, modal
@@ -34,36 +37,30 @@
 - [x] Privacy Policy page (`/privacy`) — GDPR-compliant with data table, AI notice, right to erasure
 - [x] Per-route `<title>` tags via `meta.title` + `router.afterEach`
 - [x] HomeView error state for stats (`store.statsError` shown on API failure)
+- [x] First-login onboarding banner — dismissible, stored in localStorage
+- [x] Confirm password field on register + password strength hint + email format validation
+- [x] Smart 409 on register — "already registered" links to sign-in / reset-password
+- [x] IND data freshness badge in CompaniesView (MAX lastVerifiedAt across all sponsors)
+- [x] Sort order dropdown in ApplicationsView (newest / oldest / last updated / company A–Z)
+- [x] CSV export of all applications
+- [x] `aria-invalid` / `aria-describedby` on form validation errors
 
 ---
 
 ## In Progress / Next
 
-### HIGH
+*(nothing currently planned — see below for ideas)*
 
-- [ ] **Rate limiting on auth endpoints**
-  - Login, register, forgot-password have no rate limiting in backend
-  - Options: Azure API Management, middleware per-IP counter (in-memory), or 429 after N attempts
+---
 
-### MEDIUM
+## Ideas / Backlog
 
-- [ ] **Rate limiting on auth endpoints**
-  - Login, register, forgot-password have no rate limiting in backend
-  - Options: Azure API Management, middleware per-IP counter (in-memory), or 429 after N attempts
-
-- [ ] **`aria-invalid` / `aria-describedby` on form validation errors**
-  - Forms show error text but inputs don't have aria attributes linking them to error messages
-  - Affects: LoginView, RegisterView, ProfileView, ApplicationPanel
-
-- [ ] **IND data freshness indicator**
-  - Show "Last synced: {date}" somewhere in CompaniesView
-  - Requires either a `/api/dashboard/sponsors/meta` endpoint or storing sync timestamp in DB
-
-### LOW
-
-- [ ] **Email change in profile** — currently no way to change email after registration
-- [ ] **First-login onboarding banner** — show a dismissible tip on first login
-- [ ] **Confirm password field on register** — currently no confirm password, only client-side minlength check
+- [ ] **Pagination or virtual scroll in CompaniesView** — sponsor list can grow large
+- [ ] **Application timeline / activity log** — track status changes with timestamps
+- [ ] **Reminder / follow-up date field** — set a date to follow up on an application
+- [ ] **Duplicate detection** — warn when adding an application to a company already in the list
+- [ ] **Dark-mode toggle** — CSS variables are already in place, just needs a second theme set
+- [ ] **Keyboard shortcuts** — e.g. `N` to open new-application modal, `Esc` to close panels
 
 ---
 

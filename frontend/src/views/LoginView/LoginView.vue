@@ -80,6 +80,8 @@ async function resendVerification() {
             placeholder="you@example.com"
             autocomplete="email"
             class="auth-input"
+            aria-describedby="login-error"
+            :aria-invalid="!!error || undefined"
             required
           />
         </div>
@@ -92,10 +94,12 @@ async function resendVerification() {
           input-class="auth-input"
           v-model="password"
           :required="true"
+          aria-describedby="login-error"
+          :aria-invalid="!!error || undefined"
         />
 
         <template v-if="error">
-          <p class="auth-error" role="alert">{{ error }}</p>
+          <p id="login-error" class="auth-error" role="alert">{{ error }}</p>
           <template v-if="isUnverified">
             <p v-if="resendSent" class="auth-success">Verification email sent — check your inbox.</p>
             <button v-else @click.prevent="resendVerification" :disabled="resendLoading" class="btn-resend">

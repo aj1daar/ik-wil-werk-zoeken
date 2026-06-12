@@ -111,10 +111,12 @@ async function submit() {
             autocomplete="email"
             class="auth-input"
             :class="{ 'input-error': emailInvalid }"
+            aria-describedby="reg-email-hint"
+            :aria-invalid="emailInvalid || undefined"
             @blur="checkEmail"
             required
           />
-          <p v-if="emailInvalid" class="field-hint field-hint--error">Enter a valid email address.</p>
+          <p v-if="emailInvalid" id="reg-email-hint" class="field-hint field-hint--error">Enter a valid email address.</p>
         </div>
 
         <PasswordField
@@ -126,8 +128,10 @@ async function submit() {
           v-model="password"
           :required="true"
           :minlength="8"
+          aria-describedby="reg-pw-reqs"
+          :aria-invalid="pwTouched && !pwLongEnough || undefined"
         />
-        <ul v-if="pwTouched" class="pw-reqs">
+        <ul v-if="pwTouched" id="reg-pw-reqs" class="pw-reqs">
           <li :class="pwLongEnough ? 'req-ok' : 'req-fail'">At least 8 characters</li>
         </ul>
 

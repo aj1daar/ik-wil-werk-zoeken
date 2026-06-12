@@ -4,13 +4,15 @@ import { ref } from 'vue'
 const model = defineModel<string>({ required: true })
 
 withDefaults(defineProps<{
-  id:           string
-  label:        string
-  placeholder?: string
-  autocomplete?: string
-  required?:    boolean
-  minlength?:   number
-  inputClass?:  string
+  id:                string
+  label:             string
+  placeholder?:      string
+  autocomplete?:     string
+  required?:         boolean
+  minlength?:        number
+  inputClass?:       string
+  ariaDescribedby?:  string
+  ariaInvalid?:      true | undefined
 }>(), { inputClass: 'field-input' })
 
 const visible = ref(false)
@@ -29,6 +31,8 @@ const visible = ref(false)
         :required="required"
         :minlength="minlength"
         :class="inputClass"
+        :aria-describedby="ariaDescribedby"
+        :aria-invalid="ariaInvalid"
       />
       <button
         type="button"

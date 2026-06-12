@@ -58,6 +58,8 @@ async function submit() {
           v-model="newPassword"
           :required="true"
           :minlength="8"
+          aria-describedby="rp-error"
+          :aria-invalid="!!error || undefined"
         />
 
         <PasswordField
@@ -68,9 +70,11 @@ async function submit() {
           input-class="auth-input"
           v-model="confirmPassword"
           :required="true"
+          aria-describedby="rp-error"
+          :aria-invalid="error === 'Passwords do not match' || undefined"
         />
 
-        <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
+        <p v-if="error" id="rp-error" class="auth-error" role="alert">{{ error }}</p>
 
         <button
           type="submit"
