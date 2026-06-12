@@ -7,19 +7,21 @@ import ProfileView        from '../views/ProfileView/ProfileView.vue'
 import RegisterView       from '../views/RegisterView/RegisterView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView/ForgotPasswordView.vue'
 import ResetPasswordView  from '../views/ResetPasswordView/ResetPasswordView.vue'
+import PrivacyView        from '../views/PrivacyView/PrivacyView.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login',           component: LoginView },
-    { path: '/register',        component: RegisterView },
-    { path: '/forgot-password', component: ForgotPasswordView },
-    { path: '/reset-password',  component: ResetPasswordView },
-    { path: '/',              component: HomeView,         meta: { requiresAuth: true } },
-    { path: '/applications',  component: ApplicationsView, meta: { requiresAuth: true } },
-    { path: '/companies',     component: CompaniesView,    meta: { requiresAuth: true } },
-    { path: '/profile',       component: ProfileView,      meta: { requiresAuth: true } },
+    { path: '/login',           component: LoginView,          meta: { title: 'Sign In — IWWZ' } },
+    { path: '/register',        component: RegisterView,       meta: { title: 'Create Account — IWWZ' } },
+    { path: '/forgot-password', component: ForgotPasswordView, meta: { title: 'Forgot Password — IWWZ' } },
+    { path: '/reset-password',  component: ResetPasswordView,  meta: { title: 'Reset Password — IWWZ' } },
+    { path: '/privacy',         component: PrivacyView,        meta: { title: 'Privacy Policy — IWWZ' } },
+    { path: '/',              component: HomeView,         meta: { requiresAuth: true, title: 'Dashboard — IWWZ' } },
+    { path: '/applications',  component: ApplicationsView, meta: { requiresAuth: true, title: 'Applications — IWWZ' } },
+    { path: '/companies',     component: CompaniesView,    meta: { requiresAuth: true, title: 'Companies — IWWZ' } },
+    { path: '/profile',       component: ProfileView,      meta: { requiresAuth: true, title: 'Profile — IWWZ' } },
     { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
 })
@@ -28,6 +30,10 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.requiresAuth && !auth.isAuthenticated) return '/login'
   if ((to.path === '/login' || to.path === '/register') && auth.isAuthenticated) return '/'
+})
+
+router.afterEach((to) => {
+  document.title = (to.meta.title as string | undefined) ?? 'IWWZ'
 })
 
 export default router

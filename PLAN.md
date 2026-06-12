@@ -1,102 +1,89 @@
-# Application Tracker — Implementation Plan
+# ik wil werk zoeken — Running Plan
 
-## Goal
-Replace the IND-stage-tracker with a general job application tracker. Users can log applications to any company (free text), track them through a pipeline, and see dashboard stats with date-range filtering.
+## Completed
 
----
+### Application Tracker (from main branch merge)
+- [x] Replace IND-stage model with general job application tracker
+- [x] New fields: companyName, position, appliedAt, status, rejectionReason, rejectionNote, notes, contactPersonName, contactPersonEmail, locations
+- [x] Statuses: Applied → InterviewScheduled → OfferReceived → Accepted / Rejected / Withdrawn / OnHold
+- [x] Stats API: GET /api/dashboard/stats?from=&to=
+- [x] HomeView — stats dashboard with date-range selector
+- [x] CompaniesView — IND sponsor browser with "Start Application"
+- [x] ApplicationsView — list + detail panel
+- [x] ApplicationPanel + NewApplicationModal components
 
-## New Data Model
+### Database Migration (Table Storage → PostgreSQL)
+- [x] EF Core + Npgsql replacing Azure.Data.Tables
+- [x] AppDbContext with Users, Stages, Sponsors tables
+- [x] Sponsors moved from in-memory ConcurrentDictionary to SQL
+- [x] EF Core migrations run in CI (not startup) — dotnet ef database update
+- [x] docker-compose.yml for local Postgres
+- [x] Cascade delete: User → Stages (removed redundant explicit deletion)
 
-### ApplicationStage (replaces old stage entity)
-| Field | Type | Notes |
-|---|---|---|
-| `id` | string | GUID, PK |
-| `userId` | string | FK → User |
-| `companyName` | string | Free text, required |
-| `position` | string | Free text, required |
-| `appliedAt` | DateTimeOffset | Required, defaults to today |
-| `status` | string | See statuses below |
-| `rejectionReason` | string? | Only when status = Rejected |
-| `rejectionNote` | string? | Optional free text alongside reason |
-| `notes` | string? | General notes |
-| `contactPersonName` | string? | |
-| `contactPersonEmail` | string? | |
-| `locations` | string[] | Optional, replaces `cities` |
-| `updatedAt` | DateTimeOffset | Auto-set on save |
+### Auth & Email
+- [x] Forgot-password / reset-password flow (Resend HTTP API)
+- [x] Stateless HMAC reset tokens (userId.exp.sig), 1-hour expiry
+- [x] Anti-enumeration: forgot-password always returns 204
+- [x] JWT HS256, PBKDF2-SHA256 password hashing
 
-### Statuses
-`Applied` → `InterviewScheduled` → `OfferReceived` → `Accepted`
-                                                    → `Rejected` (→ rejection reason)
-                                                    → `Withdrawn`
-                     → `OnHold`
-
-### Rejection reasons (fixed list)
-- `dutch_language` — Dutch language requirement
-- `dutch_language` — Dutch language requirement
-- `another_candidate` — Proceeded with another candidate
-- `incompatible_profile` — Incompatible profile
-- `salary_mismatch` — Salary expectations mismatch
-- `internal_hire` — Position filled internally
-- `other` — Other
+### Frontend Polish
+- [x] Warm-tinted shadows on navbar, cards, buttons, panels, modal
+- [x] AppLogo inline SVG (orange rounded square with magnifying glass)
+- [x] favicon.svg matches AppLogo design
 
 ---
 
-## Navigation (new)
-| Tab | Route | Content |
-|---|---|---|
-| Home | `/` | Stats dashboard |
-| My Applications | `/applications` | Application list + new/edit |
-| Companies | `/companies` | IND sponsor browser |
-| Profile | `/profile` | Existing profile page |
+## In Progress / Next
+
+### CRITICAL
+
+- [ ] **Privacy Policy page** (`/privacy` route)
+  - RegisterView links to `/privacy` (opens new tab) but route does not exist — GDPR violation
+  - Create `PrivacyView.vue` with: data collected, purpose, AI notice (Gemini), right to deletion, contact
+  - Add `/privacy` route (public, no auth required)
+
+### HIGH
+
+- [ ] **CSS consistency across all views**
+  - ApplicationPanel, HomeView, CompaniesView panel styles use hardcoded Tailwind-grey colors
+    (`#1a1a1a`, `#6b7280`, `#d1d5db`, `#e5e7eb`, `white`, `#9ca3af`, `#374151`, `#ef4444`)
+    that clash with the warm palette (--col-text, --col-muted, --col-border, etc.)
+  - Worst offender: ApplicationPanel has local `.btn-primary` overriding the global orange button with **black**
+  - CompaniesView tags use indigo (`#e0e7ff` / `#3730a3`) instead of palette accent
+  - Fix: remove local duplicates of global classes, replace hex literals with CSS variables
+
+- [ ] **Per-route `<title>` tags**
+  - All pages show "IWWZ" regardless of current route
+  - Add `meta.title` to every route, add `router.afterEach` to set `document.title`
+
+### MEDIUM
+
+- [ ] **HomeView error state for stats**
+  - `store.loadStats` silently swallows API errors — user sees blank screen
+  - Add `statsError` to applications store, show error message in HomeView
+
+- [ ] **Rate limiting on auth endpoints**
+  - Login, register, forgot-password have no rate limiting in backend
+  - Options: Azure API Management, middleware per-IP counter (in-memory), or 429 after N attempts
+
+- [ ] **`aria-invalid` / `aria-describedby` on form validation errors**
+  - Forms show error text but inputs don't have aria attributes linking them to error messages
+  - Affects: LoginView, RegisterView, ProfileView, ApplicationPanel
+
+- [ ] **IND data freshness indicator**
+  - Show "Last synced: {date}" somewhere in CompaniesView
+  - Requires either a `/api/dashboard/sponsors/meta` endpoint or storing sync timestamp in DB
+
+### LOW
+
+- [ ] **Email change in profile** — currently no way to change email after registration
+- [ ] **First-login onboarding banner** — show a dismissible tip on first login
+- [ ] **Confirm password field on register** — currently no confirm password, only client-side minlength check
 
 ---
 
-## Stats API
-`GET /api/dashboard/stats?from=<iso>&to=<iso>` (both optional)
-```json
-{
-  "total": 42,
-  "byStatus": { "Applied": 10, "InterviewScheduled": 8, ... }
-}
-```
+## Infrastructure
 
----
-
-## Tasks
-
-### Backend
-- [x] Update `ApplicationStage.cs` — new fields, rename `Cities` → `Locations`, add rejection fields
-- [x] Update `DashboardCrudFunction.cs` — new statuses, new validation, add `GET /stats` endpoint
-- [x] Update `AppJsonSerializerContext.cs` — register `StatsResponse`
-- [x] Add `StatsResponse` model
-- [x] Create EF Core migration for schema changes
-
-### Frontend — types & stores
-- [x] Update `api.ts` — new `Application` type, new methods
-- [x] Delete `stores/pipeline.ts` (unused stub)
-- [x] Update `stores/companies.ts` — remove all stage/record logic, keep only sponsor company fetching and search
-- [x] Create `stores/applications.ts` — CRUD for applications + stats
-
-### Frontend — routing & navigation
-- [x] Update `router/index.ts` — `/` → HomeView, `/applications` → ApplicationsView, `/companies` → CompaniesView
-- [x] Update `AppNavbar.vue` — new nav links
-
-### Frontend — views
-- [x] Create `views/HomeView/HomeView.vue` — stats dashboard with date range selector
-- [x] Create `views/CompaniesView/CompaniesView.vue` — IND sponsor browser with "Start Application" button
-- [x] Create `views/ApplicationsView/ApplicationsView.vue` — list + "New Application" button + side panel
-- [x] Delete `views/DashboardView/` (split into HomeView + CompaniesView)
-- [x] Delete `views/BookmarkedView/` (replaced by ApplicationsView)
-
-### Frontend — components
-- [x] Create `components/NewApplicationModal/NewApplicationModal.vue`
-- [x] Create `components/ApplicationPanel/ApplicationPanel.vue` — detail/edit panel with rejection reason picker
-- [x] Delete `components/CompanyPanel/` (replaced by inline panel in CompaniesView + ApplicationPanel)
-- [x] Create `assets/split-panel.css` — shared layout styles
-
-### Verification
-- [x] `dotnet build` passes
-- [x] EF Core migration created and compiles
-- [x] `npm run type-check` passes
-- [x] `dotnet test` — 104 tests pass
-- [x] `npm test` — 140 tests pass (companies store tests updated for simplified API)
+- [ ] Register `microsoft.operationalinsights` provider on Azure subscription
+  (Application Insights Bicep fails until this provider is registered)
+  → Azure Portal → Subscriptions → Resource providers → search "operationalinsights" → Register
