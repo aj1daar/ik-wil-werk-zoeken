@@ -25,7 +25,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 |---|---|
 | Frontend | Vue 3 + TypeScript + Vite + Pinia + Vue Router |
 | Backend | Azure Functions (.NET 8 isolated worker) |
-| User storage | Azure Table Storage (`iwwzusers`, `iwwzstages` tables) |
+| Database | PostgreSQL (Azure Database for PostgreSQL Flexible Server) via EF Core |
 | Auth | JWT HS256 · PBKDF2-SHA256 (100 000 iterations) |
 | Email | Resend (password reset) |
 | Hosting | Cloudflare Pages (frontend) · Azure consumption plan (backend) |
@@ -37,11 +37,15 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 ```
 /
 ├── backend/                 Azure Functions (.NET 8)
+│   ├── Data/
+│   │   ├── AppDbContext.cs              EF Core DbContext
+│   │   ├── AppDbContextFactory.cs       Design-time factory (dotnet ef tooling)
+│   │   └── Migrations/                  EF Core migrations
 │   ├── Functions/
 │   │   ├── AuthFunction.cs              POST /api/auth/*
 │   │   ├── DashboardCrudFunction.cs     GET|POST|PUT|DELETE /api/dashboard/*
 │   │   └── MonthlyIndSponsorSyncFunction.cs  timer trigger
-│   ├── Models/              UserEntity, SponsorCompany, ApplicationStage, AuthModels
+│   ├── Models/              User, SponsorCompany, ApplicationStage, AuthModels
 │   └── Services/            PasswordHasher, TokenService, EmailService,
 │                            UserStore, StageStore, SponsorStore
 │
@@ -55,7 +59,11 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 │       ├── stores/          auth (Pinia), companies (Pinia)
 │       └── router/          index.ts — auth-guard navigation
 │
-└── frontend/src/**/__tests__/  Vitest tests (160 tests)
+├── frontend/src/**/__tests__/  Vitest tests (160 tests)
+│
+└── infra/                   Azure Bicep (subscription-scope)
+    ├── main.bicep            Resource group + module wiring
+    └── resources.bicep       Storage, PostgreSQL, Functions, App Insights
 ```
 
 ---
@@ -99,7 +107,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 - Node.js 18+ and pnpm
 - .NET 8 SDK
 - Azure Functions Core Tools v4
-- Azurite (or a real Azure Storage connection string) for local Table Storage
+- PostgreSQL 16 (local instance or Docker: `docker run -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16`)
 
 ### Backend
 
@@ -110,28 +118,28 @@ cp local.settings.example.json local.settings.json
 
 func start
 # Listens on http://localhost:7071
+# Applies EF Core migrations automatically on startup
 ```
 
 **Environment variables** (set in `local.settings.json` for local dev, or as Azure App Settings in production):
 
 | Variable | Required | Description |
 |---|---|---|
-| `AzureWebJobsStorage` | ✅ | Storage connection string (Azurite locally, real account in prod) |
+| `AzureWebJobsStorage` | ✅ | Azure Storage connection string (required by the Functions runtime for timer triggers) |
+| `DATABASE_URL` | ✅ | PostgreSQL connection string — `Host=localhost;Database=iwwz;Username=postgres;Password=postgres` locally |
 | `JWT_SECRET` | ✅ | Random string ≥ 32 chars — signs and verifies JWTs and password-reset tokens |
 | `GEMINI_API_KEY` | ✅ | Google Gemini API key for AI company summaries |
 | `ALLOWED_ORIGIN` | ✅ | CORS origin — `http://localhost:5173` locally, `https://iwwz.nogoibay.org` in prod |
 | `RESEND_API_KEY` | — | Resend API key — if absent, password reset emails are silently skipped (fine for local dev) |
 | `RESEND_FROM` | — | From address for password-reset emails (default: `noreply@iwwz.nogoibay.org`) |
 
-Secrets are deployed separately and never committed:
+### EF Core migrations
+
+Migrations are applied automatically at startup. To add a new migration during development:
 
 ```bash
-az functionapp config appsettings set \
-  --name <app-name> --resource-group <rg> \
-  --settings \
-    JWT_SECRET="..." \
-    GEMINI_API_KEY="..." \
-    RESEND_API_KEY="..."
+cd backend
+dotnet ef migrations add <MigrationName> --output-dir Data/Migrations
 ```
 
 ### Frontend
@@ -168,7 +176,7 @@ Covers: auth store (login, register, updateProfile, changePassword, deleteAccoun
 
 ## CI/CD Setup
 
-The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test → build → deploy on every push to `main`. It requires the following GitHub repository secrets and variables:
+The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test → build → deploy on every push to `main`. Infrastructure is provisioned via Bicep on each deploy, including the PostgreSQL Flexible Server.
 
 ### Secrets (Settings → Secrets and variables → Actions)
 
@@ -182,6 +190,7 @@ The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test �
 | `JWT_SECRET` | Random string ≥ 32 chars |
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `RESEND_API_KEY` | Resend API key |
+| `POSTGRES_PASSWORD` | PostgreSQL admin password (used by Bicep to provision the server and construct `DATABASE_URL`) |
 
 ### Variables (Settings → Secrets and variables → Actions → Variables)
 
