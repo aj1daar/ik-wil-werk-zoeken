@@ -9,6 +9,15 @@ const store = useApplicationsStore()
 
 type SortKey = 'newest' | 'oldest' | 'updated' | 'company' | 'followup'
 
+const splitMode = ref((() => {
+  try { return localStorage.getItem('iwwz_apps_split') === '1' } catch { return false }
+})())
+
+function toggleSplitMode() {
+  splitMode.value = !splitMode.value
+  try { localStorage.setItem('iwwz_apps_split', splitMode.value ? '1' : '0') } catch { /* ignore */ }
+}
+
 const search       = ref('')
 const filterStatus = ref<ApplicationStatus | ''>('')
 const sortBy       = ref<SortKey>('newest')
@@ -212,6 +221,17 @@ function printPage() {
         Print
       </button>
 
+      <button
+        @click="toggleSplitMode"
+        :class="['btn-split-toggle', splitMode && 'btn-split-toggle--active']"
+        title="Toggle split view"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M9 3v18" />
+        </svg>
+        Split
+      </button>
+
       <button @click="modalOpen = true" class="btn-new" title="New application (N)">
         <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -220,68 +240,80 @@ function printPage() {
       </button>
     </div>
 
-    <!-- Select-all bar shown when list is non-empty -->
-    <div v-if="filtered.length > 0" class="select-bar">
-      <label class="select-all-label">
-        <input
-          type="checkbox"
-          :checked="allFilteredChecked"
-          :indeterminate="checkedIds.size > 0 && !allFilteredChecked"
-          @change="toggleAll"
-          aria-label="Select all visible applications"
-        />
-        <span class="select-all-text">
-          {{ checkedIds.size > 0 ? `${checkedIds.size} selected` : 'Select all' }}
-        </span>
-      </label>
-    </div>
+    <!-- List + optional split panel -->
+    <div class="list-area" :class="{ 'main-split': splitMode }">
+      <div class="list-col" :class="{ 'company-list': splitMode }">
+        <!-- Select-all bar shown when list is non-empty -->
+        <div v-if="filtered.length > 0" class="select-bar">
+          <label class="select-all-label">
+            <input
+              type="checkbox"
+              :checked="allFilteredChecked"
+              :indeterminate="checkedIds.size > 0 && !allFilteredChecked"
+              @change="toggleAll"
+              aria-label="Select all visible applications"
+            />
+            <span class="select-all-text">
+              {{ checkedIds.size > 0 ? `${checkedIds.size} selected` : 'Select all' }}
+            </span>
+          </label>
+        </div>
 
-    <div class="app-list-wrapper">
-      <div v-if="store.loading" class="state-msg">Loading…</div>
-      <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
-      <div v-else-if="filtered.length === 0" class="state-msg">
-        <template v-if="store.applications.length === 0">
-          No applications yet.
-          <button @click="modalOpen = true" class="add-first-link">Add your first application →</button>
-        </template>
-        <template v-else>No applications match your filters.</template>
+        <div class="app-list-wrapper">
+          <div v-if="store.loading" class="state-msg">Loading…</div>
+          <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
+          <div v-else-if="filtered.length === 0" class="state-msg">
+            <template v-if="store.applications.length === 0">
+              No applications yet.
+              <button @click="modalOpen = true" class="add-first-link">Add your first application →</button>
+            </template>
+            <template v-else>No applications match your filters.</template>
+          </div>
+
+          <TransitionGroup v-else tag="ul" name="list">
+            <li
+              v-for="(app, index) in filtered"
+              :key="app.id"
+              :style="{ '--i': Math.min(index, 9) }"
+              @click="selectRow(app.id)"
+              :class="['company-row', { 'company-row--active': selectedId === app.id, 'company-row--checked': checkedIds.has(app.id) }]"
+              role="button"
+              tabindex="0"
+              :aria-label="`${app.companyName} — ${app.position}`"
+              @keydown.enter="selectRow(app.id)"
+              @keydown.space.prevent="selectRow(app.id)"
+            >
+              <input
+                type="checkbox"
+                class="row-checkbox"
+                :checked="checkedIds.has(app.id)"
+                @click.stop="toggleCheck(app.id)"
+                :aria-label="`Select ${app.companyName}`"
+              />
+              <div class="row-body">
+                <p class="row-name">{{ app.companyName }}</p>
+                <p class="row-industry">{{ app.position }}</p>
+              </div>
+              <div class="row-meta">
+                <span :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
+                <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
+                <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠ Follow up</span>
+                <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Follow-up due today">📅 Today</span>
+              </div>
+              <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </li>
+          </TransitionGroup>
+        </div>
       </div>
 
-      <TransitionGroup v-else tag="ul" name="list">
-        <li
-          v-for="(app, index) in filtered"
-          :key="app.id"
-          :style="{ '--i': Math.min(index, 9) }"
-          @click="selectRow(app.id)"
-          :class="['company-row', { 'company-row--active': selectedId === app.id, 'company-row--checked': checkedIds.has(app.id) }]"
-          role="button"
-          tabindex="0"
-          :aria-label="`${app.companyName} — ${app.position}`"
-          @keydown.enter="selectRow(app.id)"
-          @keydown.space.prevent="selectRow(app.id)"
-        >
-          <input
-            type="checkbox"
-            class="row-checkbox"
-            :checked="checkedIds.has(app.id)"
-            @click.stop="toggleCheck(app.id)"
-            :aria-label="`Select ${app.companyName}`"
-          />
-          <div class="row-body">
-            <p class="row-name">{{ app.companyName }}</p>
-            <p class="row-industry">{{ app.position }}</p>
-          </div>
-          <div class="row-meta">
-            <span :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
-            <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
-            <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠ Follow up</span>
-            <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Follow-up due today">📅 Today</span>
-          </div>
-          <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </li>
-      </TransitionGroup>
+      <!-- Inline panel (split mode, desktop only) -->
+      <transition name="panel">
+        <div v-if="splitMode && selected" class="detail-panel">
+          <ApplicationPanel :application="selected" @close="onPanelClose" />
+        </div>
+      </transition>
     </div>
 
     <!-- Bulk action bar -->
@@ -302,10 +334,10 @@ function printPage() {
       </div>
     </transition>
 
-    <!-- Application detail modal -->
+    <!-- Application detail modal (non-split mode, or mobile in split mode) -->
     <teleport to="body">
       <Transition name="app-detail">
-        <div v-if="selected" class="modal-backdrop" @click.self="onPanelClose" role="dialog" aria-modal="true" :aria-label="`Edit application: ${selected.companyName}`">
+        <div v-if="!splitMode && selected" class="modal-backdrop" @click.self="onPanelClose" role="dialog" aria-modal="true" :aria-label="`Edit application: ${selected.companyName}`">
           <div class="modal-box">
             <ApplicationPanel :application="selected" @close="onPanelClose" />
           </div>
@@ -321,6 +353,20 @@ function printPage() {
 
 <style src="../../assets/split-panel.css" scoped></style>
 <style scoped>
+/* layout wrappers */
+.list-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.list-col  { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* in split mode, company-list (from split-panel.css) is flex: 1; overflow-y: auto —
+   we need it to not scroll the select-bar out, so override to column layout */
+.list-area.main-split .list-col {
+  overflow-y: hidden;
+}
+.list-area.main-split .app-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .app-list-wrapper {
   flex: 1;
   overflow-y: auto;
@@ -456,6 +502,14 @@ function printPage() {
   border-radius: .375rem; padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
 }
 .btn-export:hover { background: var(--col-raised); }
+
+.btn-split-toggle {
+  display: inline-flex; align-items: center; gap: .375rem;
+  background: var(--col-surface); color: var(--col-muted); border: 1px solid var(--col-border);
+  border-radius: .375rem; padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
+}
+.btn-split-toggle:hover { background: var(--col-raised); color: var(--col-text); }
+.btn-split-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
 
 @media (max-width: 480px) {
   .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
