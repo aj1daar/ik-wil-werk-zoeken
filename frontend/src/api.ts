@@ -81,6 +81,9 @@ export const api = {
   adminReloadSponsors: () =>
     request<{ message: string }>('POST', '/api/admin/reload-sponsors'),
 
+  adminGetSyncLogs: () =>
+    request<SyncLog[]>('GET', '/api/admin/sync-logs'),
+
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 
@@ -188,4 +191,15 @@ export interface AdminUserSummary {
   role:          string
   emailVerified: boolean
   createdAt:     string
+}
+
+export interface SyncLog {
+  id:            number
+  syncedAt:      string
+  triggerSource: string
+  added:         number
+  updated:       number
+  removed:       number
+  enriched:      number
+  totalAfterSync: number
 }

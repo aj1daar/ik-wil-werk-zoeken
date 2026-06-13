@@ -11,6 +11,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<ApplicationStage> Stages => Set<ApplicationStage>();
     public DbSet<SponsorCompany> Sponsors => Set<SponsorCompany>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +46,12 @@ public sealed class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(a => a.ApplicationId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SyncLog>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.Id).ValueGeneratedOnAdd();
         });
     }
 }

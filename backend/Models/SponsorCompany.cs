@@ -24,4 +24,7 @@ public sealed class SponsorCompany
     public string? TargetMarket { get; set; }
     public DateTimeOffset? EnrichedAt { get; set; }
     public int EnrichmentVersion { get; set; } = 0;
+
+    // Soft-delete: set when a KvK number disappears from the IND register
+    public DateTimeOffset? RemovedAt { get; set; }
 }

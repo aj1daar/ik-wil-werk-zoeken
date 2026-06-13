@@ -1,3 +1,4 @@
+using backend.Models;
 using backend.Services;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -37,8 +38,9 @@ public sealed class MonthlyIndSponsorSyncFunction
         }
 
         var existing = (await _store.GetAllAsync()).ToDictionary(c => c.Id);
+        var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
 
-        var added = 0;
+        var added   = 0;
         var updated = 0;
 
         foreach (var company in freshCompanies)
@@ -57,6 +59,8 @@ public sealed class MonthlyIndSponsorSyncFunction
                 company.TargetMarket      = prev.TargetMarket;
                 company.EnrichedAt        = prev.EnrichedAt;
                 company.EnrichmentVersion = prev.EnrichmentVersion;
+                // Clear soft-delete if it was previously removed and has now returned
+                company.RemovedAt = null;
                 updated++;
             }
             else
@@ -67,37 +71,55 @@ public sealed class MonthlyIndSponsorSyncFunction
 
         await _store.UpsertAllAsync(freshCompanies);
 
+        // Soft-delete companies that are no longer in the IND register
+        var removedIds = existing.Keys
+            .Where(id => !freshIds.Contains(id) && existing[id].RemovedAt == null)
+            .ToList();
+        await _store.SoftDeleteRemovedAsync(removedIds);
+        var removed = removedIds.Count;
+
         logger.LogInformation(
-            "Sync complete — added: {Added}, updated: {Updated}, total: {Total}",
-            added, updated, freshCompanies.Count);
+            "Sync complete — added: {Added}, updated: {Updated}, removed: {Removed}, total: {Total}",
+            added, updated, removed, freshCompanies.Count);
 
         var toEnrich = freshCompanies
             .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
             .ToList();
 
-        if (toEnrich.Count == 0)
-            return;
+        var enriched = 0;
 
-        logger.LogInformation("Enriching {Count} companies via LLM (batch mode)", toEnrich.Count);
-        int enriched = 0;
+        if (toEnrich.Count > 0)
+        {
+            logger.LogInformation("Enriching {Count} companies via LLM (batch mode)", toEnrich.Count);
 
-        var batches = toEnrich
-            .Select((c, i) => (c, i))
-            .GroupBy(x => x.i / 20)
-            .Select(g => g.Select(x => x.c).ToList())
-            .ToList();
+            var batches = toEnrich
+                .Select((c, i) => (c, i))
+                .GroupBy(x => x.i / 20)
+                .Select(g => g.Select(x => x.c).ToList())
+                .ToList();
 
-        await Parallel.ForEachAsync(
-            batches,
-            new ParallelOptions { MaxDegreeOfParallelism = 5 },
-            async (batch, ct) =>
-            {
-                var count = await _enricher.EnrichBatchAsync(batch, ct);
-                Interlocked.Add(ref enriched, count);
-            });
+            await Parallel.ForEachAsync(
+                batches,
+                new ParallelOptions { MaxDegreeOfParallelism = 5 },
+                async (batch, ct) =>
+                {
+                    var count = await _enricher.EnrichBatchAsync(batch, ct);
+                    Interlocked.Add(ref enriched, count);
+                });
 
-        foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
-            await _store.UpsertAsync(company);
+            foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
+                await _store.UpsertAsync(company);
+        }
+
+        await _store.LogSyncAsync(new SyncLog
+        {
+            TriggerSource  = "monthly",
+            Added          = added,
+            Updated        = updated,
+            Removed        = removed,
+            Enriched       = enriched,
+            TotalAfterSync = freshCompanies.Count,
+        });
 
         logger.LogInformation(
             "Enrichment complete — enriched: {Enriched} of {Total}",

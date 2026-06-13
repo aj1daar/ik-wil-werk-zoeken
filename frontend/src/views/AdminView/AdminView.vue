@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api, type AdminUserSummary } from '../../api'
+import { api, type AdminUserSummary, type SyncLog } from '../../api'
 import AppNavbar from '../../components/AppNavbar/AppNavbar.vue'
 
 const users         = ref<AdminUserSummary[]>([])
@@ -15,6 +15,10 @@ const promoteSuccess = ref('')
 const reloading     = ref(false)
 const reloadError   = ref('')
 const reloadSuccess = ref('')
+
+const syncLogs      = ref<SyncLog[]>([])
+const loadingLogs   = ref(false)
+const logsError     = ref('')
 
 async function loadUsers() {
   loadingUsers.value = true
@@ -53,6 +57,7 @@ async function reloadSponsors() {
   try {
     const res = await api.adminReloadSponsors()
     reloadSuccess.value = res.message
+    await loadSyncLogs()
   } catch (e) {
     reloadError.value = e instanceof Error ? e.message : 'Reload failed'
   } finally {
@@ -60,7 +65,23 @@ async function reloadSponsors() {
   }
 }
 
-onMounted(loadUsers)
+async function loadSyncLogs() {
+  loadingLogs.value = true
+  logsError.value   = ''
+  try {
+    syncLogs.value = await api.adminGetSyncLogs()
+  } catch (e) {
+    logsError.value = e instanceof Error ? e.message : 'Failed to load sync logs'
+  } finally {
+    loadingLogs.value = false
+  }
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+onMounted(() => { loadUsers(); loadSyncLogs() })
 </script>
 
 <template>
@@ -106,6 +127,44 @@ onMounted(loadUsers)
       </button>
       <p v-if="reloadError"   class="form-error"  role="alert">{{ reloadError }}</p>
       <p v-if="reloadSuccess" class="form-success" role="status">{{ reloadSuccess }}</p>
+    </section>
+
+    <!-- Sync log table -->
+    <section class="admin-card" aria-labelledby="sync-logs-heading">
+      <h2 id="sync-logs-heading" class="card-title">Sync History</h2>
+      <p v-if="loadingLogs" class="muted">Loading…</p>
+      <p v-else-if="logsError" class="form-error" role="alert">{{ logsError }}</p>
+      <p v-else-if="syncLogs.length === 0" class="muted">No syncs recorded yet.</p>
+      <div v-else class="table-wrap">
+        <table class="users-table" aria-label="IND sync history">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Source</th>
+              <th scope="col">Added</th>
+              <th scope="col">Updated</th>
+              <th scope="col">Removed</th>
+              <th scope="col">Enriched</th>
+              <th scope="col">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="log in syncLogs" :key="log.id">
+              <td>{{ formatDate(log.syncedAt) }}</td>
+              <td>
+                <span :class="['role-badge', log.triggerSource === 'admin' ? 'role-badge--admin' : 'role-badge--user']">
+                  {{ log.triggerSource }}
+                </span>
+              </td>
+              <td class="num-cell">+{{ log.added }}</td>
+              <td class="num-cell">{{ log.updated }}</td>
+              <td class="num-cell removed-cell">{{ log.removed > 0 ? `-${log.removed}` : '0' }}</td>
+              <td class="num-cell">{{ log.enriched }}</td>
+              <td class="num-cell">{{ log.totalAfterSync }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <!-- Users table -->
@@ -270,6 +329,9 @@ onMounted(loadUsers)
   background: var(--col-subtle);
   color: var(--col-muted);
 }
+
+.num-cell { text-align: right; font-variant-numeric: tabular-nums; }
+.removed-cell { color: var(--col-error); }
 
 @media (max-width: 600px) {
   .promote-row { flex-direction: column; align-items: stretch; }

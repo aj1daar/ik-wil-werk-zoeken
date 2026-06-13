@@ -4,6 +4,7 @@ using backend.Models;
 using backend.Services;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Logging;
 
 namespace backend.Functions;
 
@@ -14,19 +15,22 @@ public sealed class AdminFunction
     private readonly SponsorStore       _sponsorStore;
     private readonly IndSponsorScraper  _scraper;
     private readonly CompanyEnricher    _enricher;
+    private readonly ILogger<AdminFunction> _logger;
 
     public AdminFunction(
         TokenService tokens,
         UserStore users,
         SponsorStore sponsorStore,
         IndSponsorScraper scraper,
-        CompanyEnricher enricher)
+        CompanyEnricher enricher,
+        ILogger<AdminFunction> logger)
     {
         _tokens       = tokens;
         _users        = users;
         _sponsorStore = sponsorStore;
         _scraper      = scraper;
         _enricher     = enricher;
+        _logger       = logger;
     }
 
     // GET /api/admin/users
@@ -111,6 +115,7 @@ public sealed class AdminFunction
         }
 
         var existing = (await _sponsorStore.GetAllAsync()).ToDictionary(c => c.Id);
+        var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
 
         var added   = 0;
         var updated = 0;
@@ -131,6 +136,7 @@ public sealed class AdminFunction
                 company.TargetMarket      = prev.TargetMarket;
                 company.EnrichedAt        = prev.EnrichedAt;
                 company.EnrichmentVersion = prev.EnrichmentVersion;
+                company.RemovedAt         = null;
                 updated++;
             }
             else
@@ -140,6 +146,16 @@ public sealed class AdminFunction
         }
 
         await _sponsorStore.UpsertAllAsync(freshCompanies);
+
+        var removedIds = existing.Keys
+            .Where(id => !freshIds.Contains(id) && existing[id].RemovedAt == null)
+            .ToList();
+        await _sponsorStore.SoftDeleteRemovedAsync(removedIds);
+        var removed = removedIds.Count;
+
+        _logger.LogInformation(
+            "Admin reload complete — added: {Added}, updated: {Updated}, removed: {Removed}, total: {Total}",
+            added, updated, removed, freshCompanies.Count);
 
         var toEnrich = freshCompanies
             .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
@@ -168,12 +184,35 @@ public sealed class AdminFunction
                 await _sponsorStore.UpsertAsync(company);
         }
 
+        await _sponsorStore.LogSyncAsync(new SyncLog
+        {
+            TriggerSource  = "admin",
+            Added          = added,
+            Updated        = updated,
+            Removed        = removed,
+            Enriched       = enriched,
+            TotalAfterSync = freshCompanies.Count,
+        });
+
         var result = new MessageResponse
         {
-            Message = $"Sync complete — added: {added}, updated: {updated}, total: {freshCompanies.Count}, enriched: {enriched}"
+            Message = $"Sync complete — added: {added}, updated: {updated}, removed: {removed}, total: {freshCompanies.Count}, enriched: {enriched}"
         };
 
         return await JsonOk(req, result, AppJsonSerializerContext.Default.MessageResponse);
+    }
+
+    // GET /api/admin/sync-logs
+    [Function("AdminSyncLogs")]
+    public async Task<HttpResponseData> GetSyncLogs(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "options", Route = "admin/sync-logs")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+        if (!IsAdmin(req, out var forbidden)) return forbidden!;
+
+        var logs = await _sponsorStore.GetSyncLogsAsync();
+        return await JsonOk(req, logs.ToArray(), AppJsonSerializerContext.Default.SyncLogArray);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

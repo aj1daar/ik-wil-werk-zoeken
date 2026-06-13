@@ -64,7 +64,7 @@ public sealed class DashboardCrudFunction
 
     private async Task<HttpResponseData> GetSponsors(HttpRequestData req)
     {
-        var companies = await _sponsors.GetAllAsync();
+        var companies = await _sponsors.GetActiveAsync();
         var response = req.CreateResponse(HttpStatusCode.OK);
         await WriteJson(response, JsonSerializer.Serialize(
             companies.ToArray(),

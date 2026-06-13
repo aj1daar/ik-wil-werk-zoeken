@@ -31,6 +31,8 @@ namespace backend;
 [JsonSerializable(typeof(StatsResponse))]
 [JsonSerializable(typeof(Dictionary<string, int>))]
 [JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(SyncLog))]
+[JsonSerializable(typeof(SyncLog[]), TypeInfoPropertyName = "SyncLogArray")]
 internal partial class AppJsonSerializerContext : JsonSerializerContext
 {
 }

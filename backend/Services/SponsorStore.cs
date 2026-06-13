@@ -9,6 +9,9 @@ public sealed class SponsorStore(AppDbContext db)
     public async Task<IReadOnlyList<SponsorCompany>> GetAllAsync() =>
         await db.Sponsors.ToListAsync();
 
+    public async Task<IReadOnlyList<SponsorCompany>> GetActiveAsync() =>
+        await db.Sponsors.Where(c => c.RemovedAt == null).ToListAsync();
+
     public async Task<SponsorCompany?> GetAsync(string id) =>
         await db.Sponsors.FindAsync(id);
 
@@ -34,4 +37,27 @@ public sealed class SponsorStore(AppDbContext db)
         }
         await db.SaveChangesAsync();
     }
+
+    public async Task SoftDeleteRemovedAsync(IEnumerable<string> ids)
+    {
+        var idSet = ids.ToHashSet();
+        if (idSet.Count == 0) return;
+
+        var now = DateTimeOffset.UtcNow;
+        await db.Sponsors
+            .Where(c => idSet.Contains(c.Id) && c.RemovedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.RemovedAt, now));
+    }
+
+    public async Task LogSyncAsync(SyncLog log)
+    {
+        db.SyncLogs.Add(log);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<IReadOnlyList<SyncLog>> GetSyncLogsAsync(int limit = 20) =>
+        await db.SyncLogs
+            .OrderByDescending(s => s.SyncedAt)
+            .Take(limit)
+            .ToListAsync();
 }
