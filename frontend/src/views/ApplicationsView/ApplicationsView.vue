@@ -7,7 +7,7 @@ import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel
 
 const store = useApplicationsStore()
 
-type SortKey = 'newest' | 'oldest' | 'updated' | 'company'
+type SortKey = 'newest' | 'oldest' | 'updated' | 'company' | 'followup'
 
 const search       = ref('')
 const filterStatus = ref<ApplicationStatus | ''>('')
@@ -50,6 +50,11 @@ const filtered = computed<Application[]>(() => {
       case 'oldest':  return new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime()
       case 'updated': return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       case 'company': return a.companyName.localeCompare(b.companyName)
+      case 'followup': {
+        const ad = a.followUpDate ? new Date(a.followUpDate).getTime() : Infinity
+        const bd = b.followUpDate ? new Date(b.followUpDate).getTime() : Infinity
+        return ad - bd
+      }
     }
   })
   return list
@@ -180,6 +185,7 @@ function printPage() {
         <option value="oldest">Oldest first</option>
         <option value="updated">Recently updated</option>
         <option value="company">Company A→Z</option>
+        <option value="followup">Follow-up date ↑</option>
       </select>
 
       <button

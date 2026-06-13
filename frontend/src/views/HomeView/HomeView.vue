@@ -8,7 +8,18 @@ import AreaChart from '../../components/AreaChart/AreaChart.vue'
 
 const store = useApplicationsStore()
 
-const showBanner = ref(false)
+const showBanner   = ref(false)
+const showOverdue  = ref(true)
+
+const TERMINAL = new Set(['Rejected', 'Withdrawn', 'Accepted'])
+
+const overdueApps = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  return store.applications
+    .filter(a => !TERMINAL.has(a.status) && a.followUpDate && a.followUpDate.slice(0, 10) < today)
+    .sort((a, b) => (a.followUpDate ?? '').localeCompare(b.followUpDate ?? ''))
+    .slice(0, 5)
+})
 function dismissBanner() {
   showBanner.value = false
   window.localStorage?.setItem('iwwz_onboarded', '1')
@@ -158,6 +169,28 @@ const kpis = computed(() => {
         </div>
       </div>
 
+      <div v-if="overdueApps.length > 0" class="overdue-card">
+        <button class="overdue-header" @click="showOverdue = !showOverdue" :aria-expanded="showOverdue">
+          <span class="overdue-title">
+            Follow-ups overdue
+            <span class="overdue-badge">{{ overdueApps.length }}</span>
+          </span>
+          <svg class="overdue-chevron" :class="{ 'chevron-up': showOverdue }" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <ul v-if="showOverdue" class="overdue-list">
+          <li v-for="app in overdueApps" :key="app.id" class="overdue-item">
+            <div class="overdue-app-name">
+              <span class="overdue-company">{{ app.companyName }}</span>
+              <span class="overdue-sep">·</span>
+              <span class="overdue-position">{{ app.position }}</span>
+            </div>
+            <span class="overdue-date">Due {{ app.followUpDate!.slice(0, 10) }}</span>
+          </li>
+        </ul>
+      </div>
+
       <FunnelChart :by-status="store.stats.byStatus" class="funnel-section" />
 
       <div class="charts-row">
@@ -255,4 +288,33 @@ const kpis = computed(() => {
   font-size: .75rem; font-weight: 600;
 }
 .stat-count { font-size: 2rem; font-weight: 700; color: var(--col-text); }
+
+.overdue-card {
+  background: color-mix(in srgb, #f59e0b 8%, var(--col-surface));
+  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
+  border-radius: .75rem; margin-bottom: 1.5rem; overflow: hidden;
+}
+.overdue-header {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; background: none; border: none; cursor: pointer;
+  padding: .875rem 1.25rem; text-align: left; gap: .5rem;
+}
+.overdue-title { font-size: .875rem; font-weight: 600; color: #92400e; display: flex; align-items: center; gap: .5rem; }
+.overdue-badge {
+  background: #f59e0b; color: #fff;
+  border-radius: 9999px; font-size: .7rem; font-weight: 700; padding: .1rem .45rem;
+}
+.overdue-chevron { width: 1rem; height: 1rem; color: #92400e; transition: transform .2s; flex-shrink: 0; }
+.chevron-up { transform: rotate(180deg); }
+.overdue-list { list-style: none; margin: 0; padding: 0 1.25rem .75rem; display: flex; flex-direction: column; gap: .5rem; }
+.overdue-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: var(--col-bg); border: 1px solid var(--col-border);
+  border-radius: .5rem; padding: .5rem .875rem; font-size: .8rem;
+}
+.overdue-app-name { display: flex; align-items: center; gap: .375rem; min-width: 0; }
+.overdue-company { font-weight: 600; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overdue-sep { color: var(--col-subtle); }
+.overdue-position { color: var(--col-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overdue-date { font-size: .75rem; color: #b45309; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
 </style>
