@@ -1,4 +1,5 @@
 import { mount, flushPromises } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { Transition } from 'vue'
@@ -52,14 +53,14 @@ describe('App – page transition', () => {
   it('renders a <Transition name="page"> wrapping the route outlet', async () => {
     const wrapper = await mountApp()
     await flushPromises()
-    const pageTransitions = wrapper.findAllComponents(Transition).filter(t => t.props('name') === 'page')
+    const pageTransitions = (wrapper.findAllComponents(Transition) as unknown as VueWrapper<any>[]).filter(t => t.props('name') === 'page')
     expect(pageTransitions.length).toBe(1)
   })
 
   it('page transition uses out-in mode', async () => {
     const wrapper = await mountApp()
     await flushPromises()
-    const t = wrapper.findAllComponents(Transition).find(t => t.props('name') === 'page')
+    const t = (wrapper.findAllComponents(Transition) as unknown as VueWrapper<any>[]).find(t => t.props('name') === 'page')
     expect(t?.props('mode')).toBe('out-in')
   })
 
