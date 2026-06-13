@@ -168,7 +168,7 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 
 #### LOW
 
-- [ ] **`AppButton` component** — `src/components/ui/AppButton.vue` with `variant` prop (`"primary"` | `"secondary"` | `"ghost"` | `"icon"`). Currently button styles are duplicated per-component (`.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-icon` in at least 6 files). One component, one source of truth.
+- [x] **`AppButton` component** — `src/components/ui/AppButton.vue` with `variant` prop (`"primary"` | `"secondary"` | `"ghost"` | `"icon"`). Currently button styles are duplicated per-component (`.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-icon` in at least 6 files). One component, one source of truth.
 
 ---
 
