@@ -17,9 +17,9 @@ public sealed class CompanyEnricherTests
     // ── CurrentVersion constant ───────────────────────────────────────────────
 
     [Fact]
-    public void CurrentVersion_IsOne()
+    public void CurrentVersion_IsTwo()
     {
-        Assert.Equal(1, CompanyEnricher.CurrentVersion);
+        Assert.Equal(2, CompanyEnricher.CurrentVersion);
     }
 
     // ── EnrichBatchAsync — no API key ─────────────────────────────────────────
@@ -61,6 +61,7 @@ public sealed class CompanyEnricherTests
         {
             new
             {
+                confidence        = "high",
                 summary           = "Acme is a software company.",
                 coreIndustry      = "Software & Technology",
                 techStackTags     = new[] { "Cloud", "Java" },
@@ -237,6 +238,348 @@ public sealed class CompanyEnricherTests
         }
     }
 
+    // ── low-confidence handling ───────────────────────────────────────────────
+
+    [Fact]
+    public async Task EnrichBatchAsync_LowConfidence_SetsVersionButNoFields()
+    {
+        var company = MakeCompany("Mystery B.V.", "99999999");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence        = "low",
+                summary           = "Some made-up summary.",
+                coreIndustry      = "Unknown",
+                techStackTags     = new[] { "SAP" },
+                functionalTags    = Array.Empty<string>(),
+                workingLanguage   = "Dutch",
+                companySize       = "mid",
+                remotePolicy      = "hybrid",
+                parentCompanyName = (string?)null,
+                websiteUrl        = "https://mystery.nl",
+                targetMarket      = "B2B"
+            }
+        });
+
+        var factory = new GeminiHttpClientFactory(HttpStatusCode.OK, WrapGeminiResponse(resultJson));
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            var enriched = await enricher.EnrichBatchAsync([company]);
+
+            Assert.Equal(1, enriched); // still counted as processed
+            Assert.Equal(CompanyEnricher.CurrentVersion, company.EnrichmentVersion);
+            Assert.NotNull(company.EnrichedAt);
+            // Fields must NOT be written for low-confidence
+            Assert.Null(company.Summary);
+            Assert.Null(company.CoreIndustry);
+            Assert.Null(company.WorkingLanguage);
+            Assert.Null(company.WebsiteUrl);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    // ── enum validation ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EnrichBatchAsync_InvalidWorkingLanguage_NullsField()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage   = "German",   // invalid
+                companySize       = "mid",
+                remotePolicy      = "hybrid",
+                parentCompanyName = (string?)null,
+                websiteUrl        = (string?)null,
+                targetMarket      = "B2B"
+            }
+        });
+
+        // Refinement call also returns something invalid so we can verify the null fallback
+        var refinementJson = JsonSerializer.Serialize(new[]
+        {
+            new { name = "Acme", workingLanguage = "Flemish", companySize = "mid", remotePolicy = "hybrid", targetMarket = "B2B" }
+        });
+
+        var factory = new SequencedHttpClientFactory([
+            (HttpStatusCode.OK, WrapGeminiResponse(resultJson)),
+            (HttpStatusCode.OK, WrapGeminiResponse(refinementJson)),
+        ]);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Null(company.WorkingLanguage); // "German" and "Flemish" both invalid → null
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichBatchAsync_InvalidEnumRefinedToValid_AppliesCorrectedValue()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage   = "Nederlands",  // invalid
+                companySize       = "mid",
+                remotePolicy      = "hybrid",
+                parentCompanyName = (string?)null,
+                websiteUrl        = (string?)null,
+                targetMarket      = "B2B"
+            }
+        });
+
+        var refinementJson = JsonSerializer.Serialize(new[]
+        {
+            new { name = "Acme", workingLanguage = "Dutch", companySize = "mid", remotePolicy = "hybrid", targetMarket = "B2B" }
+        });
+
+        var factory = new SequencedHttpClientFactory([
+            (HttpStatusCode.OK, WrapGeminiResponse(resultJson)),
+            (HttpStatusCode.OK, WrapGeminiResponse(refinementJson)),
+        ]);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Equal("Dutch", company.WorkingLanguage); // refinement corrected it
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichBatchAsync_ValidEnums_NoRefinementCall()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage = "English", companySize = "startup",
+                remotePolicy = "remote", parentCompanyName = (string?)null,
+                websiteUrl = (string?)null, targetMarket = "B2C"
+            }
+        });
+
+        var factory = new SequencedHttpClientFactory([
+            (HttpStatusCode.OK, WrapGeminiResponse(resultJson)),
+        ]);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            var enriched = await enricher.EnrichBatchAsync([company]);
+            Assert.Equal(1, enriched);
+            Assert.Equal("English", company.WorkingLanguage);
+            Assert.Equal("startup", company.CompanySize);
+            Assert.Equal(1, factory.GeminiCallCount); // only 1 call — no refinement
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    // ── URL validation ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EnrichBatchAsync_WebsiteUrl404_NullsWebsiteUrl()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage = "English", companySize = "mid", remotePolicy = "hybrid",
+                parentCompanyName = (string?)null, websiteUrl = "https://gone.nl", targetMarket = "B2B"
+            }
+        });
+
+        var factory = new DualModeHttpClientFactory(
+            geminiStatus: HttpStatusCode.OK, geminiBody: WrapGeminiResponse(resultJson),
+            urlStatus:    HttpStatusCode.NotFound);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Null(company.WebsiteUrl); // 404 → nulled
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichBatchAsync_WebsiteUrl200_KeepsWebsiteUrl()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage = "English", companySize = "mid", remotePolicy = "hybrid",
+                parentCompanyName = (string?)null, websiteUrl = "https://acme.nl", targetMarket = "B2B"
+            }
+        });
+
+        var factory = new DualModeHttpClientFactory(
+            geminiStatus: HttpStatusCode.OK, geminiBody: WrapGeminiResponse(resultJson),
+            urlStatus:    HttpStatusCode.OK);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Equal("https://acme.nl", company.WebsiteUrl); // 200 → kept
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichBatchAsync_WebsiteUrl403_KeepsWebsiteUrl()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage = "English", companySize = "mid", remotePolicy = "hybrid",
+                parentCompanyName = (string?)null, websiteUrl = "https://guarded.nl", targetMarket = "B2B"
+            }
+        });
+
+        var factory = new DualModeHttpClientFactory(
+            geminiStatus: HttpStatusCode.OK, geminiBody: WrapGeminiResponse(resultJson),
+            urlStatus:    HttpStatusCode.Forbidden);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Equal("https://guarded.nl", company.WebsiteUrl); // 403 = bot-blocked, URL exists → kept
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichBatchAsync_WebsiteUrlServerError_NullsWebsiteUrl()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage = "English", companySize = "mid", remotePolicy = "hybrid",
+                parentCompanyName = (string?)null, websiteUrl = "https://broken.nl", targetMarket = "B2B"
+            }
+        });
+
+        var factory = new DualModeHttpClientFactory(
+            geminiStatus: HttpStatusCode.OK, geminiBody: WrapGeminiResponse(resultJson),
+            urlStatus:    HttpStatusCode.InternalServerError);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Null(company.WebsiteUrl); // 500 → nulled
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichBatchAsync_NullWebsiteUrl_SkipsUrlValidation()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence = "high", summary = "X", coreIndustry = "Tech",
+                techStackTags = Array.Empty<string>(), functionalTags = Array.Empty<string>(),
+                workingLanguage = "English", companySize = "mid", remotePolicy = "hybrid",
+                parentCompanyName = (string?)null, websiteUrl = (string?)null, targetMarket = "B2B"
+            }
+        });
+
+        var factory = new SequencedHttpClientFactory([
+            (HttpStatusCode.OK, WrapGeminiResponse(resultJson)),
+        ]);
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            var enriched = await enricher.EnrichBatchAsync([company]);
+            Assert.Equal(1, enriched);
+            Assert.Null(company.WebsiteUrl);
+            Assert.Equal(1, factory.GeminiCallCount); // no extra URL-check call
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static SponsorCompany MakeCompany(string name, string kvk) => new()
@@ -305,6 +648,71 @@ internal sealed class CountingGeminiHttpClientFactory : IHttpClientFactory
     }
 
     private sealed class SequencedGeminiHandler(HttpStatusCode status, string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct) =>
+            Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            });
+    }
+}
+
+// Returns Gemini responses in sequence for "gemini" clients; separate fixed status for URL checks.
+internal sealed class DualModeHttpClientFactory : IHttpClientFactory
+{
+    private readonly HttpStatusCode _geminiStatus;
+    private readonly string _geminiBody;
+    private readonly HttpStatusCode _urlStatus;
+
+    public DualModeHttpClientFactory(HttpStatusCode geminiStatus, string geminiBody, HttpStatusCode urlStatus)
+    {
+        _geminiStatus = geminiStatus;
+        _geminiBody   = geminiBody;
+        _urlStatus    = urlStatus;
+    }
+
+    public HttpClient CreateClient(string name)
+    {
+        if (name == "gemini")
+            return new HttpClient(new FixedHandler(_geminiStatus, _geminiBody)) { BaseAddress = new Uri("https://fake.gemini/") };
+        return new HttpClient(new FixedHandler(_urlStatus, string.Empty));
+    }
+
+    private sealed class FixedHandler(HttpStatusCode status, string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct) =>
+            Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            });
+    }
+}
+
+// Returns each Gemini response from a queue in order; URL checks always return 200.
+internal sealed class SequencedHttpClientFactory : IHttpClientFactory
+{
+    private readonly (HttpStatusCode Status, string Body)[] _responses;
+    private int _geminiCallIndex;
+
+    public int GeminiCallCount => _geminiCallIndex;
+
+    public SequencedHttpClientFactory((HttpStatusCode, string)[] responses)
+    {
+        _responses = responses;
+    }
+
+    public HttpClient CreateClient(string name)
+    {
+        if (name == "gemini")
+        {
+            var idx = Interlocked.Increment(ref _geminiCallIndex) - 1;
+            var (status, body) = _responses[idx % _responses.Length];
+            return new HttpClient(new FixedHandler(status, body)) { BaseAddress = new Uri("https://fake.gemini/") };
+        }
+        return new HttpClient(new FixedHandler(HttpStatusCode.OK, string.Empty));
+    }
+
+    private sealed class FixedHandler(HttpStatusCode status, string body) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct) =>
             Task.FromResult(new HttpResponseMessage(status)

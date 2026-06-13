@@ -8,12 +8,17 @@ namespace backend.Services;
 
 public sealed class CompanyEnricher
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
-    private const string Model = "gemini-2.0-flash";
-    private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
-    private const int BatchSize = 20;
-    private const int MaxOutputTokens = 4096;
+    private const string Model             = "gemini-2.0-flash";
+    private const string GenerateEndpoint  = $"v1beta/models/{Model}:generateContent";
+    private const int    BatchSize         = 20;
+    private const int    MaxOutputTokens   = 4096;
+
+    private static readonly HashSet<string> ValidWorkingLanguages = new(StringComparer.Ordinal) { "English", "Dutch", "Mixed" };
+    private static readonly HashSet<string> ValidCompanySizes     = new(StringComparer.Ordinal) { "startup", "scaleup", "mid", "large", "enterprise" };
+    private static readonly HashSet<string> ValidRemotePolicies   = new(StringComparer.Ordinal) { "remote", "hybrid", "office", "unknown" };
+    private static readonly HashSet<string> ValidTargetMarkets    = new(StringComparer.Ordinal) { "B2B", "B2C", "B2G", "Mixed" };
 
     private const string SystemPrompt =
         """
@@ -22,32 +27,60 @@ public sealed class CompanyEnricher
 
         Each output element must have these exact keys:
         {
-          "summary": "2-3 sentences about what the company does",
-          "coreIndustry": "single broad industry label",
-          "techStackTags": ["up to 6 technology or platform tags"],
-          "functionalTags": ["up to 6 functional domain tags"],
-          "workingLanguage": "English" or "Dutch" or "Mixed",
-          "companySize": "startup" or "scaleup" or "mid" or "large" or "enterprise",
-          "remotePolicy": "remote" or "hybrid" or "office" or "unknown",
+          "confidence": "high" | "medium" | "low",
+          "summary": "2-3 sentences about what the company does, or null if you have no reliable knowledge",
+          "coreIndustry": "single broad industry label, or null if unknown",
+          "techStackTags": ["up to 6 technology or platform tags"] or [],
+          "functionalTags": ["up to 6 functional domain tags"] or [],
+          "workingLanguage": "English" | "Dutch" | "Mixed" | null,
+          "companySize": "startup" | "scaleup" | "mid" | "large" | "enterprise" | null,
+          "remotePolicy": "remote" | "hybrid" | "office" | "unknown",
           "parentCompanyName": "well-known parent brand name, or null if none",
           "websiteUrl": "https://... or null",
-          "targetMarket": "B2B" or "B2C" or "B2G" or "Mixed"
+          "targetMarket": "B2B" | "B2C" | "B2G" | "Mixed" | null
         }
+
+        STRICT RULES — invalid values will be discarded server-side:
+        - confidence: "high" = reliable, specific knowledge of this company;
+                      "medium" = partial or indirect knowledge;
+                      "low" = you don't recognise this company or would be guessing most fields.
+        - workingLanguage MUST be exactly one of: "English", "Dutch", "Mixed" — or null. No other strings.
+        - companySize MUST be exactly one of: "startup", "scaleup", "mid", "large", "enterprise" — or null.
+        - remotePolicy MUST be exactly one of: "remote", "hybrid", "office", "unknown". Never null.
+        - targetMarket MUST be exactly one of: "B2B", "B2C", "B2G", "Mixed" — or null. No other strings.
+        - websiteUrl: only include if you are CERTAIN this is the company's official, currently-active website.
+                      Prefer null over an uncertain URL. Never invent a URL.
+        - companySize guide: startup < 50 employees, scaleup 50-250, mid 250-1000, large 1000-5000, enterprise > 5000.
 
         coreIndustry examples: "Software & Technology", "Financial Services", "Healthcare", "Logistics"
         techStackTags examples: "Cloud", "AI/ML", "Java", "AWS", "SAP", ".NET", "Kubernetes"
         functionalTags examples: "B2B SaaS", "Consulting", "E-commerce", "R&D", "Staffing", "Fintech"
-        companySize: startup < 50, scaleup 50-250, mid 250-1000, large 1000-5000, enterprise > 5000
 
-        Output ONLY the JSON array, one element per input company, in the same order.
+        Self-check before outputting: verify every constrained field uses ONLY the allowed values above.
+        Output ONLY the JSON array.
         """;
 
-    private readonly IHttpClientFactory _http;
-    private readonly ILogger<CompanyEnricher> _logger;
+    private const string RefinementPrompt =
+        """
+        Some companies had invalid enum values in a previous enrichment. Correct ONLY the constrained fields.
+        Return a JSON array — one entry per input company — with ONLY these keys:
+          { "name", "workingLanguage", "companySize", "remotePolicy", "targetMarket" }
+
+        Allowed values (use null if genuinely unknown):
+        - workingLanguage: "English" | "Dutch" | "Mixed" | null
+        - companySize: "startup" | "scaleup" | "mid" | "large" | "enterprise" | null
+        - remotePolicy: "remote" | "hybrid" | "office" | "unknown"  (never null)
+        - targetMarket: "B2B" | "B2C" | "B2G" | "Mixed" | null
+
+        If unsure, use null rather than guess. Output ONLY the JSON array.
+        """;
+
+    private readonly IHttpClientFactory        _http;
+    private readonly ILogger<CompanyEnricher>  _logger;
 
     public CompanyEnricher(IHttpClientFactory http, ILogger<CompanyEnricher> logger)
     {
-        _http = http;
+        _http   = http;
         _logger = logger;
     }
 
@@ -75,49 +108,14 @@ public sealed class CompanyEnricher
     {
         try
         {
-            var inputArray = batch.Select(c => new AnonymousCompanyInput { Name = c.Name, Kvk = c.KvKNumber }).ToArray();
-            var userText   = JsonSerializer.Serialize(inputArray, CompanyEnricherJsonContext.Default.AnonymousCompanyInputArray);
+            var inputArray = batch
+                .Select(c => new AnonymousCompanyInput { Name = c.Name, Kvk = c.KvKNumber })
+                .ToArray();
+            var userText = JsonSerializer.Serialize(
+                inputArray, CompanyEnricherJsonContext.Default.AnonymousCompanyInputArray);
 
-            var requestObj = new GeminiRequest
-            {
-                SystemInstruction = new GeminiContent { Parts = [new GeminiPart { Text = SystemPrompt }] },
-                Contents =
-                [
-                    new GeminiContent { Role = "user", Parts = [new GeminiPart { Text = userText }] }
-                ],
-                GenerationConfig = new GeminiGenerationConfig
-                {
-                    ResponseMimeType = "application/json",
-                    MaxOutputTokens  = MaxOutputTokens
-                }
-            };
-
-            var requestJson = JsonSerializer.Serialize(requestObj, CompanyEnricherJsonContext.Default.GeminiRequest);
-
-            using var client      = _http.CreateClient("gemini");
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint)
-            {
-                Content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json")
-            };
-            httpRequest.Headers.Add("x-goog-api-key", apiKey);
-
-            using var httpResponse = await client.SendAsync(httpRequest, ct);
-
-            if (!httpResponse.IsSuccessStatusCode)
-            {
-                var body = await httpResponse.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning(
-                    "Gemini API {Status} for batch of {Count}: {Body}",
-                    (int)httpResponse.StatusCode, batch.Count,
-                    body.Length > 200 ? body[..200] : body);
-                return 0;
-            }
-
-            var apiResponse = await httpResponse.Content.ReadFromJsonAsync(
-                CompanyEnricherJsonContext.Default.GeminiResponse, ct);
-
-            var text = apiResponse?.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
-            if (string.IsNullOrWhiteSpace(text))
+            var text = await CallGeminiAsync(SystemPrompt, userText, apiKey, ct);
+            if (text is null)
             {
                 _logger.LogWarning("Empty response from Gemini for batch of {Count}", batch.Count);
                 return 0;
@@ -128,31 +126,79 @@ public sealed class CompanyEnricher
 
             if (results is null)
             {
-                _logger.LogWarning("Could not parse enrichment JSON array for batch of {Count}", batch.Count);
+                _logger.LogWarning("Could not parse enrichment JSON for batch of {Count}", batch.Count);
                 return 0;
             }
 
-            var count = 0;
-            var now   = DateTimeOffset.UtcNow;
+            // Identify companies with invalid enum fields and ask Gemini to correct them
+            var toRefine = new List<(int Idx, CompanyEnrichmentResult Result, string[] InvalidFields)>();
             for (var i = 0; i < Math.Min(results.Length, batch.Count); i++)
             {
-                var r = results[i];
-                if (r is null) continue;
+                if (results[i] is not { } r) continue;
+                var invalid = GetInvalidEnumFields(r);
+                if (invalid.Length > 0)
+                    toRefine.Add((i, r, invalid));
+            }
+
+            if (toRefine.Count > 0)
+            {
+                var corrections = await RefineEnumFieldsAsync(batch, toRefine, apiKey, ct);
+                foreach (var (idx, r, _) in toRefine)
+                {
+                    if (!corrections.TryGetValue(idx, out var fix)) continue;
+                    if (fix.WorkingLanguage is not null) r.WorkingLanguage = fix.WorkingLanguage;
+                    if (fix.CompanySize     is not null) r.CompanySize     = fix.CompanySize;
+                    if (fix.RemotePolicy    is not null) r.RemotePolicy    = fix.RemotePolicy;
+                    if (fix.TargetMarket    is not null) r.TargetMarket    = fix.TargetMarket;
+                }
+            }
+
+            // Apply results; collect companies whose URLs need validation
+            var toValidateUrl = new List<SponsorCompany>();
+            var count = 0;
+            var now   = DateTimeOffset.UtcNow;
+
+            for (var i = 0; i < Math.Min(results.Length, batch.Count); i++)
+            {
+                if (results[i] is not { } r) continue;
                 var c = batch[i];
+
+                c.EnrichedAt        = now;
+                c.EnrichmentVersion = CurrentVersion;
+
+                // Low-confidence: mark enriched so we don't retry, but don't write field data
+                if (string.Equals(r.Confidence, "low", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogDebug("Low-confidence enrichment for {Company} — fields skipped", c.Name);
+                    count++;
+                    continue;
+                }
+
                 c.Summary           = r.Summary;
                 c.CoreIndustry      = r.CoreIndustry;
                 c.TechStackTags     = r.TechStackTags;
                 c.FunctionalTags    = r.FunctionalTags;
-                c.WorkingLanguage   = r.WorkingLanguage;
-                c.CompanySize       = r.CompanySize;
-                c.RemotePolicy      = r.RemotePolicy;
+                c.WorkingLanguage   = ValidateEnum(r.WorkingLanguage, ValidWorkingLanguages);
+                c.CompanySize       = ValidateEnum(r.CompanySize,     ValidCompanySizes);
+                c.RemotePolicy      = ValidateEnum(r.RemotePolicy,    ValidRemotePolicies) ?? "unknown";
                 c.ParentCompanyName = r.ParentCompanyName;
                 c.WebsiteUrl        = r.WebsiteUrl;
-                c.TargetMarket      = r.TargetMarket;
-                c.EnrichedAt        = now;
-                c.EnrichmentVersion = CurrentVersion;
+                c.TargetMarket      = ValidateEnum(r.TargetMarket,    ValidTargetMarkets);
                 count++;
+
+                if (!string.IsNullOrEmpty(r.WebsiteUrl))
+                    toValidateUrl.Add(c);
             }
+
+            // Validate all URLs in parallel (each has a 5-second timeout)
+            if (toValidateUrl.Count > 0)
+            {
+                await Task.WhenAll(toValidateUrl.Select(async c =>
+                {
+                    c.WebsiteUrl = await ValidateUrlAsync(c.WebsiteUrl, ct);
+                }));
+            }
+
             return count;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -161,6 +207,139 @@ public sealed class CompanyEnricher
             return 0;
         }
     }
+
+    private async Task<Dictionary<int, EnrichmentRefinementResult>> RefineEnumFieldsAsync(
+        IReadOnlyList<SponsorCompany> batch,
+        List<(int Idx, CompanyEnrichmentResult Result, string[] InvalidFields)> toRefine,
+        string apiKey, CancellationToken ct)
+    {
+        var corrections = new Dictionary<int, EnrichmentRefinementResult>();
+        try
+        {
+            var inputs = toRefine
+                .Select(t => new RefinementInput
+                {
+                    Name          = batch[t.Idx].Name,
+                    Kvk           = batch[t.Idx].KvKNumber,
+                    InvalidFields = t.InvalidFields,
+                })
+                .ToArray();
+
+            var userText = JsonSerializer.Serialize(
+                inputs, CompanyEnricherJsonContext.Default.RefinementInputArray);
+            var text = await CallGeminiAsync(RefinementPrompt, userText, apiKey, ct);
+            if (text is null) return corrections;
+
+            var refined = JsonSerializer.Deserialize(
+                StripCodeFence(text), CompanyEnricherJsonContext.Default.EnrichmentRefinementResultArray);
+            if (refined is null) return corrections;
+
+            for (var i = 0; i < Math.Min(refined.Length, toRefine.Count); i++)
+            {
+                if (refined[i] is not { } fix) continue;
+                corrections[toRefine[i].Idx] = new EnrichmentRefinementResult
+                {
+                    WorkingLanguage = ValidateEnum(fix.WorkingLanguage, ValidWorkingLanguages),
+                    CompanySize     = ValidateEnum(fix.CompanySize,     ValidCompanySizes),
+                    RemotePolicy    = ValidateEnum(fix.RemotePolicy,    ValidRemotePolicies),
+                    TargetMarket    = ValidateEnum(fix.TargetMarket,    ValidTargetMarkets),
+                };
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Enum refinement call failed for {Count} companies", toRefine.Count);
+        }
+        return corrections;
+    }
+
+    private async Task<string?> CallGeminiAsync(
+        string systemPrompt, string userText, string apiKey, CancellationToken ct)
+    {
+        var requestObj = new GeminiRequest
+        {
+            SystemInstruction = new GeminiContent { Parts = [new GeminiPart { Text = systemPrompt }] },
+            Contents =
+            [
+                new GeminiContent { Role = "user", Parts = [new GeminiPart { Text = userText }] }
+            ],
+            GenerationConfig = new GeminiGenerationConfig
+            {
+                ResponseMimeType = "application/json",
+                MaxOutputTokens  = MaxOutputTokens
+            }
+        };
+
+        var requestJson = JsonSerializer.Serialize(requestObj, CompanyEnricherJsonContext.Default.GeminiRequest);
+
+        using var client      = _http.CreateClient("gemini");
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint)
+        {
+            Content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json")
+        };
+        httpRequest.Headers.Add("x-goog-api-key", apiKey);
+
+        using var httpResponse = await client.SendAsync(httpRequest, ct);
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            var body = await httpResponse.Content.ReadAsStringAsync(ct);
+            _logger.LogWarning("Gemini API {Status}: {Body}",
+                (int)httpResponse.StatusCode,
+                body.Length > 200 ? body[..200] : body);
+            return null;
+        }
+
+        var apiResponse = await httpResponse.Content.ReadFromJsonAsync(
+            CompanyEnricherJsonContext.Default.GeminiResponse, ct);
+        var text = apiResponse?.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private async Task<string?> ValidateUrlAsync(string? url, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != "https" && uri.Scheme != "http"))
+            return null;
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(5));
+
+            using var client = _http.CreateClient();
+            using var req    = new HttpRequestMessage(HttpMethod.Head, url);
+            req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (compatible; IWWZ/1.0)");
+            using var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+
+            var status = (int)resp.StatusCode;
+            // 2xx/3xx: valid; 403/405/4xx: bot-blocked but URL exists; 404/410/5xx: invalid
+            if (status is >= 200 and < 400) return url;
+            if (status == 404 || status == 410 || status >= 500) return null;
+            return url;
+        }
+        catch
+        {
+            return null; // timeout, DNS failure, network error
+        }
+    }
+
+    private static string[] GetInvalidEnumFields(CompanyEnrichmentResult r)
+    {
+        var invalid = new List<string>(4);
+        if (r.WorkingLanguage is not null && !ValidWorkingLanguages.Contains(r.WorkingLanguage))
+            invalid.Add("workingLanguage");
+        if (r.CompanySize is not null && !ValidCompanySizes.Contains(r.CompanySize))
+            invalid.Add("companySize");
+        if (r.RemotePolicy is null || !ValidRemotePolicies.Contains(r.RemotePolicy))
+            invalid.Add("remotePolicy");
+        if (r.TargetMarket is not null && !ValidTargetMarkets.Contains(r.TargetMarket))
+            invalid.Add("targetMarket");
+        return [.. invalid];
+    }
+
+    private static string? ValidateEnum(string? value, HashSet<string> allowed) =>
+        value is not null && allowed.Contains(value) ? value : null;
 
     private static string StripCodeFence(string text)
     {
@@ -181,15 +360,15 @@ public sealed class CompanyEnricher
 
 internal sealed class GeminiRequest
 {
-    [JsonPropertyName("systemInstruction")] public GeminiContent? SystemInstruction { get; set; }
-    [JsonPropertyName("contents")] public GeminiContent[] Contents { get; set; } = [];
-    [JsonPropertyName("generationConfig")] public GeminiGenerationConfig? GenerationConfig { get; set; }
+    [JsonPropertyName("systemInstruction")] public GeminiContent?          SystemInstruction { get; set; }
+    [JsonPropertyName("contents")]          public GeminiContent[]         Contents          { get; set; } = [];
+    [JsonPropertyName("generationConfig")]  public GeminiGenerationConfig? GenerationConfig  { get; set; }
 }
 
 internal sealed class GeminiContent
 {
     [JsonPropertyName("parts")] public GeminiPart[] Parts { get; set; } = [];
-    [JsonPropertyName("role")] public string? Role { get; set; }
+    [JsonPropertyName("role")]  public string?      Role  { get; set; }
 }
 
 internal sealed class GeminiPart
@@ -200,7 +379,7 @@ internal sealed class GeminiPart
 internal sealed class GeminiGenerationConfig
 {
     [JsonPropertyName("responseMimeType")] public string ResponseMimeType { get; set; } = "application/json";
-    [JsonPropertyName("maxOutputTokens")] public int MaxOutputTokens { get; set; }
+    [JsonPropertyName("maxOutputTokens")]  public int    MaxOutputTokens  { get; set; }
 }
 
 internal sealed class GeminiResponse
@@ -210,28 +389,45 @@ internal sealed class GeminiResponse
 
 internal sealed class GeminiCandidate
 {
-    [JsonPropertyName("content")] public GeminiContent? Content { get; set; }
-    [JsonPropertyName("finishReason")] public string? FinishReason { get; set; }
+    [JsonPropertyName("content")]      public GeminiContent? Content      { get; set; }
+    [JsonPropertyName("finishReason")] public string?        FinishReason { get; set; }
 }
 
 internal sealed class AnonymousCompanyInput
 {
     [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
-    [JsonPropertyName("kvk")] public string Kvk { get; set; } = string.Empty;
+    [JsonPropertyName("kvk")]  public string Kvk  { get; set; } = string.Empty;
 }
 
 internal sealed class CompanyEnrichmentResult
 {
-    [JsonPropertyName("summary")] public string? Summary { get; set; }
-    [JsonPropertyName("coreIndustry")] public string? CoreIndustry { get; set; }
-    [JsonPropertyName("techStackTags")] public string[]? TechStackTags { get; set; }
-    [JsonPropertyName("functionalTags")] public string[]? FunctionalTags { get; set; }
+    [JsonPropertyName("confidence")]        public string?   Confidence        { get; set; }
+    [JsonPropertyName("summary")]           public string?   Summary           { get; set; }
+    [JsonPropertyName("coreIndustry")]      public string?   CoreIndustry      { get; set; }
+    [JsonPropertyName("techStackTags")]     public string[]? TechStackTags     { get; set; }
+    [JsonPropertyName("functionalTags")]    public string[]? FunctionalTags    { get; set; }
+    [JsonPropertyName("workingLanguage")]   public string?   WorkingLanguage   { get; set; }
+    [JsonPropertyName("companySize")]       public string?   CompanySize       { get; set; }
+    [JsonPropertyName("remotePolicy")]      public string?   RemotePolicy      { get; set; }
+    [JsonPropertyName("parentCompanyName")] public string?   ParentCompanyName { get; set; }
+    [JsonPropertyName("websiteUrl")]        public string?   WebsiteUrl        { get; set; }
+    [JsonPropertyName("targetMarket")]      public string?   TargetMarket      { get; set; }
+}
+
+internal sealed class RefinementInput
+{
+    [JsonPropertyName("name")]          public string   Name          { get; set; } = string.Empty;
+    [JsonPropertyName("kvk")]           public string   Kvk           { get; set; } = string.Empty;
+    [JsonPropertyName("invalidFields")] public string[] InvalidFields { get; set; } = [];
+}
+
+internal sealed class EnrichmentRefinementResult
+{
+    [JsonPropertyName("name")]            public string? Name            { get; set; }
     [JsonPropertyName("workingLanguage")] public string? WorkingLanguage { get; set; }
-    [JsonPropertyName("companySize")] public string? CompanySize { get; set; }
-    [JsonPropertyName("remotePolicy")] public string? RemotePolicy { get; set; }
-    [JsonPropertyName("parentCompanyName")] public string? ParentCompanyName { get; set; }
-    [JsonPropertyName("websiteUrl")] public string? WebsiteUrl { get; set; }
-    [JsonPropertyName("targetMarket")] public string? TargetMarket { get; set; }
+    [JsonPropertyName("companySize")]     public string? CompanySize     { get; set; }
+    [JsonPropertyName("remotePolicy")]    public string? RemotePolicy    { get; set; }
+    [JsonPropertyName("targetMarket")]    public string? TargetMarket    { get; set; }
 }
 
 [JsonSerializable(typeof(GeminiRequest))]
@@ -240,6 +436,10 @@ internal sealed class CompanyEnrichmentResult
 [JsonSerializable(typeof(CompanyEnrichmentResult[]))]
 [JsonSerializable(typeof(AnonymousCompanyInput))]
 [JsonSerializable(typeof(AnonymousCompanyInput[]))]
+[JsonSerializable(typeof(RefinementInput))]
+[JsonSerializable(typeof(RefinementInput[]))]
+[JsonSerializable(typeof(EnrichmentRefinementResult))]
+[JsonSerializable(typeof(EnrichmentRefinementResult[]))]
 internal partial class CompanyEnricherJsonContext : JsonSerializerContext
 {
 }
