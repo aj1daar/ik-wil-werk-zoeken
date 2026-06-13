@@ -8,17 +8,20 @@ import NewApplicationModal from '../../components/NewApplicationModal/NewApplica
 const store    = useCompaniesStore()
 const appsStore = useApplicationsStore()
 
-const search       = ref('')
-const filterCity   = ref('')
-const appliedFilter = ref<'all' | 'applied' | 'not-applied'>('all')
-const includeTags  = ref<string[]>([])
-const excludeTags  = ref<string[]>([])
-const selectedId   = ref<string | null>(null)
-const modalOpen    = ref(false)
-const prefillCompany = ref('')
-const prefillSponsorId = ref<string | undefined>(undefined)
-const showFilters  = ref(false)
-const displayCount = ref(60)
+const search              = ref('')
+const filterCity          = ref('')
+const filterWorkingLanguage = ref('')
+const filterCompanySize   = ref('')
+const filterRemotePolicy  = ref('')
+const appliedFilter       = ref<'all' | 'applied' | 'not-applied'>('all')
+const includeTags         = ref<string[]>([])
+const excludeTags         = ref<string[]>([])
+const selectedId          = ref<string | null>(null)
+const modalOpen           = ref(false)
+const prefillCompany      = ref('')
+const prefillSponsorId    = ref<string | undefined>(undefined)
+const showFilters         = ref(false)
+const displayCount        = ref(60)
 
 const PAGE_SIZE = 60
 
@@ -41,6 +44,7 @@ const mostRecentForCompany = computed((): Map<string, Application> => {
 
 const anyFilter = computed(() =>
   search.value.trim() !== '' || filterCity.value !== '' ||
+  filterWorkingLanguage.value !== '' || filterCompanySize.value !== '' || filterRemotePolicy.value !== '' ||
   appliedFilter.value !== 'all' ||
   includeTags.value.length > 0 || excludeTags.value.length > 0
 )
@@ -48,12 +52,16 @@ const anyFilter = computed(() =>
 const rows = computed<SponsorCompany[]>(() => {
   let list: SponsorCompany[]
   if (search.value.trim() !== '' || filterCity.value !== '' ||
+      filterWorkingLanguage.value !== '' || filterCompanySize.value !== '' || filterRemotePolicy.value !== '' ||
       includeTags.value.length > 0 || excludeTags.value.length > 0) {
     list = store.filter({
-      query:       search.value,
-      city:        filterCity.value,
-      includeTags: includeTags.value,
-      excludeTags: excludeTags.value,
+      query:           search.value,
+      city:            filterCity.value,
+      workingLanguage: filterWorkingLanguage.value || undefined,
+      companySize:     filterCompanySize.value || undefined,
+      remotePolicy:    filterRemotePolicy.value || undefined,
+      includeTags:     includeTags.value,
+      excludeTags:     excludeTags.value,
     })
   } else {
     list = store.companies.slice(0, displayCount.value)
@@ -122,6 +130,9 @@ function tagState(tag: string): 'include' | 'exclude' | 'none' {
 function clearFilters() {
   search.value = ''
   filterCity.value = ''
+  filterWorkingLanguage.value = ''
+  filterCompanySize.value = ''
+  filterRemotePolicy.value = ''
   appliedFilter.value = 'all'
   includeTags.value = []
   excludeTags.value = []
@@ -144,6 +155,21 @@ const hasActiveFilters = computed(() => anyFilter.value)
       <select v-model="filterCity" class="filter-input filter-select" aria-label="Filter by city">
         <option value="">All cities</option>
         <option v-for="city in store.allCities" :key="city" :value="city">{{ city }}</option>
+      </select>
+
+      <select v-model="filterWorkingLanguage" class="filter-input filter-select" aria-label="Filter by working language">
+        <option value="">All languages</option>
+        <option v-for="lang in store.allWorkingLanguages" :key="lang" :value="lang">{{ lang }}</option>
+      </select>
+
+      <select v-model="filterCompanySize" class="filter-input filter-select" aria-label="Filter by company size">
+        <option value="">All sizes</option>
+        <option v-for="size in store.allCompanySizes" :key="size" :value="size">{{ size }}</option>
+      </select>
+
+      <select v-model="filterRemotePolicy" class="filter-input filter-select" aria-label="Filter by remote policy">
+        <option value="">All policies</option>
+        <option v-for="policy in store.allRemotePolicies" :key="policy" :value="policy">{{ policy }}</option>
       </select>
 
       <div class="applied-toggle" role="group" aria-label="Applied filter">

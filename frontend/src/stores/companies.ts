@@ -33,6 +33,32 @@ export const useCompaniesStore = defineStore('companies', {
         c.functionalTags?.forEach(t => set.add(t))
       }
       return [...set].sort((a, b) => a.localeCompare(b))
+    },
+
+    allWorkingLanguages(state): string[] {
+      const set = new Set<string>()
+      for (const c of state.companies) {
+        if (c.workingLanguage) set.add(c.workingLanguage)
+      }
+      return [...set].sort((a, b) => a.localeCompare(b))
+    },
+
+    allCompanySizes(state): string[] {
+      const ORDER = ['startup', 'scaleup', 'mid', 'large', 'enterprise']
+      const set = new Set<string>()
+      for (const c of state.companies) {
+        if (c.companySize) set.add(c.companySize)
+      }
+      return [...set].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
+    },
+
+    allRemotePolicies(state): string[] {
+      const ORDER = ['remote', 'hybrid', 'office', 'unknown']
+      const set = new Set<string>()
+      for (const c of state.companies) {
+        if (c.remotePolicy) set.add(c.remotePolicy)
+      }
+      return [...set].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
     }
   },
 
@@ -65,10 +91,13 @@ export const useCompaniesStore = defineStore('companies', {
     },
 
     filter(opts: {
-      query:       string
-      city:        string
-      includeTags: string[]
-      excludeTags: string[]
+      query:           string
+      city:            string
+      includeTags:     string[]
+      excludeTags:     string[]
+      workingLanguage?: string
+      companySize?:    string
+      remotePolicy?:   string
     }): SponsorCompany[] {
       const q = opts.query.trim().toLowerCase()
       return this.companies
@@ -82,6 +111,10 @@ export const useCompaniesStore = defineStore('companies', {
           )) return false
 
           if (opts.city && c.city !== opts.city) return false
+
+          if (opts.workingLanguage && c.workingLanguage !== opts.workingLanguage) return false
+          if (opts.companySize && c.companySize !== opts.companySize) return false
+          if (opts.remotePolicy && c.remotePolicy !== opts.remotePolicy) return false
 
           if (opts.includeTags.length > 0) {
             const tags = companyTags(c)

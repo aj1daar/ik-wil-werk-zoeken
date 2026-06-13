@@ -323,6 +323,170 @@ describe('useCompaniesStore – filter', () => {
   })
 })
 
+// ── allWorkingLanguages ───────────────────────────────────────────────────────
+
+describe('useCompaniesStore – allWorkingLanguages', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('returns empty array when no companies', () => {
+    expect(useCompaniesStore().allWorkingLanguages).toHaveLength(0)
+  })
+
+  it('returns sorted unique working languages', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'A', workingLanguage: 'Dutch' }),
+      makeCompany({ id: 'c2', name: 'B', workingLanguage: 'English' }),
+      makeCompany({ id: 'c3', name: 'C', workingLanguage: 'Dutch' }),
+    ])
+    expect(store.allWorkingLanguages).toEqual(['Dutch', 'English'])
+  })
+
+  it('omits companies without workingLanguage', () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'A' })])
+    expect(store.allWorkingLanguages).toHaveLength(0)
+  })
+
+  it('sorts alphabetically', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'A', workingLanguage: 'Spanish' }),
+      makeCompany({ id: 'c2', name: 'B', workingLanguage: 'English' }),
+      makeCompany({ id: 'c3', name: 'C', workingLanguage: 'Dutch' }),
+    ])
+    expect(store.allWorkingLanguages).toEqual(['Dutch', 'English', 'Spanish'])
+  })
+})
+
+// ── allCompanySizes ───────────────────────────────────────────────────────────
+
+describe('useCompaniesStore – allCompanySizes', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('returns empty array when no companies', () => {
+    expect(useCompaniesStore().allCompanySizes).toHaveLength(0)
+  })
+
+  it('sorts by startup→scaleup→mid→large→enterprise order', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'A', companySize: 'enterprise' }),
+      makeCompany({ id: 'c2', name: 'B', companySize: 'startup' }),
+      makeCompany({ id: 'c3', name: 'C', companySize: 'mid' }),
+      makeCompany({ id: 'c4', name: 'D', companySize: 'large' }),
+      makeCompany({ id: 'c5', name: 'E', companySize: 'scaleup' }),
+    ])
+    expect(store.allCompanySizes).toEqual(['startup', 'scaleup', 'mid', 'large', 'enterprise'])
+  })
+
+  it('deduplicates sizes', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'A', companySize: 'mid' }),
+      makeCompany({ id: 'c2', name: 'B', companySize: 'mid' }),
+    ])
+    expect(store.allCompanySizes).toEqual(['mid'])
+  })
+
+  it('omits companies without companySize', () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'A' })])
+    expect(store.allCompanySizes).toHaveLength(0)
+  })
+})
+
+// ── allRemotePolicies ─────────────────────────────────────────────────────────
+
+describe('useCompaniesStore – allRemotePolicies', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('returns empty array when no companies', () => {
+    expect(useCompaniesStore().allRemotePolicies).toHaveLength(0)
+  })
+
+  it('sorts by remote→hybrid→office→unknown order', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'A', remotePolicy: 'unknown' }),
+      makeCompany({ id: 'c2', name: 'B', remotePolicy: 'office' }),
+      makeCompany({ id: 'c3', name: 'C', remotePolicy: 'hybrid' }),
+      makeCompany({ id: 'c4', name: 'D', remotePolicy: 'remote' }),
+    ])
+    expect(store.allRemotePolicies).toEqual(['remote', 'hybrid', 'office', 'unknown'])
+  })
+
+  it('deduplicates policies', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'A', remotePolicy: 'hybrid' }),
+      makeCompany({ id: 'c2', name: 'B', remotePolicy: 'hybrid' }),
+    ])
+    expect(store.allRemotePolicies).toEqual(['hybrid'])
+  })
+
+  it('omits companies without remotePolicy', () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'A' })])
+    expect(store.allRemotePolicies).toHaveLength(0)
+  })
+})
+
+// ── filter – new extended params ──────────────────────────────────────────────
+
+describe('useCompaniesStore – filter (workingLanguage / companySize / remotePolicy)', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  const companies = [
+    makeCompany({ id: 'c1', name: 'ASML',   workingLanguage: 'English', companySize: 'large',    remotePolicy: 'office' }),
+    makeCompany({ id: 'c2', name: 'Adyen',   workingLanguage: 'English', companySize: 'mid',      remotePolicy: 'hybrid' }),
+    makeCompany({ id: 'c3', name: 'Picnic',  workingLanguage: 'Dutch',   companySize: 'scaleup',  remotePolicy: 'hybrid' }),
+    makeCompany({ id: 'c4', name: 'Mollie',  workingLanguage: 'Dutch',   companySize: 'startup',  remotePolicy: 'remote' }),
+  ]
+
+  it('filters by workingLanguage', () => {
+    const store = seedStore(companies)
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'Dutch' })
+    expect(result.map(c => c.name).sort()).toEqual(['Mollie', 'Picnic'])
+  })
+
+  it('filters by companySize', () => {
+    const store = seedStore(companies)
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], companySize: 'mid' })
+    expect(result.map(c => c.name)).toEqual(['Adyen'])
+  })
+
+  it('filters by remotePolicy', () => {
+    const store = seedStore(companies)
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], remotePolicy: 'hybrid' })
+    expect(result.map(c => c.name).sort()).toEqual(['Adyen', 'Picnic'])
+  })
+
+  it('combines workingLanguage and remotePolicy filters', () => {
+    const store = seedStore(companies)
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'Dutch', remotePolicy: 'hybrid' })
+    expect(result.map(c => c.name)).toEqual(['Picnic'])
+  })
+
+  it('all three extended filters together', () => {
+    const store = seedStore(companies)
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'English', companySize: 'mid', remotePolicy: 'hybrid' })
+    expect(result.map(c => c.name)).toEqual(['Adyen'])
+  })
+
+  it('extended filter with no match returns empty', () => {
+    const store = seedStore(companies)
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], companySize: 'enterprise' })
+    expect(result).toHaveLength(0)
+  })
+
+  it('undefined extended params act as no filter', () => {
+    const store = seedStore(companies)
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: undefined, companySize: undefined, remotePolicy: undefined })
+    expect(result).toHaveLength(4)
+  })
+
+  it('company missing the filtered field is excluded', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'A', workingLanguage: 'English' }),
+      makeCompany({ id: 'c2', name: 'B' }), // no workingLanguage
+    ])
+    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'English' })
+    expect(result.map(c => c.name)).toEqual(['A'])
+  })
+})
+
 // ── store.companies total count (for load-more) ───────────────────────────────
 // The view paginates via a local displayCount ref (slicing store.companies).
 // The store itself holds all companies — no hidden cap.
