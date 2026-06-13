@@ -18,7 +18,12 @@ vi.mock('../../../api', () => ({
 }))
 
 import { api } from '../../../api'
-import type { SponsorCompany } from '../../../api'
+import type { SponsorCompany, Application } from '../../../api'
+
+// Always return empty arrays so stores never set state to undefined
+beforeEach(() => {
+  vi.mocked(api.getApplications).mockResolvedValue([])
+})
 
 function makeSponsor(overrides: Partial<SponsorCompany> = {}): SponsorCompany {
   return {
@@ -27,10 +32,19 @@ function makeSponsor(overrides: Partial<SponsorCompany> = {}): SponsorCompany {
   }
 }
 
-function mountView(sponsors: SponsorCompany[] = []) {
+function makeApp(overrides: Partial<Application> = {}): Application {
+  return {
+    id: 'app-1', userId: 'u1', companyName: 'Acme B.V.', position: 'Engineer',
+    appliedAt: '2026-01-01T00:00:00Z', status: 'Applied', locations: [],
+    updatedAt: '2026-06-01T00:00:00Z', sponsorCompanyId: 'sp-1', ...overrides,
+  }
+}
+
+function mountView(sponsors: SponsorCompany[] = [], apps: Application[] = []) {
   const pinia = createPinia()
   setActivePinia(pinia)
   vi.mocked(api.getCompanies).mockResolvedValue(sponsors)
+  vi.mocked(api.getApplications).mockResolvedValue(apps)
   return mount(CompaniesView, { global: { plugins: [pinia] } })
 }
 
@@ -131,5 +145,151 @@ describe('CompaniesView – company list', () => {
     await flushPromises()
     await wrapper.find('.company-row').trigger('click')
     expect(wrapper.find('.detail-panel').text()).toContain('Bigcorp International')
+  })
+})
+
+// ── "Applied here" overlay ────────────────────────────────────────────────────
+
+describe('CompaniesView – applied here overlay', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows status chip on company row when user has applied via sponsorCompanyId', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })],
+      [makeApp({ sponsorCompanyId: 'sp-1', status: 'Applied' })]
+    )
+    await flushPromises()
+    expect(wrapper.find('.status-chip').exists()).toBe(true)
+    expect(wrapper.find('.status-chip').text()).toContain('Applied')
+  })
+
+  it('does not show status chip when no application exists for a company', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-2', name: 'OtherCo' })],
+      []
+    )
+    await flushPromises()
+    expect(wrapper.find('.status-chip').exists()).toBe(false)
+  })
+
+  it('shows most recent application status when multiple apps exist for same company', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1' })],
+      [
+        makeApp({ id: 'app-1', sponsorCompanyId: 'sp-1', status: 'Applied',   updatedAt: '2026-01-01T00:00:00Z' }),
+        makeApp({ id: 'app-2', sponsorCompanyId: 'sp-1', status: 'Rejected',  updatedAt: '2026-06-10T00:00:00Z' }),
+      ]
+    )
+    await flushPromises()
+    expect(wrapper.find('.status-chip').text()).toContain('Rejected')
+  })
+
+  it('shows application info in detail panel when user has applied', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1' })],
+      [makeApp({ sponsorCompanyId: 'sp-1', status: 'InterviewScheduled', position: 'Senior Engineer' })]
+    )
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.find('.detail-panel').text()).toContain('Interviewing')
+    expect(wrapper.find('.detail-panel').text()).toContain('Senior Engineer')
+  })
+
+  it('shows "Add Another Application" button when already applied', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1' })],
+      [makeApp({ sponsorCompanyId: 'sp-1' })]
+    )
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.find('.footer-primary').text()).toContain('Add Another Application')
+  })
+
+  it('shows "Start Application" button when not applied', async () => {
+    const wrapper = mountView([makeSponsor({ id: 'sp-1' })], [])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.find('.footer-primary').text()).toContain('Start Application')
+  })
+})
+
+// ── applied filter toggle ─────────────────────────────────────────────────────
+
+describe('CompaniesView – applied filter toggle', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders the applied filter toggle with All / Applied / Not applied buttons', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const text = wrapper.find('.applied-toggle').text()
+    expect(text).toContain('All')
+    expect(text).toContain('Applied')
+    expect(text).toContain('Not applied')
+  })
+
+  it('"All" is active by default', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('.applied-toggle-btn--active').text()).toBe('All')
+  })
+
+  it('clicking "Applied" shows only companies with applications', async () => {
+    const wrapper = mountView(
+      [
+        makeSponsor({ id: 'sp-1', name: 'Applied Co' }),
+        makeSponsor({ id: 'sp-2', name: 'Not Applied Co' }),
+      ],
+      [makeApp({ sponsorCompanyId: 'sp-1' })]
+    )
+    await flushPromises()
+    const buttons = wrapper.findAll('.applied-toggle-btn')
+    await buttons[1].trigger('click') // "Applied"
+    await nextTick()
+    const rows = wrapper.findAll('.company-row')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text()).toContain('Applied Co')
+  })
+
+  it('clicking "Not applied" shows only companies without applications', async () => {
+    const wrapper = mountView(
+      [
+        makeSponsor({ id: 'sp-1', name: 'Applied Co' }),
+        makeSponsor({ id: 'sp-2', name: 'Not Applied Co' }),
+      ],
+      [makeApp({ sponsorCompanyId: 'sp-1' })]
+    )
+    await flushPromises()
+    const buttons = wrapper.findAll('.applied-toggle-btn')
+    await buttons[2].trigger('click') // "Not applied"
+    await nextTick()
+    const rows = wrapper.findAll('.company-row')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text()).toContain('Not Applied Co')
+  })
+
+  it('clearFilters resets applied filter to "all"', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1' })],
+      [makeApp({ sponsorCompanyId: 'sp-1' })]
+    )
+    await flushPromises()
+    // Activate "Applied" filter
+    await wrapper.findAll('.applied-toggle-btn')[1].trigger('click')
+    await nextTick()
+    expect(wrapper.find('.btn-clear-filters').exists()).toBe(true)
+    await wrapper.find('.btn-clear-filters').trigger('click')
+    await nextTick()
+    expect(wrapper.find('.applied-toggle-btn--active').text()).toBe('All')
+  })
+
+  it('applied filter toggle appears in clear-filters check', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    // Before applying filter, no clear-filters button
+    expect(wrapper.find('.btn-clear-filters').exists()).toBe(false)
+    // After applying filter
+    await wrapper.findAll('.applied-toggle-btn')[1].trigger('click')
+    await nextTick()
+    expect(wrapper.find('.btn-clear-filters').exists()).toBe(true)
   })
 })

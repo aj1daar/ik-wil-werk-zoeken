@@ -1,40 +1,71 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
-import type { SponsorCompany } from '../../api'
+import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
+import type { SponsorCompany, Application } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
 
-const store = useCompaniesStore()
+const store    = useCompaniesStore()
+const appsStore = useApplicationsStore()
 
-const search      = ref('')
-const filterCity  = ref('')
-const includeTags = ref<string[]>([])
-const excludeTags = ref<string[]>([])
-const selectedId  = ref<string | null>(null)
-const modalOpen   = ref(false)
+const search       = ref('')
+const filterCity   = ref('')
+const appliedFilter = ref<'all' | 'applied' | 'not-applied'>('all')
+const includeTags  = ref<string[]>([])
+const excludeTags  = ref<string[]>([])
+const selectedId   = ref<string | null>(null)
+const modalOpen    = ref(false)
 const prefillCompany = ref('')
-const showFilters = ref(false)
+const prefillSponsorId = ref<string | undefined>(undefined)
+const showFilters  = ref(false)
 const displayCount = ref(60)
 
 const PAGE_SIZE = 60
 
-onMounted(() => store.load())
+onMounted(() => {
+  store.load()
+  appsStore.load()
+})
+
+const mostRecentForCompany = computed((): Map<string, Application> => {
+  const map = new Map<string, Application>()
+  for (const app of appsStore.applications) {
+    if (!app.sponsorCompanyId) continue
+    const existing = map.get(app.sponsorCompanyId)
+    if (!existing || app.updatedAt > existing.updatedAt) {
+      map.set(app.sponsorCompanyId, app)
+    }
+  }
+  return map
+})
 
 const anyFilter = computed(() =>
   search.value.trim() !== '' || filterCity.value !== '' ||
+  appliedFilter.value !== 'all' ||
   includeTags.value.length > 0 || excludeTags.value.length > 0
 )
 
 const rows = computed<SponsorCompany[]>(() => {
-  if (anyFilter.value) {
-    return store.filter({
+  let list: SponsorCompany[]
+  if (search.value.trim() !== '' || filterCity.value !== '' ||
+      includeTags.value.length > 0 || excludeTags.value.length > 0) {
+    list = store.filter({
       query:       search.value,
       city:        filterCity.value,
       includeTags: includeTags.value,
       excludeTags: excludeTags.value,
     })
+  } else {
+    list = store.companies.slice(0, displayCount.value)
   }
-  return store.companies.slice(0, displayCount.value)
+
+  if (appliedFilter.value === 'applied') {
+    return list.filter(c => mostRecentForCompany.value.has(c.id))
+  }
+  if (appliedFilter.value === 'not-applied') {
+    return list.filter(c => !mostRecentForCompany.value.has(c.id))
+  }
+  return list
 })
 
 const canLoadMore = computed(() =>
@@ -47,6 +78,10 @@ const selectedCompany = computed<SponsorCompany | null>(() =>
   store.companies.find(c => c.id === selectedId.value) ?? null
 )
 
+const selectedCompanyApp = computed<Application | null>(() =>
+  selectedId.value ? (mostRecentForCompany.value.get(selectedId.value) ?? null) : null
+)
+
 watch(rows, (newRows) => {
   if (selectedId.value && !newRows.find(c => c.id === selectedId.value))
     selectedId.value = null
@@ -54,8 +89,9 @@ watch(rows, (newRows) => {
 
 function selectRow(id: string) { selectedId.value = selectedId.value === id ? null : id }
 
-function startApplication(name: string) {
-  prefillCompany.value = name
+function startApplication(company: SponsorCompany) {
+  prefillCompany.value = company.name
+  prefillSponsorId.value = company.id
   modalOpen.value = true
 }
 
@@ -86,6 +122,7 @@ function tagState(tag: string): 'include' | 'exclude' | 'none' {
 function clearFilters() {
   search.value = ''
   filterCity.value = ''
+  appliedFilter.value = 'all'
   includeTags.value = []
   excludeTags.value = []
   displayCount.value = PAGE_SIZE
@@ -108,6 +145,21 @@ const hasActiveFilters = computed(() => anyFilter.value)
         <option value="">All cities</option>
         <option v-for="city in store.allCities" :key="city" :value="city">{{ city }}</option>
       </select>
+
+      <div class="applied-toggle" role="group" aria-label="Applied filter">
+        <button
+          :class="['applied-toggle-btn', appliedFilter === 'all' && 'applied-toggle-btn--active']"
+          @click="appliedFilter = 'all'"
+        >All</button>
+        <button
+          :class="['applied-toggle-btn', appliedFilter === 'applied' && 'applied-toggle-btn--active']"
+          @click="appliedFilter = 'applied'"
+        >Applied</button>
+        <button
+          :class="['applied-toggle-btn', appliedFilter === 'not-applied' && 'applied-toggle-btn--active']"
+          @click="appliedFilter = 'not-applied'"
+        >Not applied</button>
+      </div>
 
       <button
         :class="['btn-filter-toggle', showFilters && 'btn-filter-toggle--active']"
@@ -169,7 +221,13 @@ const hasActiveFilters = computed(() => anyFilter.value)
             :aria-selected="selectedId === row.id"
           >
             <div class="row-body">
-              <p class="row-name">{{ row.name }}</p>
+              <div class="row-name-line">
+                <p class="row-name">{{ row.name }}</p>
+                <span
+                  v-if="mostRecentForCompany.has(row.id)"
+                  :class="['status-chip', STATUS_COLOR[mostRecentForCompany.get(row.id)!.status]]"
+                >{{ STATUS_LABELS[mostRecentForCompany.get(row.id)!.status] }}</span>
+              </div>
               <p class="row-industry">
                 <span v-if="row.city" class="row-city">{{ row.city }}</span>
                 <span v-if="row.city && row.coreIndustry"> · </span>
@@ -208,6 +266,16 @@ const hasActiveFilters = computed(() => anyFilter.value)
             </div>
 
             <div class="panel-body">
+              <div v-if="selectedCompanyApp" class="field">
+                <label class="field-label">Your application</label>
+                <div class="applied-badge-row">
+                  <span :class="['status-chip', STATUS_COLOR[selectedCompanyApp.status]]">
+                    {{ STATUS_LABELS[selectedCompanyApp.status] }}
+                  </span>
+                  <span class="applied-position">{{ selectedCompanyApp.position }}</span>
+                </div>
+              </div>
+
               <div v-if="selectedCompany.summary" class="field">
                 <label class="field-label">About</label>
                 <p class="panel-body-text">{{ selectedCompany.summary }}</p>
@@ -225,8 +293,8 @@ const hasActiveFilters = computed(() => anyFilter.value)
             </div>
 
             <div class="panel-footer">
-              <button @click="startApplication(selectedCompany.name)" class="btn-primary footer-primary">
-                Start Application
+              <button @click="startApplication(selectedCompany)" class="btn-primary footer-primary">
+                {{ selectedCompanyApp ? 'Add Another Application' : 'Start Application' }}
               </button>
             </div>
           </div>
@@ -270,6 +338,19 @@ const hasActiveFilters = computed(() => anyFilter.value)
 }
 .btn-clear-filters:hover { text-decoration: underline; }
 
+.applied-toggle {
+  display: inline-flex; border: 1px solid var(--col-border); border-radius: .375rem;
+  overflow: hidden; background: var(--col-surface);
+}
+.applied-toggle-btn {
+  background: none; border: none; border-right: 1px solid var(--col-border);
+  padding: .4rem .7rem; font-size: .8rem; cursor: pointer; color: var(--col-muted);
+  white-space: nowrap; transition: background .12s, color .12s;
+}
+.applied-toggle-btn:last-child { border-right: none; }
+.applied-toggle-btn:hover { background: var(--col-raised); color: var(--col-text); }
+.applied-toggle-btn--active { background: var(--col-accent-lt); color: var(--col-accent-dk); font-weight: 600; }
+
 .tag-filter-panel {
   background: var(--col-surface);
   border-bottom: 1px solid var(--col-border);
@@ -304,6 +385,23 @@ const hasActiveFilters = computed(() => anyFilter.value)
 .icon { width: 1.25rem; height: 1.25rem; }
 .footer-primary { width: 100%; }
 .row-city { color: var(--col-accent-dk); }
+
+.row-name-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+.status-chip {
+  display: inline-block; padding: .15rem .5rem; border-radius: 9999px;
+  font-size: .7rem; font-weight: 600; white-space: nowrap;
+}
+.chip-applied     { background: #dbeafe; color: #1e40af; }
+.chip-interview   { background: #ede9fe; color: #5b21b6; }
+.chip-offer       { background: #d1fae5; color: #065f46; }
+.chip-hold        { background: #fef3c7; color: #92400e; }
+.chip-rejected    { background: #fee2e2; color: #991b1b; }
+.chip-withdrawn   { background: var(--col-raised); color: var(--col-muted); }
+.chip-accepted    { background: #bbf7d0; color: #14532d; }
+
+.applied-badge-row { display: flex; align-items: center; gap: .5rem; }
+.applied-position { font-size: .8rem; color: var(--col-muted); }
 
 /* load more */
 .load-more-wrap { padding: .75rem 1rem; text-align: center; }
