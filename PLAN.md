@@ -146,11 +146,11 @@ No new dependencies — all Vue `<Transition>` / `<TransitionGroup>` + CSS. Ever
 
 #### LOW
 
-- [ ] **Bulk action bar slide-up** — the floating bulk bar at the bottom already has a comment for a transition; implement `<Transition name="bulk-bar">` with translateY 100% → 0 (200 ms ease-out) so it slides up from the bottom edge when selections are made and slides back down when cleared.
+- [x] **Bulk action bar slide-up** — the floating bulk bar at the bottom already has a comment for a transition; implement `<Transition name="bulk-bar">` with translateY 100% → 0 (200 ms ease-out) so it slides up from the bottom edge when selections are made and slides back down when cleared.
 
 - [x] **Button press micro-feedback** — add a global CSS rule: `button:active { transform: scale(0.97); transition: transform 80ms; }`. Gives every clickable button a subtle "press" feel without per-component changes.
 
-- [ ] **Status chip flash on update** — after an application status is saved (single update or bulk), briefly flash the chip background to a lighter tint (`@keyframes chip-flash`) to confirm the change landed. Triggered by a short-lived `.chip-updated` class added in `ApplicationPanel` after save completes, auto-removed after 600 ms.
+- [x] **Status chip flash on update** — after an application status is saved (single update or bulk), briefly flash the chip background to a lighter tint (`@keyframes chip-flash`) to confirm the change landed. Triggered by a short-lived `.chip-updated` class added in `ApplicationPanel` after save completes, auto-removed after 600 ms.
 
 ---
 

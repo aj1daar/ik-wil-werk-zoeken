@@ -205,6 +205,16 @@ body {
   }
   .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
 
+  /* Status chip flash after save */
+  @keyframes chip-flash {
+    0%   { filter: brightness(1.7); }
+    100% { filter: brightness(1); }
+  }
+  .chip-updated { animation: chip-flash 600ms ease-out; }
+  @media (prefers-reduced-motion: reduce) {
+    .chip-updated { animation: none; }
+  }
+
   /* Application list stagger transition */
   .list-enter-active {
     transition: opacity 200ms ease, transform 200ms ease;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { useApplicationsStore, STATUS_LABELS, ALL_STATUSES, REJECTION_REASON_LABELS } from '../../stores/applications'
+import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, REJECTION_REASON_LABELS } from '../../stores/applications'
 import type { Application, ActivityLog, RejectionReason } from '../../api'
 import { api } from '../../api'
 
@@ -24,6 +24,7 @@ const followUpDate     = ref(props.application.followUpDate?.slice(0, 10) ?? '')
 const saving           = ref(false)
 const deleting         = ref(false)
 const saveError        = ref('')
+const chipFlash        = ref(false)
 
 // Activity log
 const activityLogs     = ref<ActivityLog[]>([])
@@ -87,6 +88,8 @@ async function save() {
     })
     // Refresh activity log after save
     if (showHistory.value) await loadHistory()
+    chipFlash.value = true
+    setTimeout(() => { chipFlash.value = false }, 600)
   } catch {
     saveError.value = 'Save failed. Please try again.'
   } finally {
@@ -151,6 +154,9 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
       <div class="panel-title-block">
         <h2 class="panel-title">{{ application.companyName }}</h2>
         <p class="panel-subtitle">{{ application.position }}</p>
+        <span :class="['chip', 'status-chip', STATUS_COLOR[status], { 'chip-updated': chipFlash }]">
+          {{ STATUS_LABELS[status] }}
+        </span>
       </div>
       <button @click="$emit('close')" class="btn-icon" aria-label="Close panel">
         <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -300,6 +306,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 
 <style scoped>
 .panel { display: flex; flex-direction: column; height: 100%; }
+.status-chip { display: inline-block; margin-top: .375rem; }
 .panel-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border); flex-shrink: 0; }
 .panel-title-block { flex: 1; min-width: 0; }
 .panel-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

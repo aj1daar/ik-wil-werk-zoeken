@@ -181,3 +181,46 @@ describe('ApplicationPanel – prop watch', () => {
     expect((w.find('#ap-status').element as HTMLSelectElement).value).toBe('Rejected')
   })
 })
+
+// ── status chip in header ─────────────────────────────────────────────────────
+
+describe('ApplicationPanel – status chip', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders a status chip in the panel header', () => {
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    expect(w.find('.panel-title-block .chip').exists()).toBe(true)
+  })
+
+  it('chip shows the current status label', () => {
+    const w = mountPanel(makeApp({ status: 'InterviewScheduled' }))
+    expect(w.find('.panel-title-block .chip').text()).toContain('Interview Scheduled')
+  })
+
+  it('chip updates when application prop changes status', async () => {
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    await w.setProps({ application: makeApp({ status: 'Accepted' }) })
+    expect(w.find('.panel-title-block .chip').text()).toContain('Accepted')
+  })
+
+  it('chip does not have chip-updated class before saving', () => {
+    const w = mountPanel(makeApp())
+    expect(w.find('.chip').classes()).not.toContain('chip-updated')
+  })
+
+  it('chip gains chip-updated class immediately after successful save', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp({ status: 'OnHold' }))
+    const w = mountPanel(makeApp())
+    await w.find('.footer-primary').trigger('click')
+    await flushPromises()
+    expect(w.find('.chip').classes()).toContain('chip-updated')
+  })
+
+  it('chip-updated class is absent when save fails', async () => {
+    vi.mocked(api.updateApplication).mockRejectedValue(new Error('Server error'))
+    const w = mountPanel(makeApp())
+    await w.find('.footer-primary').trigger('click')
+    await flushPromises()
+    expect(w.find('.chip').classes()).not.toContain('chip-updated')
+  })
+})
