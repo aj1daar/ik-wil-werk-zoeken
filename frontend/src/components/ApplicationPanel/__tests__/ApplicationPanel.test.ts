@@ -194,7 +194,7 @@ describe('ApplicationPanel – status chip', () => {
 
   it('chip shows the current status label', () => {
     const w = mountPanel(makeApp({ status: 'InterviewScheduled' }))
-    expect(w.find('.panel-title-block .chip').text()).toContain('Interview Scheduled')
+    expect(w.find('.panel-title-block .chip').text()).toContain('Interviewing')
   })
 
   it('chip updates when application prop changes status', async () => {

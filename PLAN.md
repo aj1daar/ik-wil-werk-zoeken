@@ -188,7 +188,7 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 
 #### LOW
 
-- [ ] **Standardize application status label grammar** — the seven status *display labels* use three different grammatical patterns, which feels inconsistent even if each label is individually understandable:
+- [x] **Standardize application status label grammar** — the seven status *display labels* use three different grammatical patterns, which feels inconsistent even if each label is individually understandable:
   - Past-tense verbs: `Applied`, `Rejected`, `Withdrawn`, `Accepted` ✓
   - Noun + past participle: `Interview Scheduled`, `Offer Received`
   - Prepositional phrase: `On Hold`

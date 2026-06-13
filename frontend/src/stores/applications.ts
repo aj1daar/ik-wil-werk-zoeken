@@ -3,7 +3,7 @@ import { api, type Application, type ApplicationStatus, type Stats } from '../ap
 
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   Applied:             'Applied',
-  InterviewScheduled:  'Interview Scheduled',
+  InterviewScheduled:  'Interviewing',
   OfferReceived:       'Offer Received',
   OnHold:              'On Hold',
   Rejected:            'Rejected',
