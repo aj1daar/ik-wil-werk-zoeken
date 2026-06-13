@@ -23,6 +23,7 @@ import { PieChart } from 'echarts/charts'
 import { TooltipComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import type { Application } from '../../api'
+import { useTheme } from '../../composables/useTheme'
 
 use([CanvasRenderer, PieChart, TooltipComponent])
 
@@ -32,14 +33,17 @@ const props = defineProps<{
   to?: string
 }>()
 
+const { theme } = useTheme()
+const surfaceColor = computed(() => theme.value === 'dark' ? '#251D16' : '#F0EAE0')
+
 const REASON_META = [
   { key: 'another_candidate',    label: 'Another candidate selected', color: '#ef4444' },
-  { key: 'incompatible_profile', label: 'Incompatible profile',        color: '#dc2626' },
+  { key: 'incompatible_profile', label: 'Incompatible profile',        color: '#3b82f6' },
   { key: 'dutch_language',       label: 'Dutch language requirement',  color: '#f97316' },
-  { key: 'salary_mismatch',      label: 'Salary mismatch',             color: '#f59e0b' },
+  { key: 'salary_mismatch',      label: 'Salary mismatch',             color: '#eab308' },
   { key: 'internal_hire',        label: 'Filled internally',           color: '#8b5cf6' },
   { key: 'other',                label: 'Other',                       color: '#6b7280' },
-  { key: 'unknown',              label: 'No reason given',             color: '#d1d5db' },
+  { key: 'unknown',              label: 'No reason given',             color: '#94a3b8' },
 ] as const
 
 const rejected = computed(() => {
@@ -77,7 +81,11 @@ const option = computed(() => ({
     avoidLabelOverlap: false,
     label: { show: false },
     emphasis: { label: { show: false } },
-    data: visibleBuckets.value.map(b => ({ name: b.label, value: b.value, itemStyle: { color: b.color } })),
+    data: visibleBuckets.value.map(b => ({
+      name:      b.label,
+      value:     b.value,
+      itemStyle: { color: b.color, borderWidth: 3, borderColor: surfaceColor.value },
+    })),
   }],
 }))
 </script>
