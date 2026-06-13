@@ -207,7 +207,8 @@ jobs:
             --settings \
               JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-              RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}"
+              RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+              ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}"
           echo "=== App settings after secrets push ==="
           az functionapp config appsettings list \
             --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
