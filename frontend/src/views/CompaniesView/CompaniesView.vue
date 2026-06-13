@@ -22,6 +22,12 @@ const prefillCompany      = ref('')
 const prefillSponsorId    = ref<string | undefined>(undefined)
 const showFilters         = ref(false)
 const displayCount        = ref(60)
+const sortOrder           = ref<'default' | 'az' | 'za' | 'city'>('az')
+const hiddenIds           = ref<Set<string>>((() => {
+  try { return new Set<string>(JSON.parse(localStorage.getItem('iwwz_hidden_companies') ?? '[]')) }
+  catch { return new Set<string>() }
+})())
+const showHidden          = ref(false)
 
 const PAGE_SIZE = 60
 
@@ -65,6 +71,10 @@ const rows = computed<SponsorCompany[]>(() => {
     })
   } else {
     list = store.companies.slice(0, displayCount.value)
+  }
+
+  if (!showHidden.value && hiddenIds.value.size > 0) {
+    list = list.filter(c => !hiddenIds.value.has(c.id))
   }
 
   if (appliedFilter.value === 'applied') {
@@ -136,7 +146,18 @@ const listItems = computed<ListItem[]>(() => {
     entries.push({ name: c.name, items: [{ type: 'company', key: c.id, company: c, isSubsidiary: false }] })
   }
 
-  entries.sort((a, b) => a.name.localeCompare(b.name))
+  if (sortOrder.value !== 'default') {
+    entries.sort((a, b) => {
+      if (sortOrder.value === 'za') return b.name.localeCompare(a.name)
+      if (sortOrder.value === 'city') {
+        const ca = a.items.find(i => i.type === 'company')?.company?.city ?? ''
+        const cb = b.items.find(i => i.type === 'company')?.company?.city ?? ''
+        const cmp = ca.localeCompare(cb)
+        return cmp !== 0 ? cmp : a.name.localeCompare(b.name)
+      }
+      return a.name.localeCompare(b.name)
+    })
+  }
   return entries.flatMap(e => e.items)
 })
 
@@ -202,6 +223,15 @@ function clearFilters() {
   includeTags.value = []
   excludeTags.value = []
   displayCount.value = PAGE_SIZE
+  sortOrder.value = 'az'
+}
+
+function toggleHidden(id: string) {
+  const next = new Set(hiddenIds.value)
+  if (next.has(id)) next.delete(id)
+  else { next.add(id); selectedId.value = null }
+  hiddenIds.value = next
+  try { localStorage.setItem('iwwz_hidden_companies', JSON.stringify([...next])) } catch { /* ignore */ }
 }
 
 const hasActiveFilters = computed(() => anyFilter.value)
@@ -237,6 +267,13 @@ const hasActiveFilters = computed(() => anyFilter.value)
         <option v-for="policy in store.allRemotePolicies" :key="policy" :value="policy">{{ policy }}</option>
       </select>
 
+      <select v-model="sortOrder" class="filter-input filter-select" aria-label="Sort companies">
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+        <option value="city">City A → Z</option>
+        <option value="default">Default order</option>
+      </select>
+
       <div class="applied-toggle" role="group" aria-label="Applied filter">
         <button
           :class="['applied-toggle-btn', appliedFilter === 'all' && 'applied-toggle-btn--active']"
@@ -269,6 +306,14 @@ const hasActiveFilters = computed(() => anyFilter.value)
 
       <button v-if="hasActiveFilters" @click="clearFilters" class="btn-clear-filters" aria-label="Clear all filters">
         Clear filters
+      </button>
+
+      <button
+        v-if="hiddenIds.size > 0"
+        :class="['btn-filter-toggle', showHidden && 'btn-filter-toggle--active']"
+        @click="showHidden = !showHidden"
+      >
+        {{ showHidden ? 'Showing hidden' : `Hidden (${hiddenIds.size})` }}
       </button>
 
       <p v-if="store.lastSyncedAt" class="sync-badge">
@@ -359,6 +404,9 @@ const hasActiveFilters = computed(() => anyFilter.value)
           <button @click="loadMore" class="btn-load-more">
             Load more ({{ store.companies.length - displayCount }} remaining)
           </button>
+          <button @click="displayCount = store.companies.length" class="btn-load-more">
+            Load all
+          </button>
         </div>
       </div>
 
@@ -442,6 +490,9 @@ const hasActiveFilters = computed(() => anyFilter.value)
                 </svg>
                 Visit website
               </a>
+              <button @click="toggleHidden(selectedCompany.id)" class="btn-hide-company">
+                {{ hiddenIds.has(selectedCompany.id) ? 'Unhide' : 'Not interested' }}
+              </button>
               <button @click="startApplication(selectedCompany)" class="btn-primary footer-primary">
                 {{ selectedCompanyApp ? 'Add Another Application' : 'Start Application' }}
               </button>
@@ -590,11 +641,18 @@ const hasActiveFilters = computed(() => anyFilter.value)
 .chevron-rotated { transform: rotate(90deg); }
 
 /* load more */
-.load-more-wrap { padding: .75rem 1rem; text-align: center; }
+.load-more-wrap { padding: .75rem 1rem; display: flex; gap: .5rem; justify-content: center; }
 .btn-load-more {
   background: var(--col-surface); color: var(--col-muted);
   border: 1px solid var(--col-border); border-radius: .375rem;
   padding: .45rem 1.25rem; font-size: .8rem; cursor: pointer;
 }
 .btn-load-more:hover { background: var(--col-raised); color: var(--col-text); }
+
+.btn-hide-company {
+  background: none; border: 1px solid var(--col-border); color: var(--col-muted);
+  border-radius: .375rem; padding: .45rem .875rem; font-size: .8rem; cursor: pointer;
+  flex-shrink: 0; white-space: nowrap;
+}
+.btn-hide-company:hover { background: var(--col-raised); color: var(--col-error); }
 </style>
