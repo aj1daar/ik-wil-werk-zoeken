@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
 import type { ApplicationStatus } from '../../api'
+import FunnelChart from '../../components/FunnelChart/FunnelChart.vue'
 
 const store = useApplicationsStore()
 
@@ -155,6 +156,8 @@ const kpis = computed(() => {
         </div>
       </div>
 
+      <FunnelChart :by-status="store.stats.byStatus" class="funnel-section" />
+
       <div class="stats-grid">
         <div v-for="status in ALL_STATUSES" :key="status" class="stat-card">
           <span :class="['stat-chip', STATUS_COLOR[status]]">{{ STATUS_LABELS[status] }}</span>
@@ -216,6 +219,8 @@ const kpis = computed(() => {
 .kpi-value    { font-size: 2rem; font-weight: 800; color: var(--col-text); line-height: 1.1; }
 .total-number { font-size: 2.5rem; }
 .kpi-label    { font-size: .75rem; color: var(--col-muted); text-transform: uppercase; letter-spacing: .04em; }
+
+.funnel-section { margin-bottom: 1.5rem; }
 
 .stats-grid {
   display: grid;

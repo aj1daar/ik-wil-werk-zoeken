@@ -213,7 +213,7 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 
 #### MEDIUM
 
-- [ ] **Application funnel chart** — the most valuable single visualization. Shows the conversion pipeline: Applied → Interviewing → Offer Received → Accepted, as a vertical or horizontal funnel with absolute counts and percentage drop-off between stages (e.g. "40% of applications reached an interview"). Use ECharts `'funnel'` series. Rejected/Withdrawn/On Hold are shown as a separate metric below the funnel ("X did not proceed"), not as funnel stages — they break the linear flow. Respects the existing date-range filter already wired to the stats API.
+- [x] **Application funnel chart** — the most valuable single visualization. Shows the conversion pipeline: Applied → Interviewing → Offer Received → Accepted, as a vertical or horizontal funnel with absolute counts and percentage drop-off between stages (e.g. "40% of applications reached an interview"). Use ECharts `'funnel'` series. Rejected/Withdrawn/On Hold are shown as a separate metric below the funnel ("X did not proceed"), not as funnel stages — they break the linear flow. Respects the existing date-range filter already wired to the stats API.
 
 - [ ] **Status donut chart** — replaces the current 7 flat stat cards with a donut chart showing the proportion of each status in the same colour palette as the existing chip classes (`chip-applied` blue, `chip-rejected` red, etc.). The 7 numeric cards can move below the chart as a compact legend row, keeping the numbers visible without dominating the layout. Uses ECharts `'pie'` series with `radius: ['40%', '70%']`.
 

@@ -32,7 +32,7 @@ function mountHome(apps: Application[] = []) {
   const pinia = createPinia()
   setActivePinia(pinia)
   vi.mocked(api.getApplications).mockResolvedValue(apps)
-  return mount(HomeView, { global: { plugins: [pinia] } })
+  return mount(HomeView, { global: { plugins: [pinia], stubs: { FunnelChart: true } } })
 }
 
 // ── rendering ─────────────────────────────────────────────────────────────────
