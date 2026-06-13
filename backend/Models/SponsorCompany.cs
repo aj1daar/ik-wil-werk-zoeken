@@ -16,5 +16,12 @@ public sealed class SponsorCompany
     public string? CoreIndustry { get; set; }
     public string[]? TechStackTags { get; set; }
     public string[]? FunctionalTags { get; set; }
+    public string? WorkingLanguage { get; set; }
+    public string? CompanySize { get; set; }
+    public string? RemotePolicy { get; set; }
+    public string? ParentCompanyName { get; set; }
+    public string? WebsiteUrl { get; set; }
+    public string? TargetMarket { get; set; }
     public DateTimeOffset? EnrichedAt { get; set; }
+    public int EnrichmentVersion { get; set; } = 0;
 }

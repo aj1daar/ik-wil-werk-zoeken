@@ -119,11 +119,18 @@ public sealed class AdminFunction
         {
             if (existing.TryGetValue(company.Id, out var prev))
             {
-                company.Summary        = prev.Summary;
-                company.CoreIndustry   = prev.CoreIndustry;
-                company.TechStackTags  = prev.TechStackTags;
-                company.FunctionalTags = prev.FunctionalTags;
-                company.EnrichedAt     = prev.EnrichedAt;
+                company.Summary           = prev.Summary;
+                company.CoreIndustry      = prev.CoreIndustry;
+                company.TechStackTags     = prev.TechStackTags;
+                company.FunctionalTags    = prev.FunctionalTags;
+                company.WorkingLanguage   = prev.WorkingLanguage;
+                company.CompanySize       = prev.CompanySize;
+                company.RemotePolicy      = prev.RemotePolicy;
+                company.ParentCompanyName = prev.ParentCompanyName;
+                company.WebsiteUrl        = prev.WebsiteUrl;
+                company.TargetMarket      = prev.TargetMarket;
+                company.EnrichedAt        = prev.EnrichedAt;
+                company.EnrichmentVersion = prev.EnrichmentVersion;
                 updated++;
             }
             else
@@ -134,21 +141,30 @@ public sealed class AdminFunction
 
         await _sponsorStore.UpsertAllAsync(freshCompanies);
 
-        var toEnrich = freshCompanies.Where(c => c.EnrichedAt is null).ToList();
+        var toEnrich = freshCompanies
+            .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
+            .ToList();
         var enriched = 0;
 
         if (toEnrich.Count > 0)
         {
+            var batches = toEnrich
+                .Select((c, i) => (c, i))
+                .GroupBy(x => x.i / 20)
+                .Select(g => g.Select(x => x.c).ToList())
+                .ToList();
+
+            var cts = new CancellationTokenSource();
             await Parallel.ForEachAsync(
-                toEnrich,
-                new ParallelOptions { MaxDegreeOfParallelism = 5 },
-                async (company, ct) =>
+                batches,
+                new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cts.Token },
+                async (batch, ct) =>
                 {
-                    if (await _enricher.EnrichAsync(company, ct))
-                        Interlocked.Increment(ref enriched);
+                    var count = await _enricher.EnrichBatchAsync(batch, ct);
+                    Interlocked.Add(ref enriched, count);
                 });
 
-            foreach (var company in toEnrich.Where(c => c.EnrichedAt is not null))
+            foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
                 await _sponsorStore.UpsertAsync(company);
         }
 

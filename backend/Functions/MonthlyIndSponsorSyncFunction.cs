@@ -36,7 +36,6 @@ public sealed class MonthlyIndSponsorSyncFunction
             return;
         }
 
-        // Load existing from DB to preserve enrichment data written by previous syncs
         var existing = (await _store.GetAllAsync()).ToDictionary(c => c.Id);
 
         var added = 0;
@@ -46,11 +45,18 @@ public sealed class MonthlyIndSponsorSyncFunction
         {
             if (existing.TryGetValue(company.Id, out var prev))
             {
-                company.Summary        = prev.Summary;
-                company.CoreIndustry   = prev.CoreIndustry;
-                company.TechStackTags  = prev.TechStackTags;
-                company.FunctionalTags = prev.FunctionalTags;
-                company.EnrichedAt     = prev.EnrichedAt;
+                company.Summary           = prev.Summary;
+                company.CoreIndustry      = prev.CoreIndustry;
+                company.TechStackTags     = prev.TechStackTags;
+                company.FunctionalTags    = prev.FunctionalTags;
+                company.WorkingLanguage   = prev.WorkingLanguage;
+                company.CompanySize       = prev.CompanySize;
+                company.RemotePolicy      = prev.RemotePolicy;
+                company.ParentCompanyName = prev.ParentCompanyName;
+                company.WebsiteUrl        = prev.WebsiteUrl;
+                company.TargetMarket      = prev.TargetMarket;
+                company.EnrichedAt        = prev.EnrichedAt;
+                company.EnrichmentVersion = prev.EnrichmentVersion;
                 updated++;
             }
             else
@@ -65,34 +71,36 @@ public sealed class MonthlyIndSponsorSyncFunction
             "Sync complete — added: {Added}, updated: {Updated}, total: {Total}",
             added, updated, freshCompanies.Count);
 
-        // Enrich companies that have no LLM data yet
-        // Parallel HTTP calls are fine; each mutates its own object in memory.
-        // DB writes happen sequentially afterwards to avoid DbContext concurrency issues.
-        var toEnrich = freshCompanies.Where(c => c.EnrichedAt is null).ToList();
+        var toEnrich = freshCompanies
+            .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
+            .ToList();
 
         if (toEnrich.Count == 0)
             return;
 
-        logger.LogInformation("Enriching {Count} unenriched companies via LLM", toEnrich.Count);
-        int enriched = 0, enrichFailed = 0;
+        logger.LogInformation("Enriching {Count} companies via LLM (batch mode)", toEnrich.Count);
+        int enriched = 0;
+
+        var batches = toEnrich
+            .Select((c, i) => (c, i))
+            .GroupBy(x => x.i / 20)
+            .Select(g => g.Select(x => x.c).ToList())
+            .ToList();
 
         await Parallel.ForEachAsync(
-            toEnrich,
+            batches,
             new ParallelOptions { MaxDegreeOfParallelism = 5 },
-            async (company, ct) =>
+            async (batch, ct) =>
             {
-                if (await _enricher.EnrichAsync(company, ct))
-                    Interlocked.Increment(ref enriched);
-                else
-                    Interlocked.Increment(ref enrichFailed);
+                var count = await _enricher.EnrichBatchAsync(batch, ct);
+                Interlocked.Add(ref enriched, count);
             });
 
-        // Persist enrichment results sequentially (DbContext is not thread-safe)
-        foreach (var company in toEnrich.Where(c => c.EnrichedAt is not null))
+        foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
             await _store.UpsertAsync(company);
 
         logger.LogInformation(
-            "Enrichment complete — enriched: {Enriched}, failed: {EnrichFailed} of {Total}",
-            enriched, enrichFailed, toEnrich.Count);
+            "Enrichment complete — enriched: {Enriched} of {Total}",
+            enriched, toEnrich.Count);
     }
 }

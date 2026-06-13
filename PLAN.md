@@ -124,7 +124,7 @@
 
 #### MEDIUM
 
-- [ ] **"Applied here" overlay in CompaniesView** — for each company card, if `appliedSponsorIds` (from applications store) contains the company's `id`, show a status chip for the user's most recent application to that company (same chip classes as ApplicationsView). Add a "Applied / Not yet applied" filter toggle to the filter bar. Requires `sponsorCompanyId` link to be in place.
+- [x] **"Applied here" overlay in CompaniesView** — for each company card, if `appliedSponsorIds` (from applications store) contains the company's `id`, show a status chip for the user's most recent application to that company (same chip classes as ApplicationsView). Add a "Applied / Not yet applied" filter toggle to the filter bar. Requires `sponsorCompanyId` link to be in place.
 
 - [ ] **Parent company grouping in CompaniesView** — once `ParentCompanyName` is populated, group subsidiaries under the parent in the list (e.g. "ABN AMRO · 8 entities"). A toggle shows/hides subsidiaries. Reduces the perceived list from ~12,800 to ~3,000–4,000 unique employers. Keeps the full list accessible for users who know the specific legal entity.
 

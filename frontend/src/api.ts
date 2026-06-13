@@ -121,7 +121,14 @@ export interface SponsorCompany {
   coreIndustry?: string
   techStackTags?: string[]
   functionalTags?: string[]
+  workingLanguage?: string
+  companySize?: string
+  remotePolicy?: string
+  parentCompanyName?: string
+  websiteUrl?: string
+  targetMarket?: string
   enrichedAt?: string
+  enrichmentVersion?: number
 }
 
 export interface Application {
