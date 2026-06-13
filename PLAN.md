@@ -70,21 +70,14 @@
 - [x] **Contact email mailto: link** — clickable `<a href="mailto:…">` in ApplicationPanel
 - [x] **Status chip colors in dark mode** — per-status CSS classes (`chip-applied`, etc.) with `:root[data-theme="dark"]` overrides
 
+### Advanced Application Features
+- [x] **Application timeline / activity log** — `ActivityLog` table (FK cascade); all field changes logged on every update; collapsible history section in ApplicationPanel
+- [x] **Follow-up date field** — nullable `DateTimeOffset?` on `ApplicationStage`; date picker in ApplicationPanel; overdue/today badges in the list row
+- [x] **Bulk status update** — checkbox per row + select-all; floating bulk action bar; PATCH `/api/dashboard/applications`; activity log entries created
+- [x] **Load-more pagination in CompaniesView** — `displayCount` ref starts at 60, +60 per click; "N remaining" shown; resets on filter change
+- [x] **Sticky filter toolbar** — `position: sticky; top: 0` on ApplicationsView filter bar
+- [x] **Print / PDF export** — Print button calls `window.print()`; `@media print` CSS hides nav/filter/buttons
+
 ---
 
 ## Backlog
-
-### HIGH
-
-- [ ] **Application timeline / activity log** — track every status change with timestamp; backend: new `ActivityLog` table + migration; frontend: timeline in ApplicationPanel
-
-### MEDIUM
-
-- [ ] **Pagination or virtual scroll in CompaniesView** — sponsor list can grow large; virtual-scroll with `@tanstack/vue-virtual` or simple page cursor
-- [ ] **Reminder / follow-up date field** — set a date to follow up on an application; requires DB migration + backend endpoint + frontend date picker
-- [ ] **Bulk status update** — select multiple applications and change status in one action
-
-### LOW
-
-- [ ] **Sticky filter toolbar** — filter bar in ApplicationsView scrolls out of view on long lists; `position: sticky`
-- [ ] **Print / PDF export** — browser print stylesheet or jsPDF for career counsellors
