@@ -76,6 +76,9 @@ namespace backend.Data.Migrations
                     b.Property<DateTimeOffset?>("FollowUpDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("JobUrl")
+                        .HasColumnType("text");
+
                     b.PrimitiveCollection<string[]>("Locations")
                         .IsRequired()
                         .HasColumnType("text[]");
