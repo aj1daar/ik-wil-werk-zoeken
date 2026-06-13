@@ -1,6 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import ApplicationPanel from '../ApplicationPanel.vue'
 import type { Application } from '../../../api'
 
@@ -137,11 +138,18 @@ describe('ApplicationPanel – save', () => {
 
 describe('ApplicationPanel – delete', () => {
   beforeEach(() => vi.clearAllMocks())
+  afterEach(() => { document.body.innerHTML = '' })
 
-  it('clicking Delete calls api.deleteApplication', async () => {
+  async function clickDeleteThenConfirm(w: ReturnType<typeof mountPanel>) {
+    await w.find('button.btn-danger').trigger('click')
+    await nextTick()
+    document.querySelector<HTMLElement>('.cd-confirm')!.click()
+  }
+
+  it('clicking Delete and confirming calls api.deleteApplication', async () => {
     vi.mocked(api.deleteApplication).mockResolvedValue(undefined)
     const w = mountPanel(makeApp({ id: 'app-99' }))
-    await w.find('button.btn-danger').trigger('click')
+    await clickDeleteThenConfirm(w)
     await flushPromises()
     expect(api.deleteApplication).toHaveBeenCalledWith('app-99')
   })
@@ -149,7 +157,7 @@ describe('ApplicationPanel – delete', () => {
   it('emits close after successful delete', async () => {
     vi.mocked(api.deleteApplication).mockResolvedValue(undefined)
     const w = mountPanel(makeApp())
-    await w.find('button.btn-danger').trigger('click')
+    await clickDeleteThenConfirm(w)
     await flushPromises()
     expect(w.emitted('close')).toBeTruthy()
   })
@@ -157,7 +165,7 @@ describe('ApplicationPanel – delete', () => {
   it('shows error and does not emit close when delete fails', async () => {
     vi.mocked(api.deleteApplication).mockRejectedValue(new Error('delete failed'))
     const w = mountPanel(makeApp())
-    await w.find('button.btn-danger').trigger('click')
+    await clickDeleteThenConfirm(w)
     await flushPromises()
     expect(w.emitted('close')).toBeFalsy()
     expect(w.find('.save-error').exists()).toBe(true)

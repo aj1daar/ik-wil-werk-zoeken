@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, REJECTION_REASON_LABELS } from '../../stores/applications'
-import type { Application, ActivityLog, RejectionReason } from '../../api'
+import { useCompaniesStore } from '../../stores/companies'
+import type { Application, ActivityLog, RejectionReason, SponsorCompany } from '../../api'
 import { api } from '../../api'
+import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 
 const props = defineProps<{ application: Application }>()
 const emit  = defineEmits<{ close: [] }>()
 
-const store = useApplicationsStore()
+const store          = useApplicationsStore()
+const companiesStore = useCompaniesStore()
 
 const companyName      = ref(props.application.companyName)
 const position         = ref(props.application.position)
@@ -26,6 +29,14 @@ const saving           = ref(false)
 const deleting         = ref(false)
 const saveError        = ref('')
 const chipFlash        = ref(false)
+const showDiscardConfirm = ref(false)
+const showDeleteConfirm  = ref(false)
+
+// Typeahead
+const suggestions      = ref<SponsorCompany[]>([])
+const highlightedIndex = ref(-1)
+const showDropdown     = computed(() => suggestions.value.length > 0)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // Activity log
 const activityLogs     = ref<ActivityLog[]>([])
@@ -67,8 +78,52 @@ const isDirty = computed(() =>
   JSON.stringify(locations.value) !== JSON.stringify([...props.application.locations])
 )
 
+onMounted(() => { companiesStore.load() })
+onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
+
+function onCompanyInput() {
+  highlightedIndex.value = -1
+  if (debounceTimer) clearTimeout(debounceTimer)
+  const q = companyName.value
+  debounceTimer = setTimeout(() => {
+    suggestions.value = q.trim().length >= 1 ? companiesStore.search(q) : []
+  }, 300)
+}
+
+function selectCompany(company: SponsorCompany) {
+  companyName.value     = company.name
+  suggestions.value     = []
+  highlightedIndex.value = -1
+  if (company.city && !locations.value.includes(company.city)) {
+    locations.value = [company.city, ...locations.value]
+  }
+}
+
+function onCompanyKeydown(e: KeyboardEvent) {
+  if (!showDropdown.value) return
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    highlightedIndex.value = Math.min(highlightedIndex.value + 1, suggestions.value.length - 1)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    highlightedIndex.value = Math.max(highlightedIndex.value - 1, 0)
+  } else if (e.key === 'Enter') {
+    if (highlightedIndex.value >= 0) {
+      e.preventDefault()
+      selectCompany(suggestions.value[highlightedIndex.value])
+    }
+  } else if (e.key === 'Escape') {
+    suggestions.value      = []
+    highlightedIndex.value = -1
+  }
+}
+
+function onCompanyBlur() {
+  setTimeout(() => { suggestions.value = []; highlightedIndex.value = -1 }, 150)
+}
+
 function requestClose() {
-  if (isDirty.value && !window.confirm('Discard unsaved changes?')) return
+  if (isDirty.value) { showDiscardConfirm.value = true; return }
   emit('close')
 }
 
@@ -192,7 +247,36 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
     <div class="panel-body">
       <div class="field">
         <label class="field-label" for="ap-company">Company name</label>
-        <input id="ap-company" v-model="companyName" class="field-input" />
+        <div class="combobox-wrapper">
+          <input
+            id="ap-company"
+            v-model="companyName"
+            class="field-input"
+            autocomplete="off"
+            role="combobox"
+            :aria-expanded="showDropdown"
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            :aria-activedescendant="highlightedIndex >= 0 ? `ap-suggestion-${highlightedIndex}` : undefined"
+            @input="onCompanyInput"
+            @keydown="onCompanyKeydown"
+            @blur="onCompanyBlur"
+          />
+          <ul v-if="showDropdown" class="combobox-dropdown" role="listbox" aria-label="Company suggestions">
+            <li
+              v-for="(company, i) in suggestions"
+              :key="company.id"
+              :id="`ap-suggestion-${i}`"
+              role="option"
+              :class="['combobox-option', { 'combobox-option--active': i === highlightedIndex }]"
+              :aria-selected="i === highlightedIndex"
+              @mousedown.prevent="selectCompany(company)"
+            >
+              <span class="combobox-name">{{ company.name }}</span>
+              <span v-if="company.city" class="combobox-city">{{ company.city }}</span>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div class="field">
@@ -349,12 +433,32 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         <button @click="save" :disabled="saving || deleting" class="btn-primary footer-primary" aria-describedby="ap-save-error">
           {{ saving ? 'Saving…' : 'Save changes' }}
         </button>
-        <button @click="remove" :disabled="saving || deleting" class="btn-danger">
+        <button @click="showDeleteConfirm = true" :disabled="saving || deleting" class="btn-danger">
           {{ deleting ? 'Deleting…' : 'Delete' }}
         </button>
       </div>
     </div>
   </div>
+
+  <ConfirmDialog
+    v-if="showDiscardConfirm"
+    title="Discard changes?"
+    message="You have unsaved changes. They will be lost."
+    confirm-label="Discard"
+    confirm-class="btn-danger"
+    @confirm="emit('close')"
+    @cancel="showDiscardConfirm = false"
+  />
+
+  <ConfirmDialog
+    v-if="showDeleteConfirm"
+    title="Delete application?"
+    message="This cannot be undone."
+    confirm-label="Delete"
+    confirm-class="btn-danger"
+    @confirm="() => { showDeleteConfirm = false; remove() }"
+    @cancel="showDeleteConfirm = false"
+  />
 </template>
 
 <style scoped>
@@ -410,4 +514,21 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .timeline-new { font-size: .75rem; color: var(--col-text); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timeline-arrow { width: .75rem; height: .75rem; color: var(--col-subtle); flex-shrink: 0; }
 .timeline-date { display: block; font-size: .7rem; color: var(--col-subtle); margin-top: .125rem; }
+
+/* combobox */
+.combobox-wrapper { position: relative; }
+.combobox-dropdown {
+  position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 50;
+  background: var(--col-surface); border: 1px solid var(--col-border); border-radius: .375rem;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--col-text) 10%, transparent);
+  list-style: none; margin: 0; padding: .25rem 0; max-height: 220px; overflow-y: auto;
+}
+.combobox-option {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .5rem .75rem; cursor: pointer; font-size: .875rem;
+}
+.combobox-option:hover,
+.combobox-option--active { background: var(--col-raised); }
+.combobox-name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combobox-city { font-size: .75rem; color: var(--col-subtle); white-space: nowrap; flex-shrink: 0; }
 </style>

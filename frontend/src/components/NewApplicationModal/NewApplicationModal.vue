@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
 import type { ApplicationStatus, SponsorCompany } from '../../api'
+import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 
 const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted'])
 
@@ -27,6 +28,7 @@ const locations     = ref<string[]>([])
 const jobUrl        = ref('')
 const saving        = ref(false)
 const error         = ref('')
+const showDiscardConfirm = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -37,7 +39,7 @@ const isDirty = computed(() =>
 )
 
 function requestClose() {
-  if (isDirty.value && !window.confirm('Discard this application? Your data will be lost.')) return
+  if (isDirty.value) { showDiscardConfirm.value = true; return }
   emit('close')
 }
 
@@ -221,15 +223,15 @@ async function submit() {
             class="field-input"
           />
         </div>
-      </div>
 
-      <div class="field">
-        <label class="field-label">Job posting URL <span class="optional">(optional)</span></label>
-        <input v-model="jobUrl" type="url" class="field-input" placeholder="https://…" />
-      </div>
+        <div class="field">
+          <label class="field-label">Job posting URL <span class="optional">(optional)</span></label>
+          <input v-model="jobUrl" type="url" class="field-input" placeholder="https://…" />
+        </div>
 
-      <div v-if="activeMatch" class="dup-warning" role="status" aria-live="polite">
-        You already have an active <strong>{{ STATUS_LABELS[activeMatch.status] }}</strong> application to <strong>{{ activeMatch.companyName }}</strong>. You can still add another.
+        <div v-if="activeMatch" class="dup-warning" role="status" aria-live="polite">
+          You already have an active <strong>{{ STATUS_LABELS[activeMatch.status] }}</strong> application to <strong>{{ activeMatch.companyName }}</strong>. You can still add another.
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -243,6 +245,16 @@ async function submit() {
       </div>
     </div>
   </div>
+
+  <ConfirmDialog
+    v-if="showDiscardConfirm"
+    title="Discard application?"
+    message="Your data will be lost."
+    confirm-label="Discard"
+    confirm-class="btn-danger"
+    @confirm="emit('close')"
+    @cancel="showDiscardConfirm = false"
+  />
 </template>
 
 <style scoped>
