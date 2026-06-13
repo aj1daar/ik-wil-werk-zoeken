@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api, type AdminUserSummary, type SyncLog } from '../../api'
-import AppNavbar from '../../components/AppNavbar/AppNavbar.vue'
 
 const users         = ref<AdminUserSummary[]>([])
 const loadingUsers  = ref(false)
@@ -88,8 +87,6 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 </script>
 
 <template>
-  <AppNavbar />
-
   <main class="admin-page">
     <h1 class="admin-title">Admin Panel</h1>
 
