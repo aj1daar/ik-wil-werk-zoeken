@@ -7,10 +7,9 @@
 
 .filter-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.75rem 1.5rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem 0.625rem;
   border-bottom: 1px solid var(--col-border);
   background: var(--col-surface);
   flex-shrink: 0;
@@ -21,8 +20,7 @@
 
 .filter-search {
   position: relative;
-  flex: 1;
-  min-width: 12rem;
+  width: 100%;
 }
 .filter-icon {
   position: absolute;
@@ -35,6 +33,30 @@
   pointer-events: none;
 }
 .filter-select { width: auto; }
+.filter-select--sm { max-width: 110px; }
+
+.filter-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropdown-filters-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 1.5rem 0.625rem;
+  background: var(--col-surface);
+  border-bottom: 1px solid var(--col-border);
+  flex-shrink: 0;
+}
+.dropdown-filters-panel .filter-select { flex: 1; min-width: 130px; }
+
+.filter-drop-enter-active,
+.filter-drop-leave-active { transition: opacity .15s ease, transform .15s ease; }
+.filter-drop-enter-from,
+.filter-drop-leave-to { opacity: 0; transform: translateY(-4px); }
 
 .filter-input {
   width: 100%;
@@ -102,11 +124,13 @@
 @media (max-width: 767px) {
   .dashboard { height: auto; min-height: calc(100vh - 60px); }
 
-  .filter-bar { gap: 0.5rem; padding: 0.625rem 1rem; }
-  .filter-search { min-width: unset; }
+  .filter-bar { padding: 0.5rem 1rem; }
+  .filter-controls-row { gap: 0.375rem; }
+  .dropdown-filters-panel { padding: 0.5rem 1rem; }
 
   .filter-input { font-size: 0.8125rem; }
   .filter-select { flex: 1; min-width: 0; }
+  .filter-select--sm { max-width: 90px; }
 
   .company-list { min-height: 0; }
 

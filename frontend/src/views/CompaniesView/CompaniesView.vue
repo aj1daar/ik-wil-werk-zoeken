@@ -21,6 +21,7 @@ const modalOpen           = ref(false)
 const prefillCompany      = ref('')
 const prefillSponsorId    = ref<string | undefined>(undefined)
 const showFilters         = ref(false)
+const showDropdownFilters = ref(false)
 const displayCount        = ref(60)
 const sortOrder           = ref<'default' | 'az' | 'za' | 'city'>('az')
 const hiddenIds           = ref<Set<string>>((() => {
@@ -235,11 +236,17 @@ function toggleHidden(id: string) {
 }
 
 const hasActiveFilters = computed(() => anyFilter.value)
+
+const activeDropdownCount = computed(() =>
+  [filterCity.value, filterWorkingLanguage.value, filterCompanySize.value, filterRemotePolicy.value]
+    .filter(v => v !== '').length
+)
 </script>
 
 <template>
   <div class="dashboard">
     <div class="filter-bar">
+      <!-- Row 1: search -->
       <div class="filter-search">
         <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
@@ -247,79 +254,94 @@ const hasActiveFilters = computed(() => anyFilter.value)
         <input v-model="search" placeholder="Search by name, city, industry or tags…" class="filter-input pl-9" aria-label="Search companies" />
       </div>
 
-      <select v-model="filterCity" class="filter-input filter-select" aria-label="Filter by city">
-        <option value="">All cities</option>
-        <option v-for="city in store.allCities" :key="city" :value="city">{{ city }}</option>
-      </select>
-
-      <select v-model="filterWorkingLanguage" class="filter-input filter-select" aria-label="Filter by working language">
-        <option value="">All languages</option>
-        <option v-for="lang in store.allWorkingLanguages" :key="lang" :value="lang">{{ lang }}</option>
-      </select>
-
-      <select v-model="filterCompanySize" class="filter-input filter-select" aria-label="Filter by company size">
-        <option value="">All sizes</option>
-        <option v-for="size in store.allCompanySizes" :key="size" :value="size">{{ size }}</option>
-      </select>
-
-      <select v-model="filterRemotePolicy" class="filter-input filter-select" aria-label="Filter by remote policy">
-        <option value="">All policies</option>
-        <option v-for="policy in store.allRemotePolicies" :key="policy" :value="policy">{{ policy }}</option>
-      </select>
-
-      <select v-model="sortOrder" class="filter-input filter-select" aria-label="Sort companies">
-        <option value="az">A → Z</option>
-        <option value="za">Z → A</option>
-        <option value="city">City A → Z</option>
-        <option value="default">Default order</option>
-      </select>
-
-      <div class="applied-toggle" role="group" aria-label="Applied filter">
+      <!-- Row 2: compact controls -->
+      <div class="filter-controls-row">
+        <!-- Dropdown filters toggle -->
         <button
-          :class="['applied-toggle-btn', appliedFilter === 'all' && 'applied-toggle-btn--active']"
-          @click="appliedFilter = 'all'"
-        >All</button>
+          :class="['btn-filter-toggle', (showDropdownFilters || activeDropdownCount > 0) && 'btn-filter-toggle--active']"
+          @click="showDropdownFilters = !showDropdownFilters"
+          :aria-expanded="showDropdownFilters"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
+          </svg>
+          Filters
+          <span v-if="activeDropdownCount > 0" class="filter-count">{{ activeDropdownCount }}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showDropdownFilters && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Sort -->
+        <select v-model="sortOrder" class="filter-input filter-select filter-select--sm" aria-label="Sort companies">
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+          <option value="city">City A → Z</option>
+          <option value="default">Default</option>
+        </select>
+
+        <!-- Applied toggle -->
+        <div class="applied-toggle" role="group" aria-label="Applied filter">
+          <button :class="['applied-toggle-btn', appliedFilter === 'all' && 'applied-toggle-btn--active']" @click="appliedFilter = 'all'">All</button>
+          <button :class="['applied-toggle-btn', appliedFilter === 'applied' && 'applied-toggle-btn--active']" @click="appliedFilter = 'applied'">Applied</button>
+          <button :class="['applied-toggle-btn', appliedFilter === 'not-applied' && 'applied-toggle-btn--active']" @click="appliedFilter = 'not-applied'">Not applied</button>
+        </div>
+
+        <!-- Tag filter -->
         <button
-          :class="['applied-toggle-btn', appliedFilter === 'applied' && 'applied-toggle-btn--active']"
-          @click="appliedFilter = 'applied'"
-        >Applied</button>
+          :class="['btn-filter-toggle', showFilters && 'btn-filter-toggle--active']"
+          @click="showFilters = !showFilters"
+          :aria-expanded="showFilters"
+          aria-controls="tag-filter-panel"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+          </svg>
+          Tags
+          <span v-if="includeTags.length + excludeTags.length > 0" class="filter-count">
+            {{ includeTags.length + excludeTags.length }}
+          </span>
+        </button>
+
+        <button v-if="hasActiveFilters" @click="clearFilters" class="btn-clear-filters" aria-label="Clear all filters">
+          Clear
+        </button>
+
         <button
-          :class="['applied-toggle-btn', appliedFilter === 'not-applied' && 'applied-toggle-btn--active']"
-          @click="appliedFilter = 'not-applied'"
-        >Not applied</button>
+          v-if="hiddenIds.size > 0"
+          :class="['btn-filter-toggle', showHidden && 'btn-filter-toggle--active']"
+          @click="showHidden = !showHidden"
+        >
+          {{ showHidden ? 'Showing hidden' : `Hidden (${hiddenIds.size})` }}
+        </button>
+
+        <p v-if="store.lastSyncedAt" class="sync-badge">
+          IND data last synced {{ formatSyncDate(store.lastSyncedAt) }}
+        </p>
       </div>
-
-      <button
-        :class="['btn-filter-toggle', showFilters && 'btn-filter-toggle--active']"
-        @click="showFilters = !showFilters"
-        :aria-expanded="showFilters"
-        aria-controls="tag-filter-panel"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
-        </svg>
-        Tag filter
-        <span v-if="includeTags.length + excludeTags.length > 0" class="filter-count">
-          {{ includeTags.length + excludeTags.length }}
-        </span>
-      </button>
-
-      <button v-if="hasActiveFilters" @click="clearFilters" class="btn-clear-filters" aria-label="Clear all filters">
-        Clear filters
-      </button>
-
-      <button
-        v-if="hiddenIds.size > 0"
-        :class="['btn-filter-toggle', showHidden && 'btn-filter-toggle--active']"
-        @click="showHidden = !showHidden"
-      >
-        {{ showHidden ? 'Showing hidden' : `Hidden (${hiddenIds.size})` }}
-      </button>
-
-      <p v-if="store.lastSyncedAt" class="sync-badge">
-        IND data last synced {{ formatSyncDate(store.lastSyncedAt) }}
-      </p>
     </div>
+
+    <!-- Collapsible dropdown filters panel -->
+    <Transition name="filter-drop">
+      <div v-if="showDropdownFilters" class="dropdown-filters-panel">
+        <select v-model="filterCity" class="filter-input filter-select" aria-label="Filter by city">
+          <option value="">All cities</option>
+          <option v-for="city in store.allCities" :key="city" :value="city">{{ city }}</option>
+        </select>
+        <select v-model="filterWorkingLanguage" class="filter-input filter-select" aria-label="Filter by working language">
+          <option value="">All languages</option>
+          <option v-for="lang in store.allWorkingLanguages" :key="lang" :value="lang">{{ lang }}</option>
+        </select>
+        <select v-model="filterCompanySize" class="filter-input filter-select" aria-label="Filter by company size">
+          <option value="">All sizes</option>
+          <option v-for="size in store.allCompanySizes" :key="size" :value="size">{{ size }}</option>
+        </select>
+        <select v-model="filterRemotePolicy" class="filter-input filter-select" aria-label="Filter by remote policy">
+          <option value="">All policies</option>
+          <option v-for="policy in store.allRemotePolicies" :key="policy" :value="policy">{{ policy }}</option>
+        </select>
+      </div>
+    </Transition>
 
     <div v-if="showFilters" id="tag-filter-panel" class="tag-filter-panel">
       <p class="tag-filter-hint">
@@ -520,12 +542,14 @@ const hasActiveFilters = computed(() => anyFilter.value)
   display: inline-flex; align-items: center; gap: .375rem;
   background: var(--col-surface); color: var(--col-muted);
   border: 1px solid var(--col-border); border-radius: .375rem;
-  padding: .45rem .85rem; font-size: .8rem; cursor: pointer; white-space: nowrap;
+  padding: .4rem .75rem; font-size: .8rem; cursor: pointer; white-space: nowrap;
   transition: background .15s, color .15s;
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
 .btn-icon-sm { width: .9rem; height: .9rem; }
+.btn-chevron { transition: transform .2s ease; }
+.btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
   background: var(--col-accent); color: #fff;
   border-radius: 9999px; font-size: .7rem; font-weight: 700;
