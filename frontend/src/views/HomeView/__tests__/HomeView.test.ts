@@ -47,14 +47,15 @@ describe('HomeView – rendering', () => {
     expect(w.find('h1').text()).toBe('Dashboard')
   })
 
-  it('renders all six range buttons', async () => {
+  it('renders all seven range buttons', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     const w = mountHome()
     await flushPromises()
     const buttons = w.findAll('button.range-btn')
-    expect(buttons).toHaveLength(6)
+    expect(buttons).toHaveLength(7)
     const labels = buttons.map(b => b.text())
     expect(labels).toContain('Overall')
+    expect(labels).toContain('Last week')
     expect(labels).toContain('Last month')
     expect(labels).toContain('Last 3 months')
     expect(labels).toContain('Last 6 months')

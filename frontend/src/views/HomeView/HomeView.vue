@@ -25,7 +25,7 @@ function dismissBanner() {
   window.localStorage?.setItem('iwwz_onboarded', '1')
 }
 
-type RangeKey = 'all' | '1m' | '3m' | '6m' | '1y' | 'custom'
+type RangeKey = 'all' | '1w' | '1m' | '3m' | '6m' | '1y' | 'custom'
 
 const range      = ref<RangeKey>('all')
 const customFrom = ref('')
@@ -33,6 +33,7 @@ const customTo   = ref('')
 
 const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
   { key: 'all', label: 'Overall' },
+  { key: '1w',  label: 'Last week' },
   { key: '1m',  label: 'Last month' },
   { key: '3m',  label: 'Last 3 months' },
   { key: '6m',  label: 'Last 6 months' },
@@ -44,6 +45,10 @@ function toIso(d: Date) { return d.toISOString() }
 
 const fromTo = computed<{ from?: string; to?: string }>(() => {
   const now = new Date()
+  if (range.value === '1w') {
+    const f = new Date(now); f.setDate(f.getDate() - 7)
+    return { from: toIso(f), to: toIso(now) }
+  }
   if (range.value === '1m') {
     const f = new Date(now); f.setMonth(f.getMonth() - 1)
     return { from: toIso(f), to: toIso(now) }
@@ -223,9 +228,20 @@ const kpis = computed(() => {
 .range-btn {
   padding: .375rem .875rem; border-radius: 9999px; border: 1px solid var(--col-border);
   background: var(--col-bg); cursor: pointer; font-size: .875rem; color: var(--col-muted);
-  transition: all .15s;
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  box-shadow: none;
 }
-.range-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); }
+.range-btn:not(.range-btn--active):hover {
+  background: var(--col-surface);
+  border-color: var(--col-border);
+  color: var(--col-text);
+}
+.range-btn--active {
+  background: var(--col-invert-bg);
+  color: var(--col-invert-text);
+  border-color: var(--col-invert-bg);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--col-invert-bg) 35%, transparent);
+}
 
 .custom-range { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .custom-range-field { display: flex; flex-direction: column; gap: .25rem; }
