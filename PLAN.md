@@ -221,4 +221,4 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 
 #### LOW
 
-- [ ] **Response rate KPI strip** — a single row of 3–4 large-number KPIs above the charts: `Total applied`, `Response rate` ((Interviews + Offers + Accepted) / Total, as a %), `Offer rate` (Offers / Total), `Avg. days to response` (mean of `updatedAt − appliedAt` for stages that reached Interview+). No chart library needed — plain styled `<div>` elements. Gives instant signal without needing to read the charts.
+- [x] **Response rate KPI strip** — a single row of 3–4 large-number KPIs above the charts: `Total applied`, `Response rate` ((Interviews + Offers + Accepted) / Total, as a %), `Offer rate` (Offers / Total), `Avg. days to response` (mean of `updatedAt − appliedAt` for stages that reached Interview+). No chart library needed — plain styled `<div>` elements. Gives instant signal without needing to read the charts.
