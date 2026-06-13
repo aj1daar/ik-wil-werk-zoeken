@@ -294,13 +294,13 @@ function printPage() {
 
     <!-- Application detail modal -->
     <teleport to="body">
-      <transition name="modal">
+      <Transition name="app-detail">
         <div v-if="selected" class="modal-backdrop" @click.self="onPanelClose" role="dialog" aria-modal="true" :aria-label="`Edit application: ${selected.companyName}`">
           <div class="modal-box">
             <ApplicationPanel :application="selected" @close="onPanelClose" />
           </div>
         </div>
-      </transition>
+      </Transition>
     </teleport>
 
     <Transition name="modal">
@@ -407,8 +407,25 @@ function printPage() {
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
 }
-.modal-enter-active, .modal-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; transform: translateY(8px) scale(0.98); }
+/* Application detail panel — slide from right (desktop), slide up (mobile) */
+.app-detail-enter-active,
+.app-detail-leave-active { transition: opacity 0.2s ease; }
+.app-detail-enter-from,
+.app-detail-leave-to     { opacity: 0; }
+.app-detail-enter-active .modal-box,
+.app-detail-leave-active .modal-box { transition: transform 0.2s ease, opacity 0.2s ease; }
+.app-detail-enter-from .modal-box,
+.app-detail-leave-to   .modal-box   { transform: translateX(24px); opacity: 0; }
+@media (max-width: 480px) {
+  .app-detail-enter-from .modal-box,
+  .app-detail-leave-to   .modal-box { transform: translateY(24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-detail-enter-active,
+  .app-detail-leave-active { transition: none; }
+  .app-detail-enter-active .modal-box,
+  .app-detail-leave-active .modal-box { transition: none; }
+}
 
 .btn-new {
   display: inline-flex; align-items: center; gap: .375rem;

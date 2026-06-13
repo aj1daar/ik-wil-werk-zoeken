@@ -37,9 +37,9 @@ function mountView(apps: Application[] = []) {
   return mount(ApplicationsView, { global: { plugins: [pinia] } })
 }
 
-function modalTransitions(wrapper: ReturnType<typeof mount>) {
+function transitionsByName(wrapper: ReturnType<typeof mount>, name: string) {
   return (wrapper.findAllComponents(Transition) as unknown as VueWrapper<any>[])
-    .filter(t => t.props('name') === 'modal')
+    .filter(t => t.props('name') === name)
 }
 
 function pressKey(key: string) {
@@ -54,7 +54,7 @@ describe('ApplicationsView – new application modal transition', () => {
   it('renders a <Transition name="modal"> wrapping the new-application modal', async () => {
     const wrapper = mountView()
     await flushPromises()
-    expect(modalTransitions(wrapper).length).toBeGreaterThanOrEqual(1)
+    expect(transitionsByName(wrapper, 'modal').length).toBeGreaterThanOrEqual(1)
   })
 
   it('NewApplicationModal is absent by default', async () => {
@@ -96,9 +96,21 @@ describe('ApplicationsView – new application modal transition', () => {
   })
 })
 
-// ── application panel transition wrapper ─────────────────────────────────────
+// ── application detail panel transition ──────────────────────────────────────
 
-describe('ApplicationsView – application panel transition', () => {
+describe('ApplicationsView – application detail panel transition', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders a <Transition name="app-detail"> wrapping the application panel', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    expect(transitionsByName(wrapper, 'app-detail').length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+// ── application panel behaviour ───────────────────────────────────────────────
+
+describe('ApplicationsView – application panel behaviour', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('ApplicationPanel is absent when no application is selected', async () => {
