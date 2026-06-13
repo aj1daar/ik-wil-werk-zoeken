@@ -82,6 +82,71 @@ const canLoadMore = computed(() =>
 
 function loadMore() { displayCount.value += PAGE_SIZE }
 
+// ── Parent company grouping ──────────────────────────────────────────────────
+
+interface ListItem {
+  type: 'company' | 'group-header'
+  key: string
+  company?: SponsorCompany
+  isSubsidiary?: boolean
+  groupKey?: string
+  parentName?: string
+  groupCount?: number
+}
+
+const expandedGroups = ref(new Set<string>())
+
+const listItems = computed<ListItem[]>(() => {
+  const list = rows.value
+
+  const grouped = new Map<string, SponsorCompany[]>()
+  const ungrouped: SponsorCompany[] = []
+
+  for (const c of list) {
+    const parent = c.parentCompanyName?.trim()
+    if (parent) {
+      const key = parent.toLowerCase()
+      if (!grouped.has(key)) grouped.set(key, [])
+      grouped.get(key)!.push(c)
+    } else {
+      ungrouped.push(c)
+    }
+  }
+
+  const entries: Array<{ name: string; items: ListItem[] }> = []
+
+  for (const [key, companies] of grouped) {
+    if (companies.length === 1) {
+      ungrouped.push(companies[0])
+      continue
+    }
+    const parentName = companies[0].parentCompanyName!
+    const groupItems: ListItem[] = [
+      { type: 'group-header', key: `group:${key}`, groupKey: key, parentName, groupCount: companies.length }
+    ]
+    if (expandedGroups.value.has(key)) {
+      for (const c of companies) {
+        groupItems.push({ type: 'company', key: c.id, company: c, isSubsidiary: true })
+      }
+    }
+    entries.push({ name: parentName, items: groupItems })
+  }
+
+  for (const c of ungrouped) {
+    entries.push({ name: c.name, items: [{ type: 'company', key: c.id, company: c, isSubsidiary: false }] })
+  }
+
+  entries.sort((a, b) => a.name.localeCompare(b.name))
+  return entries.flatMap(e => e.items)
+})
+
+function toggleGroup(groupKey: string) {
+  const next = new Set(expandedGroups.value)
+  if (next.has(groupKey)) next.delete(groupKey)
+  else next.add(groupKey)
+  expandedGroups.value = next
+}
+
 const selectedCompany = computed<SponsorCompany | null>(() =>
   store.companies.find(c => c.id === selectedId.value) ?? null
 )
@@ -239,31 +304,55 @@ const hasActiveFilters = computed(() => anyFilter.value)
         </div>
 
         <ul v-else>
-          <li
-            v-for="row in rows"
-            :key="row.id"
-            @click="selectRow(row.id)"
-            :class="['company-row', { 'company-row--active': selectedId === row.id }]"
-            :aria-selected="selectedId === row.id"
-          >
-            <div class="row-body">
-              <div class="row-name-line">
-                <p class="row-name">{{ row.name }}</p>
-                <span
-                  v-if="mostRecentForCompany.has(row.id)"
-                  :class="['status-chip', STATUS_COLOR[mostRecentForCompany.get(row.id)!.status]]"
-                >{{ STATUS_LABELS[mostRecentForCompany.get(row.id)!.status] }}</span>
+          <template v-for="item in listItems" :key="item.key">
+            <!-- Group header row -->
+            <li
+              v-if="item.type === 'group-header'"
+              class="company-row group-header-row"
+              @click="toggleGroup(item.groupKey!)"
+              :aria-expanded="expandedGroups.has(item.groupKey!)"
+            >
+              <div class="row-body">
+                <div class="row-name-line">
+                  <p class="row-name">{{ item.parentName }}</p>
+                  <span class="group-count-badge">{{ item.groupCount }} entities</span>
+                </div>
               </div>
-              <p class="row-industry">
-                <span v-if="row.city" class="row-city">{{ row.city }}</span>
-                <span v-if="row.city && row.coreIndustry"> · </span>
-                <span v-if="row.coreIndustry">{{ row.coreIndustry }}</span>
-              </p>
-            </div>
-            <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </li>
+              <svg
+                class="row-chevron"
+                :class="{ 'chevron-rotated': expandedGroups.has(item.groupKey!) }"
+                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </li>
+
+            <!-- Company row -->
+            <li
+              v-else
+              @click="selectRow(item.company!.id)"
+              :class="['company-row', item.isSubsidiary && 'company-row--subsidiary', { 'company-row--active': selectedId === item.company!.id }]"
+              :aria-selected="selectedId === item.company!.id"
+            >
+              <div class="row-body">
+                <div class="row-name-line">
+                  <p class="row-name">{{ item.company!.name }}</p>
+                  <span
+                    v-if="mostRecentForCompany.has(item.company!.id)"
+                    :class="['status-chip', STATUS_COLOR[mostRecentForCompany.get(item.company!.id)!.status]]"
+                  >{{ STATUS_LABELS[mostRecentForCompany.get(item.company!.id)!.status] }}</span>
+                </div>
+                <p class="row-industry">
+                  <span v-if="item.company!.city" class="row-city">{{ item.company!.city }}</span>
+                  <span v-if="item.company!.city && item.company!.coreIndustry"> · </span>
+                  <span v-if="item.company!.coreIndustry">{{ item.company!.coreIndustry }}</span>
+                </p>
+              </div>
+              <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </li>
+          </template>
         </ul>
 
         <div v-if="canLoadMore" class="load-more-wrap">
@@ -428,6 +517,21 @@ const hasActiveFilters = computed(() => anyFilter.value)
 
 .applied-badge-row { display: flex; align-items: center; gap: .5rem; }
 .applied-position { font-size: .8rem; color: var(--col-muted); }
+
+.group-header-row {
+  background: var(--col-raised);
+  font-weight: 600;
+  cursor: pointer;
+}
+.group-count-badge {
+  font-size: .7rem; font-weight: 500; color: var(--col-accent-dk);
+  background: var(--col-accent-lt); border-radius: 9999px; padding: .15rem .5rem;
+}
+.company-row--subsidiary {
+  padding-left: 2rem;
+  background: var(--col-bg);
+}
+.chevron-rotated { transform: rotate(90deg); }
 
 /* load more */
 .load-more-wrap { padding: .75rem 1rem; text-align: center; }

@@ -293,3 +293,116 @@ describe('CompaniesView – applied filter toggle', () => {
     expect(wrapper.find('.btn-clear-filters').exists()).toBe(true)
   })
 })
+
+// ── parent company grouping ───────────────────────────────────────────────────
+
+describe('CompaniesView – parent company grouping', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('two companies with the same parentCompanyName render as a single group header', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'ABN AMRO Clearing Bank N.V.', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-2', name: 'ABN AMRO Securities B.V.', parentCompanyName: 'ABN AMRO' }),
+    ])
+    await flushPromises()
+    expect(wrapper.findAll('.group-header-row')).toHaveLength(1)
+    expect(wrapper.find('.group-header-row').text()).toContain('ABN AMRO')
+    expect(wrapper.find('.group-count-badge').text()).toContain('2')
+  })
+
+  it('subsidiaries are hidden until the group header is clicked', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'ABN AMRO Clearing', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-2', name: 'ABN AMRO Securities', parentCompanyName: 'ABN AMRO' }),
+    ])
+    await flushPromises()
+    expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(0)
+    await wrapper.find('.group-header-row').trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(2)
+  })
+
+  it('clicking group header again collapses subsidiaries', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'ABN AMRO Clearing', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-2', name: 'ABN AMRO Securities', parentCompanyName: 'ABN AMRO' }),
+    ])
+    await flushPromises()
+    const header = wrapper.find('.group-header-row')
+    await header.trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(2)
+    await header.trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(0)
+  })
+
+  it('selecting a subsidiary row opens the detail panel', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'ABN AMRO Clearing', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-2', name: 'ABN AMRO Securities', parentCompanyName: 'ABN AMRO' }),
+    ])
+    await flushPromises()
+    await wrapper.find('.group-header-row').trigger('click')
+    await nextTick()
+    await wrapper.find('.company-row--subsidiary').trigger('click')
+    await nextTick()
+    expect(wrapper.find('.detail-panel').exists()).toBe(true)
+    expect(wrapper.find('.panel-title').text()).toContain('ABN AMRO')
+  })
+
+  it('a single company with parentCompanyName renders as a regular row (not a group)', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'Solo Subsidiary B.V.', parentCompanyName: 'BigCorp' }),
+    ])
+    await flushPromises()
+    expect(wrapper.findAll('.group-header-row')).toHaveLength(0)
+    expect(wrapper.findAll('.company-row')).toHaveLength(1)
+  })
+
+  it('companies without parentCompanyName render as regular rows', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'Alpha' }),
+      makeSponsor({ id: 'sp-2', name: 'Beta' }),
+    ])
+    await flushPromises()
+    expect(wrapper.findAll('.group-header-row')).toHaveLength(0)
+    expect(wrapper.findAll('.company-row')).toHaveLength(2)
+  })
+
+  it('group header and ungrouped companies are sorted alphabetically together', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'Zebra Corp' }), // ungrouped Z
+      makeSponsor({ id: 'sp-2', name: 'ABN AMRO Bank', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-3', name: 'ABN AMRO Securities', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-4', name: 'Mango Inc' }), // ungrouped M
+    ])
+    await flushPromises()
+    const rowTexts = wrapper.findAll('.company-row').map(r => r.text())
+    // ABN AMRO group header should appear before Mango, Mango before Zebra
+    const abn = rowTexts.findIndex(t => t.includes('ABN AMRO'))
+    const mango = rowTexts.findIndex(t => t.includes('Mango'))
+    const zebra = rowTexts.findIndex(t => t.includes('Zebra'))
+    expect(abn).toBeLessThan(mango)
+    expect(mango).toBeLessThan(zebra)
+  })
+
+  it('multiple groups from different parents are each collapsible independently', async () => {
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'ABN AMRO A', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-2', name: 'ABN AMRO B', parentCompanyName: 'ABN AMRO' }),
+      makeSponsor({ id: 'sp-3', name: 'ING Bank A', parentCompanyName: 'ING' }),
+      makeSponsor({ id: 'sp-4', name: 'ING Bank B', parentCompanyName: 'ING' }),
+    ])
+    await flushPromises()
+    expect(wrapper.findAll('.group-header-row')).toHaveLength(2)
+    // Expand only first group
+    await wrapper.findAll('.group-header-row')[0].trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(2)
+    // Expand second group too
+    await wrapper.findAll('.group-header-row')[1].trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(4)
+  })
+})
