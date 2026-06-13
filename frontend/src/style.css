@@ -387,7 +387,7 @@ textarea::placeholder { color: var(--col-subtle); }
 
   /* ── Password field ───────────────────────────────── */
   .password-field { position: relative; }
-  .password-eye   { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); }
+  .password-eye   { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); z-index: 1; }
 
   /* ── Status / feedback messages ──────────────────── */
   .form-msg       { padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; }
@@ -396,6 +396,11 @@ textarea::placeholder { color: var(--col-subtle); }
   .state-msg      { padding: 2rem; text-align: center; font-size: 0.875rem; color: var(--col-subtle); }
   .state-msg--error { color: var(--col-error); }
 }
+
+/* ── Suppress native browser password-reveal buttons (Edge ::-ms-reveal) so they
+   don't overlap our custom toggle and intercept clicks ── */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }
 
 /* ── Dark mode chip overrides (outside @layer so they win the specificity battle) ── */
 :root[data-theme="dark"] .chip-applied   { background: #1E3059; color: #93C5FD; border-color: #3B5998; }

@@ -42,7 +42,6 @@ async function submit() {
   loading.value = false
   if (err) {
     error.value = err === 'Unauthorized' ? 'Incorrect email or password' : err
-    password.value = ''
   } else {
     router.push('/')
   }
