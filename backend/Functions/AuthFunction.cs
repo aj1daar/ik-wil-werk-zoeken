@@ -476,6 +476,36 @@ public sealed class AuthFunction
         return res;
     }
 
+    // POST /api/auth/refresh
+    [Function("RefreshToken")]
+    public async Task<HttpResponseData> RefreshToken(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "auth/refresh")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+
+        if (!_limiter.IsAllowed($"refresh:{GetClientIp(req)}", maxRequests: 10, windowSeconds: 3600))
+            return await ErrorResponse(req, HttpStatusCode.TooManyRequests, "Too many refresh attempts. Please wait before trying again.");
+
+        var bearer = req.Headers.TryGetValues("Authorization", out var auth) ? auth.First() : null;
+        if (!_tokens.ValidateToken(bearer))
+            return await ErrorResponse(req, HttpStatusCode.Unauthorized, "Token is invalid or has expired.");
+
+        var userId = _tokens.GetUserId(bearer);
+        if (string.IsNullOrWhiteSpace(userId))
+            return await ErrorResponse(req, HttpStatusCode.Unauthorized, "Token is invalid or has expired.");
+
+        var user = await _users.GetByUserIdAsync(userId);
+        if (user is null)
+            return await ErrorResponse(req, HttpStatusCode.Unauthorized, "Token is invalid or has expired.");
+
+        var newToken = _tokens.CreateToken(user);
+        if (newToken is null)
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError, "JWT_SECRET not configured");
+
+        return await JsonOk(req, new LoginResponse { Token = newToken }, AppJsonSerializerContext.Default.LoginResponse);
+    }
+
     // ── validation helpers ────────────────────────────────────────────────────
 
     private static readonly Regex EmailRegex =

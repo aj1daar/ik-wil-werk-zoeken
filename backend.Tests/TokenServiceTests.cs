@@ -799,6 +799,93 @@ public sealed class TokenServiceTests : IDisposable
         Assert.Null(svc.ValidateVerificationToken(token));
     }
 
+    // ── RefreshToken chain (ValidateToken → GetUserId → CreateToken) ─────────
+    // These verify the exact sequence used by POST /api/auth/refresh.
+
+    [Fact]
+    public void RefreshChain_ValidNonExpiredToken_ValidateReturnsTrue()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser())!;
+        Assert.True(svc.ValidateToken(token));
+    }
+
+    [Fact]
+    public void RefreshChain_ValidToken_GetUserIdReturnsCorrectId()
+    {
+        var svc   = new TokenService();
+        var user  = MakeUser(userId: "refresh-user-id");
+        var token = svc.CreateToken(user)!;
+        Assert.Equal("refresh-user-id", svc.GetUserId(token));
+    }
+
+    [Fact]
+    public void RefreshChain_ValidToken_GetUserIdWorksWithBearerPrefix()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser())!;
+        Assert.Equal("user-test-id", svc.GetUserId($"Bearer {token}"));
+    }
+
+    [Fact]
+    public void RefreshChain_NewTokenIssuedAfterRefresh_IsImmediatelyValid()
+    {
+        var svc      = new TokenService();
+        var user     = MakeUser();
+        var original = svc.CreateToken(user)!;
+        Assert.True(svc.ValidateToken(original));
+
+        // Simulate the refresh: validate original, issue new
+        Assert.True(svc.ValidateToken(original));
+        var userId = svc.GetUserId(original);
+        Assert.NotNull(userId);
+        var refreshed = svc.CreateToken(user)!;
+        Assert.True(svc.ValidateToken(refreshed));
+    }
+
+    [Fact]
+    public void RefreshChain_ExpiredToken_ValidateReturnsFalse()
+    {
+        var svc   = new TokenService();
+        var token = CraftToken(Secret, DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds());
+        Assert.False(svc.ValidateToken(token));
+    }
+
+    [Fact]
+    public void RefreshChain_ExpiredToken_GetUserIdStillReturnsId()
+    {
+        // GetUserId does not validate expiry — it only decodes.
+        // The RefreshToken endpoint calls ValidateToken first, so an expired
+        // token would be rejected before GetUserId is ever reached.
+        var svc   = new TokenService();
+        var token = CraftToken(Secret, DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds());
+        Assert.NotNull(svc.GetUserId(token));
+    }
+
+    [Fact]
+    public void RefreshChain_NullBearer_ValidateReturnsFalse()
+    {
+        Assert.False(new TokenService().ValidateToken(null));
+    }
+
+    [Fact]
+    public void RefreshChain_EmptyBearer_ValidateReturnsFalse()
+    {
+        Assert.False(new TokenService().ValidateToken(""));
+    }
+
+    [Fact]
+    public void RefreshChain_TamperedToken_ValidateReturnsFalse()
+    {
+        var svc   = new TokenService();
+        var token = svc.CreateToken(MakeUser())!;
+        var parts = token.Split('.');
+        // Flip one character in the signature
+        var sig   = parts[2];
+        parts[2]  = (sig[0] == 'A' ? 'B' : 'A') + sig[1..];
+        Assert.False(svc.ValidateToken(string.Join('.', parts)));
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static User MakeUser(

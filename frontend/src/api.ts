@@ -35,6 +35,9 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ token: string }>('POST', '/api/auth/login', { email, password }),
 
+  refreshToken: () =>
+    request<{ token: string }>('POST', '/api/auth/refresh'),
+
   register: (data: {
     firstName: string; lastName: string; email: string; password: string
     preferences?: { targetRole?: string; location?: string; workType?: string }
