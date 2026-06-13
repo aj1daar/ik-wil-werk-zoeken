@@ -25,7 +25,7 @@ function dismissBanner() {
   window.localStorage?.setItem('iwwz_onboarded', '1')
 }
 
-type RangeKey = 'all' | '3m' | '6m' | '1y' | 'custom'
+type RangeKey = 'all' | '1m' | '3m' | '6m' | '1y' | 'custom'
 
 const range      = ref<RangeKey>('all')
 const customFrom = ref('')
@@ -33,6 +33,7 @@ const customTo   = ref('')
 
 const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
   { key: 'all', label: 'Overall' },
+  { key: '1m',  label: 'Last month' },
   { key: '3m',  label: 'Last 3 months' },
   { key: '6m',  label: 'Last 6 months' },
   { key: '1y',  label: 'Last year' },
@@ -43,6 +44,10 @@ function toIso(d: Date) { return d.toISOString() }
 
 const fromTo = computed<{ from?: string; to?: string }>(() => {
   const now = new Date()
+  if (range.value === '1m') {
+    const f = new Date(now); f.setMonth(f.getMonth() - 1)
+    return { from: toIso(f), to: toIso(now) }
+  }
   if (range.value === '3m') {
     const f = new Date(now); f.setMonth(f.getMonth() - 3)
     return { from: toIso(f), to: toIso(now) }
