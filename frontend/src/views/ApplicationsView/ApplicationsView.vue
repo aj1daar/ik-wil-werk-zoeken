@@ -303,7 +303,9 @@ function printPage() {
       </transition>
     </teleport>
 
-    <NewApplicationModal v-if="modalOpen" @close="onModalClose" />
+    <Transition name="modal">
+      <NewApplicationModal v-if="modalOpen" @close="onModalClose" />
+    </Transition>
   </div>
 </template>
 

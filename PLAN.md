@@ -138,7 +138,7 @@ No new dependencies — all Vue `<Transition>` / `<TransitionGroup>` + CSS. Ever
 
 - [x] **Page / route transitions** — wrap `<RouterView>` in `<Transition name="page">` in `App.vue`. Effect: fade + subtle 8px translateY (page lifts in, drops out). The same transition fires on every route change. CSS classes: `.page-enter-active`, `.page-leave-active` (both 200 ms ease), `.page-enter-from` / `.page-leave-to` (opacity 0, translateY 8px).
 
-- [ ] **Modal open / close animation** — NewApplicationModal backdrop fades in (opacity 0 → 1, 150 ms); the `.modal` card scales from 0.96 → 1.0 and fades in simultaneously (200 ms ease-out). Closing reverses both. Wrap the `v-if` on the modal element with `<Transition name="modal">`. Same treatment for the ApplicationPanel teleport overlay.
+- [x] **Modal open / close animation** — NewApplicationModal backdrop fades in (opacity 0 → 1, 150 ms); the `.modal` card scales from 0.96 → 1.0 and fades in simultaneously (200 ms ease-out). Closing reverses both. Wrap the `v-if` on the modal element with `<Transition name="modal">`. Same treatment for the ApplicationPanel teleport overlay.
 
 - [ ] **Application detail panel slide** — ApplicationPanel currently appears instantly. Add a slide-in from the right (desktop: translateX 24px → 0 + fade, 200 ms) and slide-out on close. On mobile (bottom-sheet mode) use translateY instead.
 

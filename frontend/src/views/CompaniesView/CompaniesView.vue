@@ -234,11 +234,13 @@ const hasActiveFilters = computed(() => anyFilter.value)
       </transition>
     </div>
 
-    <NewApplicationModal
-      v-if="modalOpen"
-      :prefill-company="prefillCompany"
-      @close="modalOpen = false"
-    />
+    <Transition name="modal">
+      <NewApplicationModal
+        v-if="modalOpen"
+        :prefill-company="prefillCompany"
+        @close="modalOpen = false"
+      />
+    </Transition>
   </div>
 </template>
 

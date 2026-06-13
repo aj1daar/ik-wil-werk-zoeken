@@ -205,6 +205,28 @@ body {
   }
   .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
 
+  /* Modal open/close transition */
+  .modal-enter-active,
+  .modal-leave-active { transition: opacity 200ms ease; }
+  .modal-enter-from,
+  .modal-leave-to     { opacity: 0; }
+  .modal-enter-active .modal,
+  .modal-enter-active .modal-box,
+  .modal-leave-active .modal,
+  .modal-leave-active .modal-box { transition: transform 200ms ease-out; }
+  .modal-enter-from .modal,
+  .modal-enter-from .modal-box,
+  .modal-leave-to   .modal,
+  .modal-leave-to   .modal-box   { transform: scale(0.96); }
+  @media (prefers-reduced-motion: reduce) {
+    .modal-enter-active,
+    .modal-leave-active { transition: none; }
+    .modal-enter-active .modal,
+    .modal-enter-active .modal-box,
+    .modal-leave-active .modal,
+    .modal-leave-active .modal-box { transition: none; }
+  }
+
   /* Global button press feedback */
   button:active:not(:disabled) { transform: scale(0.97); transition: transform 80ms; }
   @media (prefers-reduced-motion: reduce) {
