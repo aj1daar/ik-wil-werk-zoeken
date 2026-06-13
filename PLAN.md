@@ -176,7 +176,7 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 
 #### MEDIUM
 
-- [ ] **Silent token refresh on activity** — currently the JWT has a fixed expiry with only a warning banner when < 24 h remain; there is no way to extend the session without logging out. Add:
+- [x] **Silent token refresh on activity** — currently the JWT has a fixed expiry with only a warning banner when < 24 h remain; there is no way to extend the session without logging out. Add:
   - Backend: `POST /api/auth/refresh` — validates the current (non-expired) JWT via the existing `TokenService.ValidateToken`, issues a new JWT with a fresh expiry window. Protected by the existing in-memory rate limiter. Returns `{ token: string }`.
   - Frontend: `useTokenRefresh` composable — checks token expiry on a 5-minute interval; when the token has < 2 h remaining **and** the user has been active in the last 10 minutes (track `lastActivityAt` via a `mousemove`/`keydown` listener), silently calls `POST /api/auth/refresh` and updates `sessionStorage`. No user interaction required.
   - The existing session expiry warning banner gains a manual "Extend session" button that triggers the same refresh call immediately, for users who notice the warning before the silent refresh fires.

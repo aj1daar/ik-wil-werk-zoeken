@@ -328,3 +328,67 @@ describe('useApplicationsStore – bulkUpdate', () => {
     expect(api.bulkUpdateStatus).toHaveBeenCalledWith(ids, 'Rejected')
   })
 })
+
+// ── appliedSponsorIds ─────────────────────────────────────────────────────────
+
+describe('useApplicationsStore – appliedSponsorIds', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('returns empty Set when no applications', () => {
+    const store = useApplicationsStore()
+    expect(store.appliedSponsorIds.size).toBe(0)
+  })
+
+  it('returns empty Set when no application has a sponsorCompanyId', () => {
+    const store = useApplicationsStore()
+    store.$patch({ applications: [makeApp(), makeApp({ id: 'app-2' })] })
+    expect(store.appliedSponsorIds.size).toBe(0)
+  })
+
+  it('includes sponsorCompanyId from linked applications', () => {
+    const store = useApplicationsStore()
+    store.$patch({
+      applications: [
+        makeApp({ id: 'a', sponsorCompanyId: 'co-1' }),
+        makeApp({ id: 'b', sponsorCompanyId: 'co-2' }),
+      ],
+    })
+    expect(store.appliedSponsorIds.has('co-1')).toBe(true)
+    expect(store.appliedSponsorIds.has('co-2')).toBe(true)
+    expect(store.appliedSponsorIds.size).toBe(2)
+  })
+
+  it('deduplicates when multiple applications share the same sponsorCompanyId', () => {
+    const store = useApplicationsStore()
+    store.$patch({
+      applications: [
+        makeApp({ id: 'a', sponsorCompanyId: 'co-1' }),
+        makeApp({ id: 'b', sponsorCompanyId: 'co-1' }),
+      ],
+    })
+    expect(store.appliedSponsorIds.size).toBe(1)
+    expect(store.appliedSponsorIds.has('co-1')).toBe(true)
+  })
+
+  it('skips applications with undefined sponsorCompanyId', () => {
+    const store = useApplicationsStore()
+    store.$patch({
+      applications: [
+        makeApp({ id: 'a', sponsorCompanyId: 'co-1' }),
+        makeApp({ id: 'b' }),
+        makeApp({ id: 'c', sponsorCompanyId: undefined }),
+      ],
+    })
+    expect(store.appliedSponsorIds.size).toBe(1)
+    expect(store.appliedSponsorIds.has('co-1')).toBe(true)
+  })
+
+  it('returns a Set (supports .has() lookup)', () => {
+    const store = useApplicationsStore()
+    store.$patch({ applications: [makeApp({ sponsorCompanyId: 'co-99' })] })
+    const ids = store.appliedSponsorIds
+    expect(ids instanceof Set).toBe(true)
+    expect(ids.has('co-99')).toBe(true)
+    expect(ids.has('not-in-set')).toBe(false)
+  })
+})

@@ -42,6 +42,15 @@ export const useApplicationsStore = defineStore('applications', {
     statsError: null as string | null,
   }),
 
+  getters: {
+    appliedSponsorIds: (state): Set<string> =>
+      new Set(
+        state.applications
+          .map(a => a.sponsorCompanyId)
+          .filter((id): id is string => !!id)
+      ),
+  },
+
   actions: {
     async load() {
       this.loading = true

@@ -139,6 +139,7 @@ export interface Application {
   locations: string[]
   followUpDate?: string
   updatedAt: string
+  sponsorCompanyId?: string
 }
 
 export interface ActivityLog {

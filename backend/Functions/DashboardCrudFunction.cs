@@ -160,6 +160,7 @@ public sealed class DashboardCrudFunction
             ContactPersonEmail = item.ContactPersonEmail,
             Locations          = item.Locations,
             FollowUpDate       = item.FollowUpDate,
+            SponsorCompanyId   = item.SponsorCompanyId,
             UpdatedAt          = DateTimeOffset.UtcNow,
         };
 

@@ -16,4 +16,5 @@ public sealed class ApplicationStage
     public string[] Locations { get; set; } = [];
     public DateTimeOffset? FollowUpDate { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public string? SponsorCompanyId { get; set; }
 }

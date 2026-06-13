@@ -294,4 +294,39 @@ public sealed class DashboardFunctionTests
         var s = ValidStage(); s.Notes = "<script>alert('xss')</script>";
         Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
     }
+
+    [Fact]
+    public void ValidateStage_WithSponsorCompanyId_StillValid()
+    {
+        var s = ValidStage(); s.SponsorCompanyId = "company-uuid-123";
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_SponsorCompanyIdNull_StillValid()
+    {
+        var s = ValidStage(); s.SponsorCompanyId = null;
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    // ── SponsorCompanyId in BuildActivityLogs ─────────────────────────────────
+
+    [Fact]
+    public void BuildActivityLogs_SponsorCompanyIdChange_NotTracked()
+    {
+        // SponsorCompanyId is a soft reference — changes are intentionally not
+        // logged in the activity log (it's set once on creation / via typeahead).
+        var before = MakeStage(); before.SponsorCompanyId = "co-1";
+        var after  = MakeStage(); after.SponsorCompanyId  = "co-2";
+        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        Assert.DoesNotContain(logs, l => l.Field == "SponsorCompanyId");
+    }
+
+    [Fact]
+    public void BuildActivityLogs_SponsorCompanyIdSet_DoesNotTriggerUnrelatedLogs()
+    {
+        var stage = MakeStage(); stage.SponsorCompanyId = "co-1";
+        var logs = DashboardCrudFunction.BuildActivityLogs(stage, stage, "u1");
+        Assert.Empty(logs);
+    }
 }
