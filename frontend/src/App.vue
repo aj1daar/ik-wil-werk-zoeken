@@ -26,5 +26,25 @@ const expiryDismissed = ref(false)
     <span>Your session expires in less than 24 hours. <router-link to="/login" @click="auth.logout()">Sign in again</router-link> to stay logged in.</span>
     <button @click="expiryDismissed = true" aria-label="Dismiss">✕</button>
   </div>
-  <RouterView />
+  <RouterView v-slot="{ Component }">
+    <Transition name="page" mode="out-in">
+      <component :is="Component" :key="route.path" />
+    </Transition>
+  </RouterView>
 </template>
+
+<style>
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active { transition: none; }
+}
+</style>

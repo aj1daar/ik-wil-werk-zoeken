@@ -142,7 +142,7 @@ body {
     box-shadow: 0 4px 14px color-mix(in srgb, var(--col-accent) 40%, transparent);
     transform: translateY(-1px);
   }
-  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+  .btn-primary:active:not(:disabled) { transform: scale(0.97) translateY(0); transition: transform 80ms; }
   .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-submit {
@@ -164,7 +164,7 @@ body {
     box-shadow: 0 6px 22px color-mix(in srgb, var(--col-accent) 42%, transparent);
     transform: translateY(-1px);
   }
-  .btn-submit:active:not(:disabled) { transform: translateY(0); }
+  .btn-submit:active:not(:disabled) { transform: scale(0.97) translateY(0); transition: transform 80ms; }
   .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-danger {
@@ -204,6 +204,12 @@ body {
     transition: background 0.15s, color 0.15s;
   }
   .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
+
+  /* Global button press feedback */
+  button:active:not(:disabled) { transform: scale(0.97); transition: transform 80ms; }
+  @media (prefers-reduced-motion: reduce) {
+    button:active { transform: none; transition: none; }
+  }
 
   /* Tags */
   .tag {
