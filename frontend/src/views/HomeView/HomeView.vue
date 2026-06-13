@@ -3,6 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
 import type { ApplicationStatus } from '../../api'
 import FunnelChart from '../../components/FunnelChart/FunnelChart.vue'
+import DonutChart from '../../components/DonutChart/DonutChart.vue'
+import AreaChart from '../../components/AreaChart/AreaChart.vue'
 
 const store = useApplicationsStore()
 
@@ -158,6 +160,11 @@ const kpis = computed(() => {
 
       <FunnelChart :by-status="store.stats.byStatus" class="funnel-section" />
 
+      <div class="charts-row">
+        <DonutChart :by-status="store.stats.byStatus" />
+        <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
+      </div>
+
       <div class="stats-grid">
         <div v-for="status in ALL_STATUSES" :key="status" class="stat-card">
           <span :class="['stat-chip', STATUS_COLOR[status]]">{{ STATUS_LABELS[status] }}</span>
@@ -221,6 +228,16 @@ const kpis = computed(() => {
 .kpi-label    { font-size: .75rem; color: var(--col-muted); text-transform: uppercase; letter-spacing: .04em; }
 
 .funnel-section { margin-bottom: 1.5rem; }
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 600px) {
+  .charts-row { grid-template-columns: 1fr; }
+}
 
 .stats-grid {
   display: grid;
