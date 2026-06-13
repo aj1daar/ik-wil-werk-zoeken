@@ -1,7 +1,8 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import NewApplicationModal from '../NewApplicationModal.vue'
+import type { SponsorCompany } from '../../../api'
 
 vi.mock('../../../api', () => ({
   api: {
@@ -10,10 +11,17 @@ vi.mock('../../../api', () => ({
     updateApplication: vi.fn(),
     deleteApplication: vi.fn(),
     getStats:          vi.fn(),
+    getCompanies:      vi.fn(),
   }
 }))
 
 import { api, type Application } from '../../../api'
+import { useCompaniesStore } from '../../../stores/companies'
+
+// Always return an empty list so companiesStore.load() never sets companies = undefined
+beforeEach(() => {
+  vi.mocked(api.getCompanies).mockResolvedValue([])
+})
 
 function makeCreatedApp(): Application {
   return {
@@ -22,10 +30,29 @@ function makeCreatedApp(): Application {
   }
 }
 
+function makeCompany(overrides: Partial<SponsorCompany> = {}): SponsorCompany {
+  return {
+    id: 'co-1', name: 'Acme B.V.', kvKNumber: '12345678',
+    lastVerifiedAt: '2026-01-01T00:00:00Z',
+    city: 'Amsterdam', coreIndustry: 'Software',
+    ...overrides,
+  }
+}
+
 function mountModal(props: Record<string, unknown> = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
   return mount(NewApplicationModal, { global: { plugins: [pinia] }, props })
+}
+
+function mountModalWithCompanies(companies: SponsorCompany[], props: Record<string, unknown> = {}) {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  vi.mocked(api.getCompanies).mockResolvedValue(companies)
+  const w = mount(NewApplicationModal, { global: { plugins: [pinia] }, props })
+  const companiesStore = useCompaniesStore()
+  companiesStore.$patch({ companies })
+  return { w, companiesStore }
 }
 
 // ── rendering ─────────────────────────────────────────────────────────────────
@@ -199,5 +226,301 @@ describe('NewApplicationModal – location chips', () => {
     await input.setValue('Amsterdam')
     await input.trigger('keydown', { key: 'Enter' })
     expect(w.findAll('.city-chip')).toHaveLength(1)
+  })
+})
+
+// ── company typeahead – dropdown ──────────────────────────────────────────────
+
+describe('NewApplicationModal – company typeahead dropdown', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => vi.useRealTimers())
+
+  it('shows suggestions after debounce fires', async () => {
+    vi.useFakeTimers()
+    const { w, companiesStore } = mountModalWithCompanies([
+      makeCompany({ id: 'co-1', name: 'Acme B.V.' }),
+    ])
+    companiesStore.$patch({ companies: [makeCompany({ id: 'co-1', name: 'Acme B.V.' })] })
+
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    expect(w.find('.combobox-dropdown').exists()).toBe(true)
+    expect(w.text()).toContain('Acme B.V.')
+  })
+
+  it('does not show dropdown before debounce fires', async () => {
+    vi.useFakeTimers()
+    const { w } = mountModalWithCompanies([makeCompany()])
+
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#company-name').trigger('input')
+    // Do NOT advance timers
+    await w.vm.$nextTick()
+
+    expect(w.find('.combobox-dropdown').exists()).toBe(false)
+  })
+
+  it('hides dropdown when input is empty', async () => {
+    vi.useFakeTimers()
+    const { w } = mountModalWithCompanies([makeCompany()])
+
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    await w.find('#company-name').setValue('')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    expect(w.find('.combobox-dropdown').exists()).toBe(false)
+  })
+
+  it('shows city chip and industry badge in dropdown option', async () => {
+    vi.useFakeTimers()
+    const { w } = mountModalWithCompanies([
+      makeCompany({ city: 'Amsterdam', coreIndustry: 'Software' }),
+    ])
+
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    const option = w.find('.combobox-option')
+    expect(option.text()).toContain('Amsterdam')
+    expect(option.text()).toContain('Software')
+  })
+})
+
+// ── company typeahead – selection ─────────────────────────────────────────────
+
+describe('NewApplicationModal – company typeahead selection', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => vi.useRealTimers())
+
+  async function openAndSelectFirst(companies: SponsorCompany[]) {
+    vi.useFakeTimers()
+    const { w } = mountModalWithCompanies(companies)
+    await w.find('#company-name').setValue(companies[0].name.slice(0, 3))
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+    const option = w.find('.combobox-option')
+    await option.trigger('mousedown')
+    await w.vm.$nextTick()
+    return w
+  }
+
+  it('clicking an option populates company name', async () => {
+    const w = await openAndSelectFirst([makeCompany({ name: 'Acme B.V.' })])
+    expect((w.find('#company-name').element as HTMLInputElement).value).toBe('Acme B.V.')
+  })
+
+  it('clicking an option hides the dropdown', async () => {
+    const w = await openAndSelectFirst([makeCompany()])
+    expect(w.find('.combobox-dropdown').exists()).toBe(false)
+  })
+
+  it('clicking an option prepends city to locations', async () => {
+    const w = await openAndSelectFirst([makeCompany({ city: 'Amsterdam' })])
+    expect(w.text()).toContain('Amsterdam')
+    expect(w.find('.city-chip').exists()).toBe(true)
+  })
+
+  it('selecting a company shows the context card', async () => {
+    const w = await openAndSelectFirst([makeCompany({ coreIndustry: 'Fintech' })])
+    expect(w.find('.company-context-card').exists()).toBe(true)
+  })
+
+  it('context card shows "IND sponsor" badge', async () => {
+    const w = await openAndSelectFirst([makeCompany()])
+    expect(w.find('.context-ind-badge').text()).toContain('IND sponsor')
+  })
+
+  it('context card shows industry when available', async () => {
+    const w = await openAndSelectFirst([makeCompany({ coreIndustry: 'Healthcare' })])
+    expect(w.find('.company-context-card').text()).toContain('Healthcare')
+  })
+
+  it('submit includes sponsorCompanyId after selection', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = await openAndSelectFirst([makeCompany({ id: 'co-99' })])
+    await w.find('#position').setValue('Engineer')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ sponsorCompanyId: 'co-99' })
+    )
+  })
+
+  it('submit does not include sponsorCompanyId on free-text entry', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = mountModal()
+    await w.find('#company-name').setValue('Unknown Corp')
+    await w.find('#position').setValue('Dev')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    const call = vi.mocked(api.createApplication).mock.calls[0][0]
+    expect(call.sponsorCompanyId).toBeUndefined()
+  })
+
+  it('typing after selecting a company clears sponsorCompanyId', async () => {
+    vi.useFakeTimers()
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const { w } = mountModalWithCompanies([makeCompany({ id: 'co-1' })])
+    await w.find('#company-name').setValue('Acm')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+    await w.find('.combobox-option').trigger('mousedown')
+    await w.vm.$nextTick()
+
+    // Now type more — this should clear the selection
+    await w.find('#company-name').setValue('Acme edited')
+    await w.find('#company-name').trigger('input')
+
+    await w.find('#position').setValue('Dev')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+
+    const call = vi.mocked(api.createApplication).mock.calls[0][0]
+    expect(call.sponsorCompanyId).toBeUndefined()
+    expect(w.find('.company-context-card').exists()).toBe(false)
+  })
+})
+
+// ── company typeahead – keyboard navigation ───────────────────────────────────
+
+describe('NewApplicationModal – typeahead keyboard navigation', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => vi.useRealTimers())
+
+  it('ArrowDown highlights first option', async () => {
+    vi.useFakeTimers()
+    const { w } = mountModalWithCompanies([makeCompany({ name: 'Acme B.V.' })])
+    await w.find('#company-name').setValue('Acm')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    await w.find('#company-name').trigger('keydown', { key: 'ArrowDown' })
+    await w.vm.$nextTick()
+
+    expect(w.find('.combobox-option--active').exists()).toBe(true)
+  })
+
+  it('Enter on highlighted option selects it', async () => {
+    vi.useFakeTimers()
+    const { w } = mountModalWithCompanies([makeCompany({ name: 'Acme B.V.' })])
+    await w.find('#company-name').setValue('Acm')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    await w.find('#company-name').trigger('keydown', { key: 'ArrowDown' })
+    await w.find('#company-name').trigger('keydown', { key: 'Enter' })
+    await w.vm.$nextTick()
+
+    expect((w.find('#company-name').element as HTMLInputElement).value).toBe('Acme B.V.')
+    expect(w.find('.combobox-dropdown').exists()).toBe(false)
+  })
+
+  it('Escape dismisses the dropdown', async () => {
+    vi.useFakeTimers()
+    const { w } = mountModalWithCompanies([makeCompany()])
+    await w.find('#company-name').setValue('Acm')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    expect(w.find('.combobox-dropdown').exists()).toBe(true)
+    await w.find('#company-name').trigger('keydown', { key: 'Escape' })
+    await w.vm.$nextTick()
+
+    expect(w.find('.combobox-dropdown').exists()).toBe(false)
+  })
+})
+
+// ── duplicate detection ───────────────────────────────────────────────────────
+
+describe('NewApplicationModal – duplicate detection', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => vi.useRealTimers())
+
+  it('shows dup-warning for free-text match on companyName', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.mocked(api.getCompanies).mockResolvedValue([])
+    const w = mount(NewApplicationModal, { global: { plugins: [pinia] } })
+
+    const { useApplicationsStore } = await import('../../../stores/applications')
+    const appsStore = useApplicationsStore()
+    appsStore.$patch({
+      applications: [{
+        id: 'existing', userId: 'u1', companyName: 'Acme', position: 'Dev',
+        appliedAt: '2026-01-01T00:00:00Z', status: 'Applied', locations: [], updatedAt: '2026-01-01T00:00:00Z',
+      }]
+    })
+
+    await w.find('#company-name').setValue('acme')
+    await w.vm.$nextTick()
+    expect(w.find('.dup-warning').exists()).toBe(true)
+  })
+
+  it('shows dup-warning when sponsorCompanyId matches an active application', async () => {
+    vi.useFakeTimers()
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const company = makeCompany({ id: 'co-1', name: 'Acme B.V.' })
+    vi.mocked(api.getCompanies).mockResolvedValue([company])
+    const w = mount(NewApplicationModal, { global: { plugins: [pinia] } })
+
+    const { useApplicationsStore } = await import('../../../stores/applications')
+    const appsStore = useApplicationsStore()
+    appsStore.$patch({
+      applications: [{
+        id: 'existing', userId: 'u1', companyName: 'Acme B.V.', position: 'Dev',
+        appliedAt: '2026-01-01T00:00:00Z', status: 'Applied', locations: [],
+        updatedAt: '2026-01-01T00:00:00Z', sponsorCompanyId: 'co-1',
+      }]
+    })
+
+    const { useCompaniesStore } = await import('../../../stores/companies')
+    useCompaniesStore().$patch({ companies: [company] })
+
+    await w.find('#company-name').setValue('Acm')
+    await w.find('#company-name').trigger('input')
+    vi.advanceTimersByTime(300)
+    await w.vm.$nextTick()
+
+    await w.find('.combobox-option').trigger('mousedown')
+    await w.vm.$nextTick()
+
+    expect(w.find('.dup-warning').exists()).toBe(true)
+  })
+
+  it('does not show dup-warning for a company in terminal status', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.mocked(api.getCompanies).mockResolvedValue([])
+    const w = mount(NewApplicationModal, { global: { plugins: [pinia] } })
+
+    const { useApplicationsStore } = await import('../../../stores/applications')
+    useApplicationsStore().$patch({
+      applications: [{
+        id: 'done', userId: 'u1', companyName: 'Acme', position: 'Dev',
+        appliedAt: '2026-01-01T00:00:00Z', status: 'Rejected', locations: [], updatedAt: '2026-01-01T00:00:00Z',
+      }]
+    })
+
+    await w.find('#company-name').setValue('acme')
+    await w.vm.$nextTick()
+    expect(w.find('.dup-warning').exists()).toBe(false)
   })
 })

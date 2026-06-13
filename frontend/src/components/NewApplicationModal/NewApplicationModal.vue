@@ -1,30 +1,95 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS } from '../../stores/applications'
-import type { ApplicationStatus } from '../../api'
+import { useCompaniesStore } from '../../stores/companies'
+import type { ApplicationStatus, SponsorCompany } from '../../api'
 
 const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted'])
 
 const props = defineProps<{ prefillCompany?: string }>()
 const emit  = defineEmits<{ close: [] }>()
 
-const store = useApplicationsStore()
+const store          = useApplicationsStore()
+const companiesStore = useCompaniesStore()
 
-const companyName  = ref(props.prefillCompany ?? '')
-const position     = ref('')
-const appliedAt    = ref(new Date().toISOString().slice(0, 10))
+const companyName     = ref(props.prefillCompany ?? '')
+const sponsorCompanyId = ref<string | undefined>(undefined)
+const selectedCompany  = ref<SponsorCompany | null>(null)
+const suggestions      = ref<SponsorCompany[]>([])
+const highlightedIndex = ref(-1)
+const showDropdown     = computed(() => suggestions.value.length > 0)
+
+const position      = ref('')
+const appliedAt     = ref(new Date().toISOString().slice(0, 10))
 const locationInput = ref('')
-const locations    = ref<string[]>([])
-const saving       = ref(false)
-const error        = ref('')
+const locations     = ref<string[]>([])
+const saving        = ref(false)
+const error         = ref('')
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+onMounted(() => { companiesStore.load() })
+onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
 
 const activeMatch = computed(() => {
+  if (sponsorCompanyId.value) {
+    return store.applications.find(
+      a => a.sponsorCompanyId === sponsorCompanyId.value && !TERMINAL.has(a.status)
+    ) ?? null
+  }
   const name = companyName.value.trim().toLowerCase()
   if (!name) return null
   return store.applications.find(
     a => a.companyName.toLowerCase() === name && !TERMINAL.has(a.status)
   ) ?? null
 })
+
+function onCompanyInput() {
+  sponsorCompanyId.value = undefined
+  selectedCompany.value  = null
+  highlightedIndex.value = -1
+
+  if (debounceTimer) clearTimeout(debounceTimer)
+  const q = companyName.value
+  debounceTimer = setTimeout(() => {
+    suggestions.value = q.trim().length >= 1 ? companiesStore.search(q) : []
+  }, 300)
+}
+
+function selectCompany(company: SponsorCompany) {
+  companyName.value     = company.name
+  sponsorCompanyId.value = company.id
+  selectedCompany.value  = company
+  suggestions.value      = []
+  highlightedIndex.value = -1
+
+  if (company.city && !locations.value.includes(company.city)) {
+    locations.value = [company.city, ...locations.value]
+  }
+}
+
+function onCompanyKeydown(e: KeyboardEvent) {
+  if (!showDropdown.value) return
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    highlightedIndex.value = Math.min(highlightedIndex.value + 1, suggestions.value.length - 1)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    highlightedIndex.value = Math.max(highlightedIndex.value - 1, 0)
+  } else if (e.key === 'Enter') {
+    if (highlightedIndex.value >= 0) {
+      e.preventDefault()
+      selectCompany(suggestions.value[highlightedIndex.value])
+    }
+  } else if (e.key === 'Escape') {
+    suggestions.value      = []
+    highlightedIndex.value = -1
+  }
+}
+
+function onCompanyBlur() {
+  setTimeout(() => { suggestions.value = []; highlightedIndex.value = -1 }, 150)
+}
 
 function addLocation() {
   const l = locationInput.value.trim()
@@ -47,10 +112,11 @@ async function submit() {
   saving.value = true
   try {
     await store.create({
-      companyName:  companyName.value.trim(),
-      position:     position.value.trim(),
-      appliedAt:    new Date(appliedAt.value).toISOString(),
-      locations:    locations.value,
+      companyName:       companyName.value.trim(),
+      position:          position.value.trim(),
+      appliedAt:         new Date(appliedAt.value).toISOString(),
+      locations:         locations.value,
+      sponsorCompanyId:  sponsorCompanyId.value,
     })
     emit('close')
   } catch (e: unknown) {
@@ -76,7 +142,43 @@ async function submit() {
       <div class="modal-body">
         <div class="field">
           <label class="field-label" for="company-name">Company name <span class="required">*</span></label>
-          <input id="company-name" v-model="companyName" class="field-input" placeholder="e.g. Acme B.V." />
+          <div class="combobox-wrapper">
+            <input
+              id="company-name"
+              v-model="companyName"
+              class="field-input"
+              placeholder="e.g. Acme B.V."
+              autocomplete="off"
+              role="combobox"
+              :aria-expanded="showDropdown"
+              aria-haspopup="listbox"
+              aria-autocomplete="list"
+              :aria-activedescendant="highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined"
+              @input="onCompanyInput"
+              @keydown="onCompanyKeydown"
+              @blur="onCompanyBlur"
+            />
+            <ul v-if="showDropdown" class="combobox-dropdown" role="listbox" aria-label="Company suggestions">
+              <li
+                v-for="(company, i) in suggestions"
+                :id="`suggestion-${i}`"
+                :key="company.id"
+                :class="['combobox-option', { 'combobox-option--active': i === highlightedIndex }]"
+                role="option"
+                :aria-selected="i === highlightedIndex"
+                @mousedown.prevent="selectCompany(company)"
+              >
+                <span class="combobox-name">{{ company.name }}</span>
+                <span v-if="company.city" class="city-chip combobox-city">{{ company.city }}</span>
+                <span v-if="company.coreIndustry" class="industry-badge">{{ company.coreIndustry }}</span>
+              </li>
+            </ul>
+          </div>
+          <div v-if="selectedCompany" class="company-context-card">
+            <span class="context-ind-badge">IND sponsor</span>
+            <span v-if="selectedCompany.coreIndustry" class="context-field">{{ selectedCompany.coreIndustry }}</span>
+            <span v-if="selectedCompany.city" class="context-field">{{ selectedCompany.city }}</span>
+          </div>
         </div>
 
         <div class="field">
@@ -165,4 +267,36 @@ async function submit() {
 .icon { width: 1.25rem; height: 1.25rem; }
 .btn-secondary { background: var(--col-bg); color: var(--col-muted); border: 1px solid var(--col-border); border-radius: .375rem; padding: .5rem 1.25rem; font-size: .875rem; cursor: pointer; }
 .btn-secondary:hover { background: var(--col-surface); }
+
+.combobox-wrapper { position: relative; }
+.combobox-dropdown {
+  position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--col-bg); border: 1px solid var(--col-border);
+  border-radius: .5rem; box-shadow: 0 4px 16px color-mix(in srgb, var(--col-text) 10%, transparent);
+  max-height: 220px; overflow-y: auto; list-style: none; margin: 0; padding: .25rem 0;
+}
+.combobox-option {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  padding: .5rem .75rem; font-size: .875rem; cursor: pointer; color: var(--col-text);
+}
+.combobox-option:hover,
+.combobox-option--active { background: var(--col-raised); }
+.combobox-name { font-weight: 500; }
+.combobox-city { font-size: .75rem; }
+.industry-badge {
+  font-size: .7rem; background: color-mix(in srgb, var(--col-accent) 15%, transparent);
+  color: var(--col-accent-dk); border-radius: 9999px; padding: .1rem .45rem;
+}
+.company-context-card {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .375rem;
+  padding: .375rem .625rem; font-size: .775rem;
+  background: var(--col-raised); border-radius: .375rem;
+  border: 1px solid var(--col-border);
+}
+.context-ind-badge {
+  font-size: .7rem; font-weight: 600;
+  background: color-mix(in srgb, var(--col-accent) 18%, transparent);
+  color: var(--col-accent-dk); border-radius: 9999px; padding: .1rem .5rem;
+}
+.context-field { color: var(--col-muted); }
 </style>
