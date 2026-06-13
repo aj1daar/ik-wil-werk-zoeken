@@ -21,6 +21,7 @@ const contactEmail     = ref(props.application.contactPersonEmail ?? '')
 const locationInput    = ref('')
 const locations        = ref<string[]>([...props.application.locations])
 const followUpDate     = ref(props.application.followUpDate?.slice(0, 10) ?? '')
+const jobUrl           = ref(props.application.jobUrl ?? '')
 const saving           = ref(false)
 const deleting         = ref(false)
 const saveError        = ref('')
@@ -43,12 +44,33 @@ watch(() => props.application, (a) => {
   contactEmail.value    = a.contactPersonEmail ?? ''
   locations.value       = [...a.locations]
   followUpDate.value    = a.followUpDate?.slice(0, 10) ?? ''
+  jobUrl.value          = a.jobUrl ?? ''
   saveError.value       = ''
   activityLogs.value    = []
   showHistory.value     = false
 })
 
 const isRejected = computed(() => status.value === 'Rejected')
+
+const isDirty = computed(() =>
+  companyName.value     !== props.application.companyName ||
+  position.value        !== props.application.position ||
+  appliedAt.value       !== props.application.appliedAt.slice(0, 10) ||
+  status.value          !== props.application.status ||
+  rejectionReason.value !== (props.application.rejectionReason ?? '') ||
+  rejectionNote.value   !== (props.application.rejectionNote ?? '') ||
+  notes.value           !== (props.application.notes ?? '') ||
+  contactName.value     !== (props.application.contactPersonName ?? '') ||
+  contactEmail.value    !== (props.application.contactPersonEmail ?? '') ||
+  followUpDate.value    !== (props.application.followUpDate?.slice(0, 10) ?? '') ||
+  jobUrl.value          !== (props.application.jobUrl ?? '') ||
+  JSON.stringify(locations.value) !== JSON.stringify([...props.application.locations])
+)
+
+function requestClose() {
+  if (isDirty.value && !window.confirm('Discard unsaved changes?')) return
+  emit('close')
+}
 
 const isFollowUpOverdue = computed(() => {
   if (!followUpDate.value) return false
@@ -85,6 +107,7 @@ async function save() {
       contactPersonEmail: contactEmail.value || undefined,
       locations:          locations.value,
       followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
+      jobUrl:             jobUrl.value || undefined,
     })
     // Refresh activity log after save
     if (showHistory.value) await loadHistory()
@@ -137,6 +160,7 @@ const FIELD_LABELS: Record<string, string> = {
   ContactPersonEmail: 'Contact email',
   FollowUpDate:       'Follow-up date',
   Locations:          'Locations',
+  JobUrl:             'Job posting URL',
 }
 
 function formatLogDate(iso: string) {
@@ -158,7 +182,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           {{ STATUS_LABELS[status] }}
         </span>
       </div>
-      <button @click="$emit('close')" class="btn-icon" aria-label="Close panel">
+      <button @click="requestClose" class="btn-icon" aria-label="Close panel">
         <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
@@ -220,6 +244,35 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           class="clear-date-btn"
           @click="followUpDate = ''"
         >Clear</button>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="ap-joburl">
+          Job posting URL
+          <span class="optional">(optional)</span>
+        </label>
+        <div class="joburl-row">
+          <input
+            id="ap-joburl"
+            v-model="jobUrl"
+            type="url"
+            class="field-input"
+            placeholder="https://…"
+          />
+          <a
+            v-if="jobUrl && (jobUrl.startsWith('https://') || jobUrl.startsWith('http://'))"
+            :href="jobUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="joburl-open-btn btn-icon"
+            aria-label="Open job posting"
+            title="Open job posting"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
       </div>
 
       <div class="field">
@@ -333,6 +386,9 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .overdue-badge { display: inline-block; background: var(--col-error); color: #fff; font-size: .65rem; font-weight: 700; border-radius: 9999px; padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }
 .input-overdue { border-color: var(--col-error) !important; }
 .clear-date-btn { align-self: flex-start; background: none; border: none; color: var(--col-accent); font-size: .8rem; cursor: pointer; padding: 0; margin-top: .125rem; }
+.joburl-row { display: flex; gap: .5rem; align-items: center; }
+.joburl-row .field-input { flex: 1; }
+.joburl-open-btn { flex-shrink: 0; color: var(--col-accent); }
 .clear-date-btn:hover { text-decoration: underline; }
 
 /* history */

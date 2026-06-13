@@ -24,6 +24,7 @@ const position      = ref('')
 const appliedAt     = ref(new Date().toISOString().slice(0, 10))
 const locationInput = ref('')
 const locations     = ref<string[]>([])
+const jobUrl        = ref('')
 const saving        = ref(false)
 const error         = ref('')
 
@@ -129,6 +130,7 @@ async function submit() {
       appliedAt:         new Date(appliedAt.value).toISOString(),
       locations:         locations.value,
       sponsorCompanyId:  sponsorCompanyId.value,
+      jobUrl:            jobUrl.value.trim() || undefined,
     })
     emit('close')
   } catch (e: unknown) {
@@ -219,6 +221,11 @@ async function submit() {
             class="field-input"
           />
         </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Job posting URL <span class="optional">(optional)</span></label>
+        <input v-model="jobUrl" type="url" class="field-input" placeholder="https://…" />
       </div>
 
       <div v-if="activeMatch" class="dup-warning" role="status" aria-live="polite">

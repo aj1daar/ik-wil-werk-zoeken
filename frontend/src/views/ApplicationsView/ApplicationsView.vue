@@ -38,7 +38,10 @@ const filtered = computed<Application[]>(() => {
     const q = search.value.trim().toLowerCase()
     list = list.filter(a =>
       a.companyName.toLowerCase().includes(q) ||
-      a.position.toLowerCase().includes(q)
+      a.position.toLowerCase().includes(q) ||
+      (a.notes ?? '').toLowerCase().includes(q) ||
+      (a.contactPersonName ?? '').toLowerCase().includes(q) ||
+      (a.contactPersonEmail ?? '').toLowerCase().includes(q)
     )
   }
   list.sort((a, b) => {

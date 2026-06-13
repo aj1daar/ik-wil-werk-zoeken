@@ -1,86 +1,76 @@
 # ik wil werk zoeken — Running Plan
 
-## Completed
+## Backlog
 
-### Application Tracker (from main branch merge)
-- [x] Replace IND-stage model with general job application tracker
-- [x] New fields: companyName, position, appliedAt, status, rejectionReason, rejectionNote, notes, contactPersonName, contactPersonEmail, locations
-- [x] Statuses: Applied → InterviewScheduled → OfferReceived → Accepted / Rejected / Withdrawn / OnHold
-- [x] Stats API: GET /api/dashboard/stats?from=&to=
-- [x] HomeView — stats dashboard with date-range selector
-- [x] CompaniesView — IND sponsor browser with "Start Application"
-- [x] ApplicationsView — list + detail panel
-- [x] ApplicationPanel + NewApplicationModal components
+### Company Detail Panel Completeness
 
-### Database Migration (Table Storage → PostgreSQL)
-- [x] EF Core + Npgsql replacing Azure.Data.Tables
-- [x] AppDbContext with Users, Stages, Sponsors tables
-- [x] Sponsors moved from in-memory ConcurrentDictionary to SQL
-- [x] EF Core migrations run in CI (not startup) — dotnet ef database update
-- [x] docker-compose.yml for local Postgres
-- [x] Cascade delete: User → Stages (removed redundant explicit deletion)
+The company detail panel in CompaniesView already loads all enrichment data client-side but only renders `summary` and `techStackTags` / `functionalTags`. Several enriched fields go unused in the UI.
 
-### Auth & Email
-- [x] Forgot-password / reset-password flow (Resend HTTP API)
-- [x] Stateless HMAC reset tokens (userId.exp.sig), 1-hour expiry
-- [x] Anti-enumeration: forgot-password always returns 204
-- [x] JWT HS256, PBKDF2-SHA256 password hashing
-- [x] Email verification on registration (72-hour HMAC token, resend endpoint)
-- [x] Email change in profile (24-hour HMAC token, confirmation link to new address)
-- [x] Rate limiting on all auth endpoints (in-memory fixed-window per IP)
+#### HIGH
 
-### Frontend Polish
-- [x] Warm-tinted shadows on navbar, cards, buttons, panels, modal
-- [x] AppLogo inline SVG (orange rounded square with magnifying glass)
-- [x] favicon.svg matches AppLogo design
-- [x] CSS consistency — all hardcoded hex colors replaced with CSS variables across all views
-- [x] Privacy Policy page (`/privacy`) — GDPR-compliant with data table, AI notice, right to erasure
-- [x] Per-route `<title>` tags via `meta.title` + `router.afterEach`
-- [x] HomeView error state for stats (`store.statsError` shown on API failure)
-- [x] First-login onboarding banner — dismissible, stored in localStorage
-- [x] Confirm password field on register + password strength hint + email format validation
-- [x] Smart 409 on register — "already registered" links to sign-in / reset-password
-- [x] IND data freshness badge in CompaniesView (MAX lastVerifiedAt across all sponsors)
-- [x] Sort order dropdown in ApplicationsView (newest / oldest / last updated / company A–Z)
-- [x] CSV export of all applications
-- [x] `aria-invalid` / `aria-describedby` on form validation errors
-- [x] Dark-mode toggle — CSS vars, moon/sun button in navbar, persisted in localStorage
-- [x] Dark-mode readability fix — `--col-invert-bg`/`--col-invert-text` vars so pill buttons stay legible in both themes
-- [x] Duplicate detection — warning banner when adding an application to a company already tracked
-- [x] Keyboard shortcuts — `N` opens new application modal, `Esc` closes detail panel
+- [ ] **Show all enrichment chips in company detail panel** — the detail panel currently shows summary + tags, but omits `workingLanguage`, `remotePolicy`, `companySize`, `targetMarket`, and `parentCompanyName` even though all fields are already loaded. Add a metadata row below the "About" section with labelled chips for each non-null enrichment field (e.g. "English · Hybrid · Startup · B2B"). Mirrors the filter dropdowns so users can confirm what the filter matched.
 
-### Admin System
-- [x] `User.Role` field (`"user"` / `"admin"`) with EF Core migration
-- [x] Admin seeding from `ADMIN_EMAIL` env var at startup (idempotent, never hard-coded)
-- [x] `GET /api/admin/users` — list all users (admin JWT required)
-- [x] `POST /api/admin/promote` — promote user to admin by email (admin JWT required)
-- [x] `POST /api/admin/reload-sponsors` — full IND scrape + upsert + LLM enrichment (admin JWT required)
-- [x] Role claim in JWT; `TokenService.GetRole()` extracts it
-- [x] "Admin Panel" button in navbar (visible only when `role === "admin"`)
-- [x] `/admin` route with guard (non-admins redirected to `/`)
-- [x] AdminView — promote-user form, reload-sponsors button, users table
+- [ ] **Website link in company detail panel** — `websiteUrl` is enriched by Gemini and stored in the database but never surfaced in the UI. Show it as a clickable `<a href="..." target="_blank" rel="noopener">` link with a small external-link icon in the detail panel header (next to the KvK number). Also add a "Visit website" button in the panel footer alongside "Start Application". Guard against missing/invalid URLs with a simple `https://` prefix check.
 
-### Companies & Applications Polish
-- [x] **Company City field** — `City` column on `SponsorCompany`; captured from IND register (3rd `<td>`); shown in card and detail panel; city search supported
-- [x] **Companies advanced filtering** — city dropdown (exact match), tag include/exclude multiselect (3-state toggle); `store.filter()` capped at 100
-- [x] **Application detail as modal** — centered `<teleport>` overlay with backdrop; bottom-sheet on mobile; keyboard accessible
-- [x] **Mobile responsiveness** — hamburger navbar (≤ 767 px), full-screen modal on mobile, detail panel hidden on small screens
-- [x] **Session expiry warning** — dismissible banner when JWT < 24 h from expiry; `useSessionExpiry` composable
-- [x] **Application count badge on nav** — active (non-terminal) count shown next to "My Applications"
-- [x] **Contact email mailto: link** — clickable `<a href="mailto:…">` in ApplicationPanel
-- [x] **Status chip colors in dark mode** — per-status CSS classes (`chip-applied`, etc.) with `:root[data-theme="dark"]` overrides
+#### MEDIUM
 
-### Advanced Application Features
-- [x] **Application timeline / activity log** — `ActivityLog` table (FK cascade); all field changes logged on every update; collapsible history section in ApplicationPanel
-- [x] **Follow-up date field** — nullable `DateTimeOffset?` on `ApplicationStage`; date picker in ApplicationPanel; overdue/today badges in the list row
-- [x] **Bulk status update** — checkbox per row + select-all; floating bulk action bar; PATCH `/api/dashboard/applications`; activity log entries created
-- [x] **Load-more pagination in CompaniesView** — `displayCount` ref starts at 60, +60 per click; "N remaining" shown; resets on filter change
-- [x] **Sticky filter toolbar** — `position: sticky; top: 0` on ApplicationsView filter bar
-- [x] **Print / PDF export** — Print button calls `window.print()`; `@media print` CSS hides nav/filter/buttons
+- [ ] **Company sort dropdown in CompaniesView** — companies currently appear in API-return order (insertion order). Add a sort `<select>` to the filter bar with options: Default order, A–Z by name, Z–A by name, by city A–Z. Sorting is applied client-side on top of existing `rows` computed (all data is already loaded). Reset sort on `clearFilters()`.
+
+- [ ] **"Not interested" company hiding** — allow users to use a button in the detail panel to hide a company from the browse list. Store hidden IDs in `localStorage` under key `iwwz_hidden_companies`. Filter them out of `rows` unless a "Show hidden (N)" toggle in the filter bar is active. A "Unhide" button appears in the detail panel for hidden companies. No backend changes — purely local preference.
+
+- [ ] **"Load all" button in CompaniesView** — alongside the existing "Load more (N remaining)" button, add a "Load all" button that sets `displayCount = store.companies.length` in one click. Useful for users who want to Ctrl+F the page or scroll through the full list. Label shows the remaining count: "Load all (12,740)".
 
 ---
 
-## Backlog
+### Application UX Improvements
+
+#### HIGH
+
+- [ ] **Unsaved changes warning in ApplicationPanel** — the panel has no dirty-state guard: editing fields then pressing X silently discards all changes. Add `isDirty` computed that compares current field values against the props snapshot. Wire the X button through a `requestClose()` guard that calls `window.confirm` when dirty. Match the pattern just added to `NewApplicationModal`. The "Save" and "Delete" buttons bypass the guard (intended actions).
+
+- [ ] **Extend ApplicationsView text search to notes and contacts** — the current search filter (`companyName.includes(q) || position.includes(q)`) misses notes, contact name, and contact email. Extend the condition to also check `a.notes`, `a.contactPersonName`, `a.contactPersonEmail`. Zero backend changes; pure frontend one-liner addition. Allows searching "SQL" to find applications where you noted the role required SQL skills, or searching a recruiter's name.
+
+- [ ] **Job posting URL field on applications** — add a nullable `JobUrl string?` field to track the original job posting link per application. Backend: add column to `ApplicationStage` + EF Core migration; include field in `DashboardCrudFunction` create/update. Frontend: add `jobUrl?: string` to the `Application` interface in `api.ts`; add an optional URL input in `NewApplicationModal` and in `ApplicationPanel` with an external-link icon that opens the URL in a new tab. Add `'JobUrl': 'Job posting URL'` to `FIELD_LABELS` so activity log renders it correctly.
+
+#### MEDIUM
+
+- [ ] **Sort by follow-up date in ApplicationsView** — add a `'followup'` sort option to the sort dropdown ("Follow-up date ↑"). Sort by `followUpDate` ascending; applications without a follow-up date sort last. This makes it trivial to see which applications need attention today. Backend change: none — `followUpDate` is already in the API response.
+
+- [ ] **Overdue follow-ups section on HomeView** — below the KPI strip, show a collapsible "Follow-up needed" card listing applications where `followUpDate ≤ today`. Use `store.applications` (already loaded in HomeView via `store.load()`). Show at most 5, with a "See all" link to ApplicationsView filtered to overdue items. Each row shows company name, position, status chip, and the overdue follow-up date in red. When there are no overdue items, hide the card entirely. No API call — computed from the already-loaded application list.
+
+- [ ] **ApplicationsView split-panel desktop mode** — add a toggle button (list icon vs split icon) in the ApplicationsView toolbar. In split mode (desktop ≥ 1024 px only), the layout switches from full-width list + modal overlay to a two-column split: list on the left (~55%), detail panel on the right (~45%) using the existing `split-panel.css` layout (already used in CompaniesView). On mobile, always fall back to the modal. The toggle preference is persisted in `localStorage`. `ApplicationPanel` already supports the split context via `height: 100%` + `panel-body { overflow-y: auto }`.
+
+---
+
+### Advanced Features
+
+#### MEDIUM
+
+- [ ] **Kanban board view for ApplicationsView** — add a second view mode toggle (list / board) in the ApplicationsView toolbar. In board mode, show one column per status with application cards arranged vertically. Status columns: Applied · Interviewing · Offer Received · On Hold · Rejected · Withdrawn · Accepted. Clicking a card opens the existing detail panel/modal. No drag-and-drop required for v1 — status changes via the panel. Columns with zero cards are hidden by default with a "show empty" toggle. Counts per column shown in column header. Pure frontend, no backend changes.
+
+#### LOW
+
+- [ ] **Multiple contacts per application** — extend from a single `contactPersonName` + `contactPersonEmail` to an array of contacts, each with `name`, `role` (e.g. "Recruiter", "Hiring Manager"), and `email`. Backend: replace the two scalar columns with a `Contacts jsonb` column (serialized as `List<ApplicationContact>`); add EF Core migration. Frontend: replace the two inputs in ApplicationPanel and NewApplicationModal with a dynamic contacts list (add/remove rows). Activity log: serialize the diff as JSON. This is the most schema-invasive change in this section — schedule after other items are stable.
+
+- [ ] **Keyboard shortcuts expansion** — add `/` to focus the search input in ApplicationsView and CompaniesView (prevent default browser find), `f` to toggle the filter panel/tag panel open, and `j`/`k` to move selection up/down the list. Use the existing `onKey` pattern already in ApplicationsView. Add a visible shortcuts legend (`?` key toggles it) as a small tooltip overlay.
+
+---
+
+## Completed
+
+### Bug Fixes
+
+- [x] **Admin Panel 404 / sync-logs graceful failure** — `GET /api/admin/sync-logs` may return 404 on older deployments where the endpoint is not yet available. Previously this showed a red error banner in AdminView. Fix: treat a 404 response as an empty sync history (show "No syncs recorded yet." instead of an error message). Other non-404 errors still surface as a visible error.
+
+- [x] **NewApplicationModal discards data on outside click without confirmation** — clicking the backdrop or the X/Cancel button while fields are filled silently discarded all entered data. Fix: added `isDirty` computed (true when company name, position, or locations differ from initial state); `requestClose()` calls `window.confirm` when dirty; backdrop, X button, and Cancel button all route through `requestClose`. Successful form submission still calls `emit('close')` directly.
+
+- [x] **Navbar wraps to two rows at medium viewport widths (768–1023 px)** — `flex-wrap: wrap` on `.app-nav` caused the Admin Panel and Sign Out buttons to overflow below the 60 px nav boundary, hiding page content under the nav. Fix: removed `flex-wrap` from the base nav styles; added a tablet breakpoint (768–1023 px) where `.desktop-only` items (Admin Panel, Sign Out) are hidden from the navbar and the hamburger button is shown instead — these items appear in the mobile dropdown. At ≥1024 px all items show in the nav bar. Nav-link items (Home, My Applications, Companies, Profile) stay visible in the navbar at all desktop widths; the `mobile-nav-link` CSS class hides the duplicate nav-link entries in the dropdown at tablet widths.
+
+- [x] **Application detail panel not scrollable in modal view** — `.modal-box` had `max-height: 90vh` but no explicit `height`. The `ApplicationPanel` inner `.panel { height: 100%; }` resolved to `auto` (content height) rather than the modal's clamped height, so `overflow-y: auto` on `.panel-body` never triggered. Fix: added `height: 90vh` alongside `max-height: 90vh` on `.modal-box` so the panel fills the modal completely and the body section scrolls correctly. The footer (Save/Delete) and header remain fixed while body content scrolls.
+
+- [x] **"My Applications" badge looks disproportionate for 2-digit counts** — at 12+ active applications the badge became a wide pill shape at 1.1 rem height. Fix: reduced badge dimensions (`height: 0.95rem`, `min-width: 0.95rem`, `font-size: 0.6rem`, `padding: 0 0.2rem`) so single and double-digit counts stay proportional.
+
+---
 
 ### Enrichment & Data Quality
 
@@ -225,68 +215,85 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 
 ---
 
-### Company Detail Panel Completeness
+### Application Tracker (from main branch merge)
 
-The company detail panel in CompaniesView already loads all enrichment data client-side but only renders `summary` and `techStackTags` / `functionalTags`. Several enriched fields go unused in the UI.
+- [x] Replace IND-stage model with general job application tracker
+- [x] New fields: companyName, position, appliedAt, status, rejectionReason, rejectionNote, notes, contactPersonName, contactPersonEmail, locations
+- [x] Statuses: Applied → InterviewScheduled → OfferReceived → Accepted / Rejected / Withdrawn / OnHold
+- [x] Stats API: GET /api/dashboard/stats?from=&to=
+- [x] HomeView — stats dashboard with date-range selector
+- [x] CompaniesView — IND sponsor browser with "Start Application"
+- [x] ApplicationsView — list + detail panel
+- [x] ApplicationPanel + NewApplicationModal components
 
-#### HIGH
+### Database Migration (Table Storage → PostgreSQL)
 
-- [ ] **Show all enrichment chips in company detail panel** — the detail panel currently shows summary + tags, but omits `workingLanguage`, `remotePolicy`, `companySize`, `targetMarket`, and `parentCompanyName` even though all fields are already loaded. Add a metadata row below the "About" section with labelled chips for each non-null enrichment field (e.g. "English · Hybrid · Startup · B2B"). Mirrors the filter dropdowns so users can confirm what the filter matched.
+- [x] EF Core + Npgsql replacing Azure.Data.Tables
+- [x] AppDbContext with Users, Stages, Sponsors tables
+- [x] Sponsors moved from in-memory ConcurrentDictionary to SQL
+- [x] EF Core migrations run in CI (not startup) — dotnet ef database update
+- [x] docker-compose.yml for local Postgres
+- [x] Cascade delete: User → Stages (removed redundant explicit deletion)
 
-- [ ] **Website link in company detail panel** — `websiteUrl` is enriched by Gemini and stored in the database but never surfaced in the UI. Show it as a clickable `<a href="..." target="_blank" rel="noopener">` link with a small external-link icon in the detail panel header (next to the KvK number). Also add a "Visit website" button in the panel footer alongside "Start Application". Guard against missing/invalid URLs with a simple `https://` prefix check.
+### Auth & Email
 
-#### MEDIUM
+- [x] Forgot-password / reset-password flow (Resend HTTP API)
+- [x] Stateless HMAC reset tokens (userId.exp.sig), 1-hour expiry
+- [x] Anti-enumeration: forgot-password always returns 204
+- [x] JWT HS256, PBKDF2-SHA256 password hashing
+- [x] Email verification on registration (72-hour HMAC token, resend endpoint)
+- [x] Email change in profile (24-hour HMAC token, confirmation link to new address)
+- [x] Rate limiting on all auth endpoints (in-memory fixed-window per IP)
 
-- [ ] **Company sort dropdown in CompaniesView** — companies currently appear in API-return order (insertion order). Add a sort `<select>` to the filter bar with options: Default order, A–Z by name, Z–A by name, by city A–Z. Sorting is applied client-side on top of existing `rows` computed (all data is already loaded). Reset sort on `clearFilters()`.
+### Frontend Polish
 
-- [ ] **"Not interested" company hiding** — allow users to right-click (or use a button in the detail panel) to hide a company from the browse list. Store hidden IDs in `localStorage` under key `iwwz_hidden_companies`. Filter them out of `rows` unless a "Show hidden (N)" toggle in the filter bar is active. A "Unhide" button appears in the detail panel for hidden companies. No backend changes — purely local preference.
+- [x] Warm-tinted shadows on navbar, cards, buttons, panels, modal
+- [x] AppLogo inline SVG (orange rounded square with magnifying glass)
+- [x] favicon.svg matches AppLogo design
+- [x] CSS consistency — all hardcoded hex colors replaced with CSS variables across all views
+- [x] Privacy Policy page (`/privacy`) — GDPR-compliant with data table, AI notice, right to erasure
+- [x] Per-route `<title>` tags via `meta.title` + `router.afterEach`
+- [x] HomeView error state for stats (`store.statsError` shown on API failure)
+- [x] First-login onboarding banner — dismissible, stored in localStorage
+- [x] Confirm password field on register + password strength hint + email format validation
+- [x] Smart 409 on register — "already registered" links to sign-in / reset-password
+- [x] IND data freshness badge in CompaniesView (MAX lastVerifiedAt across all sponsors)
+- [x] Sort order dropdown in ApplicationsView (newest / oldest / last updated / company A–Z)
+- [x] CSV export of all applications
+- [x] `aria-invalid` / `aria-describedby` on form validation errors
+- [x] Dark-mode toggle — CSS vars, moon/sun button in navbar, persisted in localStorage
+- [x] Dark-mode readability fix — `--col-invert-bg`/`--col-invert-text` vars so pill buttons stay legible in both themes
+- [x] Duplicate detection — warning banner when adding an application to a company already tracked
+- [x] Keyboard shortcuts — `N` opens new application modal, `Esc` closes detail panel
 
-- [ ] **"Load all" button in CompaniesView** — alongside the existing "Load more (N remaining)" button, add a "Load all" button that sets `displayCount = store.companies.length` in one click. Useful for users who want to Ctrl+F the page or scroll through the full list. Label shows the remaining count: "Load all (12,740)".
+### Admin System
 
----
+- [x] `User.Role` field (`"user"` / `"admin"`) with EF Core migration
+- [x] Admin seeding from `ADMIN_EMAIL` env var at startup (idempotent, never hard-coded)
+- [x] `GET /api/admin/users` — list all users (admin JWT required)
+- [x] `POST /api/admin/promote` — promote user to admin by email (admin JWT required)
+- [x] `POST /api/admin/reload-sponsors` — full IND scrape + upsert + LLM enrichment (admin JWT required)
+- [x] Role claim in JWT; `TokenService.GetRole()` extracts it
+- [x] "Admin Panel" button in navbar (visible only when `role === "admin"`)
+- [x] `/admin` route with guard (non-admins redirected to `/`)
+- [x] AdminView — promote-user form, reload-sponsors button, users table
 
-### Application UX Improvements
+### Companies & Applications Polish
 
-#### HIGH
+- [x] **Company City field** — `City` column on `SponsorCompany`; captured from IND register (3rd `<td>`); shown in card and detail panel; city search supported
+- [x] **Companies advanced filtering** — city dropdown (exact match), tag include/exclude multiselect (3-state toggle); `store.filter()` capped at 100
+- [x] **Application detail as modal** — centered `<teleport>` overlay with backdrop; bottom-sheet on mobile; keyboard accessible
+- [x] **Mobile responsiveness** — hamburger navbar (≤ 767 px), full-screen modal on mobile, detail panel hidden on small screens
+- [x] **Session expiry warning** — dismissible banner when JWT < 24 h from expiry; `useSessionExpiry` composable
+- [x] **Application count badge on nav** — active (non-terminal) count shown next to "My Applications"
+- [x] **Contact email mailto: link** — clickable `<a href="mailto:…">` in ApplicationPanel
+- [x] **Status chip colors in dark mode** — per-status CSS classes (`chip-applied`, etc.) with `:root[data-theme="dark"]` overrides
 
-- [ ] **Unsaved changes warning in ApplicationPanel** — the panel has no dirty-state guard: editing fields then pressing X silently discards all changes. Add `isDirty` computed that compares current field values against the props snapshot. Wire the X button through a `requestClose()` guard that calls `window.confirm` when dirty. Match the pattern just added to `NewApplicationModal`. The "Save" and "Delete" buttons bypass the guard (intended actions).
+### Advanced Application Features
 
-- [ ] **Extend ApplicationsView text search to notes and contacts** — the current search filter (`companyName.includes(q) || position.includes(q)`) misses notes, contact name, and contact email. Extend the condition to also check `a.notes`, `a.contactPersonName`, `a.contactPersonEmail`. Zero backend changes; pure frontend one-liner addition. Allows searching "SQL" to find applications where you noted the role required SQL skills, or searching a recruiter's name.
-
-- [ ] **Job posting URL field on applications** — add a nullable `JobUrl string?` field to track the original job posting link per application. Backend: add column to `ApplicationStage` + EF Core migration; include field in `DashboardCrudFunction` create/update. Frontend: add `jobUrl?: string` to the `Application` interface in `api.ts`; add an optional URL input in `NewApplicationModal` and in `ApplicationPanel` with an external-link icon that opens the URL in a new tab. Add `'JobUrl': 'Job posting URL'` to `FIELD_LABELS` so activity log renders it correctly.
-
-#### MEDIUM
-
-- [ ] **Sort by follow-up date in ApplicationsView** — add a `'followup'` sort option to the sort dropdown ("Follow-up date ↑"). Sort by `followUpDate` ascending; applications without a follow-up date sort last. This makes it trivial to see which applications need attention today. Backend change: none — `followUpDate` is already in the API response.
-
-- [ ] **Overdue follow-ups section on HomeView** — below the KPI strip, show a collapsible "Follow-up needed" card listing applications where `followUpDate ≤ today`. Use `store.applications` (already loaded in HomeView via `store.load()`). Show at most 5, with a "See all" link to ApplicationsView filtered to overdue items. Each row shows company name, position, status chip, and the overdue follow-up date in red. When there are no overdue items, hide the card entirely. No API call — computed from the already-loaded application list.
-
-- [ ] **ApplicationsView split-panel desktop mode** — add a toggle button (list icon vs split icon) in the ApplicationsView toolbar. In split mode (desktop ≥ 1024 px only), the layout switches from full-width list + modal overlay to a two-column split: list on the left (~55%), detail panel on the right (~45%) using the existing `split-panel.css` layout (already used in CompaniesView). On mobile, always fall back to the modal. The toggle preference is persisted in `localStorage`. `ApplicationPanel` already supports the split context via `height: 100%` + `panel-body { overflow-y: auto }`.
-
----
-
-### Advanced Features
-
-#### MEDIUM
-
-- [ ] **Kanban board view for ApplicationsView** — add a second view mode toggle (list / board) in the ApplicationsView toolbar. In board mode, show one column per status with application cards arranged vertically. Status columns: Applied · Interviewing · Offer Received · On Hold · Rejected · Withdrawn · Accepted. Clicking a card opens the existing detail panel/modal. No drag-and-drop required for v1 — status changes via the panel. Columns with zero cards are hidden by default with a "show empty" toggle. Counts per column shown in column header. Pure frontend, no backend changes.
-
-#### LOW
-
-- [ ] **Multiple contacts per application** — extend from a single `contactPersonName` + `contactPersonEmail` to an array of contacts, each with `name`, `role` (e.g. "Recruiter", "Hiring Manager"), and `email`. Backend: replace the two scalar columns with a `Contacts jsonb` column (serialized as `List<ApplicationContact>`); add EF Core migration. Frontend: replace the two inputs in ApplicationPanel and NewApplicationModal with a dynamic contacts list (add/remove rows). Activity log: serialize the diff as JSON. This is the most schema-invasive change in this section — schedule after other items are stable.
-
-- [ ] **Keyboard shortcuts expansion** — add `/` to focus the search input in ApplicationsView and CompaniesView (prevent default browser find), `f` to toggle the filter panel/tag panel open, and `j`/`k` to move selection up/down the list. Use the existing `onKey` pattern already in ApplicationsView. Add a visible shortcuts legend (`?` key toggles it) as a small tooltip overlay.
-
----
-
-### Bug Fixes
-
-- [x] **Admin Panel 404 / sync-logs graceful failure** — `GET /api/admin/sync-logs` may return 404 on older deployments where the endpoint is not yet available. Previously this showed a red error banner in AdminView. Fix: treat a 404 response as an empty sync history (show "No syncs recorded yet." instead of an error message). Other non-404 errors still surface as a visible error.
-
-- [x] **NewApplicationModal discards data on outside click without confirmation** — clicking the backdrop or the X/Cancel button while fields are filled silently discarded all entered data. Fix: added `isDirty` computed (true when company name, position, or locations differ from initial state); `requestClose()` calls `window.confirm` when dirty; backdrop, X button, and Cancel button all route through `requestClose`. Successful form submission still calls `emit('close')` directly.
-
-- [x] **Navbar wraps to two rows at medium viewport widths (768–1023 px)** — `flex-wrap: wrap` on `.app-nav` caused the Admin Panel and Sign Out buttons to overflow below the 60 px nav boundary, hiding page content under the nav. Fix: removed `flex-wrap` from the base nav styles; added a tablet breakpoint (768–1023 px) where `.desktop-only` items (Admin Panel, Sign Out) are hidden from the navbar and the hamburger button is shown instead — these items appear in the mobile dropdown. At ≥1024 px all items show in the nav bar. Nav-link items (Home, My Applications, Companies, Profile) stay visible in the navbar at all desktop widths; the `mobile-nav-link` CSS class hides the duplicate nav-link entries in the dropdown at tablet widths.
-
-- [x] **Application detail panel not scrollable in modal view** — `.modal-box` had `max-height: 90vh` but no explicit `height`. The `ApplicationPanel` inner `.panel { height: 100%; }` resolved to `auto` (content height) rather than the modal's clamped height, so `overflow-y: auto` on `.panel-body` never triggered. Fix: added `height: 90vh` alongside `max-height: 90vh` on `.modal-box` so the panel fills the modal completely and the body section scrolls correctly. The footer (Save/Delete) and header remain fixed while body content scrolls.
-
-- [x] **"My Applications" badge looks disproportionate for 2-digit counts** — at 12+ active applications the badge became a wide pill shape at 1.1 rem height. Fix: reduced badge dimensions (`height: 0.95rem`, `min-width: 0.95rem`, `font-size: 0.6rem`, `padding: 0 0.2rem`) so single and double-digit counts stay proportional.
+- [x] **Application timeline / activity log** — `ActivityLog` table (FK cascade); all field changes logged on every update; collapsible history section in ApplicationPanel
+- [x] **Follow-up date field** — nullable `DateTimeOffset?` on `ApplicationStage`; date picker in ApplicationPanel; overdue/today badges in the list row
+- [x] **Bulk status update** — checkbox per row + select-all; floating bulk action bar; PATCH `/api/dashboard/applications`; activity log entries created
+- [x] **Load-more pagination in CompaniesView** — `displayCount` ref starts at 60, +60 per click; "N remaining" shown; resets on filter change
+- [x] **Sticky filter toolbar** — `position: sticky; top: 0` on ApplicationsView filter bar
+- [x] **Print / PDF export** — Print button calls `window.print()`; `@media print` CSS hides nav/filter/buttons

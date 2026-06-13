@@ -161,6 +161,7 @@ public sealed class DashboardCrudFunction
             Locations          = item.Locations,
             FollowUpDate       = item.FollowUpDate,
             SponsorCompanyId   = item.SponsorCompanyId,
+            JobUrl             = item.JobUrl,
             UpdatedAt          = DateTimeOffset.UtcNow,
         };
 
@@ -300,6 +301,7 @@ public sealed class DashboardCrudFunction
         Check("Notes",              before.Notes,              after.Notes);
         Check("ContactPersonName",  before.ContactPersonName,  after.ContactPersonName);
         Check("ContactPersonEmail", before.ContactPersonEmail, after.ContactPersonEmail);
+        Check("JobUrl",             before.JobUrl,             after.JobUrl);
         Check("FollowUpDate",
             before.FollowUpDate?.ToString("yyyy-MM-dd"),
             after.FollowUpDate?.ToString("yyyy-MM-dd"));
@@ -364,6 +366,9 @@ public sealed class DashboardCrudFunction
 
         if (s.ContactPersonEmail?.Length > 254)
             { error = "contactPersonEmail must not exceed 254 characters"; return false; }
+
+        if (s.JobUrl?.Length > 2000)
+            { error = "jobUrl must not exceed 2000 characters"; return false; }
 
         if (s.Locations.Length > 20)
             { error = "locations must not exceed 20 entries"; return false; }

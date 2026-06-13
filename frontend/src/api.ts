@@ -150,6 +150,7 @@ export interface Application {
   followUpDate?: string
   updatedAt: string
   sponsorCompanyId?: string
+  jobUrl?: string
 }
 
 export interface ActivityLog {

@@ -371,6 +371,14 @@ const hasActiveFilters = computed(() => anyFilter.value)
                 <p class="panel-subtitle">
                   <span v-if="selectedCompany.city">{{ selectedCompany.city }} · </span>
                   KvK {{ selectedCompany.kvKNumber }}
+                  <template v-if="selectedCompany.websiteUrl">
+                    · <a :href="selectedCompany.websiteUrl" target="_blank" rel="noopener noreferrer" class="panel-website-link">
+                      website
+                      <svg xmlns="http://www.w3.org/2000/svg" class="ext-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </template>
                 </p>
               </div>
               <button @click="selectedId = null" class="btn-icon" aria-label="Close panel">
@@ -391,6 +399,20 @@ const hasActiveFilters = computed(() => anyFilter.value)
                 </div>
               </div>
 
+              <div
+                v-if="selectedCompany.workingLanguage || selectedCompany.remotePolicy || selectedCompany.companySize || selectedCompany.targetMarket || selectedCompany.parentCompanyName"
+                class="field"
+              >
+                <label class="field-label">Details</label>
+                <div class="meta-chips">
+                  <span v-if="selectedCompany.workingLanguage" class="meta-chip meta-chip--lang">{{ selectedCompany.workingLanguage }}</span>
+                  <span v-if="selectedCompany.remotePolicy" class="meta-chip meta-chip--remote">{{ selectedCompany.remotePolicy }}</span>
+                  <span v-if="selectedCompany.companySize" class="meta-chip meta-chip--size">{{ selectedCompany.companySize }}</span>
+                  <span v-if="selectedCompany.targetMarket" class="meta-chip meta-chip--market">{{ selectedCompany.targetMarket }}</span>
+                  <span v-if="selectedCompany.parentCompanyName" class="meta-chip meta-chip--parent" :title="`Part of ${selectedCompany.parentCompanyName}`">↑ {{ selectedCompany.parentCompanyName }}</span>
+                </div>
+              </div>
+
               <div v-if="selectedCompany.summary" class="field">
                 <label class="field-label">About</label>
                 <p class="panel-body-text">{{ selectedCompany.summary }}</p>
@@ -408,6 +430,18 @@ const hasActiveFilters = computed(() => anyFilter.value)
             </div>
 
             <div class="panel-footer">
+              <a
+                v-if="selectedCompany.websiteUrl"
+                :href="selectedCompany.websiteUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-ghost footer-website"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Visit website
+              </a>
               <button @click="startApplication(selectedCompany)" class="btn-primary footer-primary">
                 {{ selectedCompanyApp ? 'Add Another Application' : 'Start Application' }}
               </button>
@@ -491,14 +525,36 @@ const hasActiveFilters = computed(() => anyFilter.value)
 .panel-body { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .panel-body-text { font-size: .875rem; color: var(--col-muted); line-height: 1.6; }
 .ai-notice { font-size: .7rem; color: var(--col-subtle); margin-top: .5rem; }
+.meta-chips { display: flex; flex-wrap: wrap; gap: .375rem; }
+.meta-chip {
+  display: inline-flex; align-items: center;
+  padding: .2rem .6rem; border-radius: 9999px; font-size: .72rem; font-weight: 500;
+  background: var(--col-raised); color: var(--col-muted);
+  border: 1px solid var(--col-border);
+}
+.meta-chip--lang   { background: color-mix(in srgb, #3b82f6 12%, transparent); color: #1d4ed8; border-color: color-mix(in srgb, #3b82f6 25%, transparent); }
+.meta-chip--remote { background: color-mix(in srgb, #10b981 12%, transparent); color: #065f46; border-color: color-mix(in srgb, #10b981 25%, transparent); }
+.meta-chip--size   { background: color-mix(in srgb, #f59e0b 12%, transparent); color: #92400e; border-color: color-mix(in srgb, #f59e0b 25%, transparent); }
+.meta-chip--market { background: color-mix(in srgb, #8b5cf6 12%, transparent); color: #4c1d95; border-color: color-mix(in srgb, #8b5cf6 25%, transparent); }
+.meta-chip--parent { background: var(--col-subtle); color: var(--col-muted); font-style: italic; }
 .field { display: flex; flex-direction: column; gap: .375rem; }
 .field-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--col-subtle); }
 .tag-row { display: flex; flex-wrap: wrap; gap: .375rem; }
 .tag { background: var(--col-accent-lt); color: var(--col-accent-dk); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 500; }
 .tag--muted { background: var(--col-raised); color: var(--col-muted); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; }
-.panel-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); }
+.panel-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); display: flex; gap: .625rem; }
 .icon { width: 1.25rem; height: 1.25rem; }
-.footer-primary { width: 100%; }
+.footer-primary { flex: 1; }
+.footer-website {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .875rem; white-space: nowrap; flex-shrink: 0;
+}
+.panel-website-link {
+  color: var(--col-accent); text-decoration: none; font-size: .75rem;
+  display: inline-flex; align-items: center; gap: .15rem;
+}
+.panel-website-link:hover { text-decoration: underline; }
+.ext-icon { width: .7rem; height: .7rem; }
 .row-city { color: var(--col-accent-dk); }
 
 .row-name-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
