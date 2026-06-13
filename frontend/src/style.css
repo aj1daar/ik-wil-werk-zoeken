@@ -60,6 +60,31 @@ body {
   color: var(--col-text);
 }
 
+/* Global form element baseline — gives every native input/select/textarea the
+   design-system border radius and focus ring. Class overrides (.field-input,
+   .auth-input, etc.) still win due to higher specificity. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
+textarea,
+select {
+  border-radius: 6px;
+  border: 1px solid var(--col-border);
+  background: var(--col-bg);
+  color: var(--col-text);
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):focus,
+textarea:focus,
+select:focus {
+  border-color: var(--col-accent);
+  box-shadow: 0 0 0 3px var(--col-accent-lt);
+}
+input::placeholder,
+textarea::placeholder { color: var(--col-subtle); }
+
 /* ─── Components ────────────────────────────────────────────────── */
 @layer components {
 

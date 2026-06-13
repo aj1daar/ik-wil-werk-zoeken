@@ -164,7 +164,7 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 
 - [ ] **`AppInput` component** — shared `src/components/ui/AppInput.vue` wrapping `<input>` with the `.field-input` styling baked in, plus `aria-invalid` and `aria-describedby` wired from props. Currently `.field-input` is duplicated across ~8 components as a scoped class; centralising it means one place to update. Props: `modelValue`, `type`, `placeholder`, `error`, `id`.
 
-- [ ] **Global form element baseline** — add a `src/assets/base.css` section that normalises `input[type="date"]`, `input[type="text"]`, `textarea`, and `select` to share the same border-radius, border colour, and focus ring as the design system, so even elements not yet converted to `AppInput`/`AppSelect` look consistent. This is the low-cost first step; component extraction can happen incrementally after.
+- [x] **Global form element baseline** — add a `src/assets/base.css` section that normalises `input[type="date"]`, `input[type="text"]`, `textarea`, and `select` to share the same border-radius, border colour, and focus ring as the design system, so even elements not yet converted to `AppInput`/`AppSelect` look consistent. This is the low-cost first step; component extraction can happen incrementally after.
 
 #### LOW
 
