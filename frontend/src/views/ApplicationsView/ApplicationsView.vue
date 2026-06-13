@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
@@ -17,6 +17,32 @@ function toggleSplitMode() {
   splitMode.value = !splitMode.value
   try { localStorage.setItem('iwwz_apps_split', splitMode.value ? '1' : '0') } catch { /* ignore */ }
 }
+
+const viewMode = ref<'list' | 'board'>((() => {
+  try { return (localStorage.getItem('iwwz_apps_view') as 'list' | 'board') ?? 'list' } catch { return 'list' }
+})())
+const showEmptyColumns = ref(false)
+
+function setViewMode(mode: 'list' | 'board') {
+  viewMode.value = mode
+  try { localStorage.setItem('iwwz_apps_view', mode) } catch { /* ignore */ }
+}
+
+watch(viewMode, () => {
+  clearSelection()
+  selectedId.value = null
+})
+
+const boardColumns = computed(() =>
+  ALL_STATUSES
+    .map(status => ({
+      status,
+      label:  STATUS_LABELS[status],
+      color:  STATUS_COLOR[status],
+      cards:  filtered.value.filter(a => a.status === status),
+    }))
+    .filter(col => showEmptyColumns.value || col.cards.length > 0)
+)
 
 const search       = ref('')
 const filterStatus = ref<ApplicationStatus | ''>('')
@@ -221,7 +247,26 @@ function printPage() {
         Print
       </button>
 
+      <div class="view-toggle-group" role="group" aria-label="View mode">
+        <button :class="['view-toggle-btn', viewMode === 'list' && 'view-toggle-btn--active']" @click="setViewMode('list')" title="List view">
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+          </svg>
+        </button>
+        <button :class="['view-toggle-btn', viewMode === 'board' && 'view-toggle-btn--active']" @click="setViewMode('board')" title="Board view">
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+        </button>
+      </div>
+
+      <label v-if="viewMode === 'board'" class="show-empty-label">
+        <input type="checkbox" v-model="showEmptyColumns" class="show-empty-check" />
+        Show empty
+      </label>
+
       <button
+        v-if="viewMode === 'list'"
         @click="toggleSplitMode"
         :class="['btn-split-toggle', splitMode && 'btn-split-toggle--active']"
         title="Toggle split view"
@@ -241,7 +286,7 @@ function printPage() {
     </div>
 
     <!-- List + optional split panel -->
-    <div class="list-area" :class="{ 'main-split': splitMode }">
+    <div v-if="viewMode === 'list'" class="list-area" :class="{ 'main-split': splitMode }">
       <div class="list-col" :class="{ 'company-list': splitMode }">
         <!-- Select-all bar shown when list is non-empty -->
         <div v-if="filtered.length > 0" class="select-bar">
@@ -316,9 +361,44 @@ function printPage() {
       </transition>
     </div>
 
-    <!-- Bulk action bar -->
+    <!-- Board (Kanban) view -->
+    <div v-else class="board-view">
+      <div v-if="store.loading" class="state-msg">Loading…</div>
+      <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
+      <template v-else>
+        <div v-if="boardColumns.length === 0" class="state-msg">No applications match your filters.</div>
+        <div v-for="col in boardColumns" :key="col.status" class="board-col">
+          <div class="board-col-header">
+            <span :class="['chip', col.color]">{{ col.label }}</span>
+            <span class="board-col-count">{{ col.cards.length }}</span>
+          </div>
+          <div class="board-cards">
+            <div
+              v-for="app in col.cards"
+              :key="app.id"
+              :class="['board-card', { 'board-card--active': selectedId === app.id }]"
+              @click="selectedId = app.id"
+              role="button"
+              tabindex="0"
+              :aria-label="`${app.companyName} — ${app.position}`"
+              @keydown.enter="selectedId = app.id"
+            >
+              <p class="board-card-company">{{ app.companyName }}</p>
+              <p class="board-card-position">{{ app.position }}</p>
+              <div class="board-card-meta">
+                <span class="board-card-date">{{ formatDate(app.appliedAt) }}</span>
+                <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠</span>
+                <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Today">📅</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Bulk action bar (list mode only) -->
     <transition name="bulk-bar">
-      <div v-if="checkedIds.size > 0" class="bulk-bar" role="region" aria-label="Bulk actions">
+      <div v-if="checkedIds.size > 0 && viewMode === 'list'" class="bulk-bar" role="region" aria-label="Bulk actions">
         <span class="bulk-count">{{ checkedIds.size }} selected</span>
         <select v-model="bulkStatus" class="bulk-select" aria-label="New status for selected">
           <option value="">Change status…</option>
@@ -334,10 +414,10 @@ function printPage() {
       </div>
     </transition>
 
-    <!-- Application detail modal (non-split mode, or mobile in split mode) -->
+    <!-- Application detail modal (board mode always; list non-split or mobile) -->
     <teleport to="body">
       <Transition name="app-detail">
-        <div v-if="!splitMode && selected" class="modal-backdrop" @click.self="onPanelClose" role="dialog" aria-modal="true" :aria-label="`Edit application: ${selected.companyName}`">
+        <div v-if="(viewMode === 'board' || !splitMode) && selected" class="modal-backdrop" @click.self="onPanelClose" role="dialog" aria-modal="true" :aria-label="`Edit application: ${selected.companyName}`">
           <div class="modal-box">
             <ApplicationPanel :application="selected" @close="onPanelClose" />
           </div>
@@ -510,6 +590,56 @@ function printPage() {
 }
 .btn-split-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-split-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
+
+/* view mode toggle */
+.view-toggle-group {
+  display: inline-flex; border: 1px solid var(--col-border); border-radius: .375rem; overflow: hidden;
+}
+.view-toggle-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--col-surface); color: var(--col-muted); border: none;
+  padding: .45rem .625rem; cursor: pointer; transition: background .12s, color .12s;
+}
+.view-toggle-btn:hover { background: var(--col-raised); color: var(--col-text); }
+.view-toggle-btn--active { background: var(--col-accent-lt); color: var(--col-accent-dk); }
+
+.show-empty-label {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .8rem; color: var(--col-muted); cursor: pointer; white-space: nowrap;
+}
+.show-empty-check { accent-color: var(--col-accent); }
+
+/* board (kanban) view */
+.board-view {
+  flex: 1; overflow-x: auto; overflow-y: hidden;
+  display: flex; align-items: flex-start; gap: .875rem;
+  padding: 1rem; background: var(--col-bg);
+}
+.board-col {
+  width: 220px; flex-shrink: 0; display: flex; flex-direction: column;
+  max-height: 100%; background: var(--col-surface);
+  border: 1px solid var(--col-border); border-radius: .625rem; overflow: hidden;
+}
+.board-col-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .625rem .875rem; border-bottom: 1px solid var(--col-border); flex-shrink: 0;
+}
+.board-col-count {
+  font-size: .72rem; font-weight: 700; color: var(--col-muted);
+  background: var(--col-raised); border-radius: 9999px; padding: .1rem .4rem;
+}
+.board-cards { overflow-y: auto; flex: 1; padding: .5rem; display: flex; flex-direction: column; gap: .5rem; }
+.board-card {
+  background: var(--col-bg); border: 1px solid var(--col-border);
+  border-radius: .5rem; padding: .625rem .75rem; cursor: pointer;
+  transition: box-shadow .12s, border-color .12s;
+}
+.board-card:hover { box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 8%, transparent); border-color: var(--col-accent); }
+.board-card--active { border-color: var(--col-accent); background: var(--col-accent-lt); }
+.board-card-company { font-size: .8rem; font-weight: 600; color: var(--col-text); margin: 0 0 .2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board-card-position { font-size: .75rem; color: var(--col-muted); margin: 0 0 .375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board-card-meta { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; }
+.board-card-date { font-size: .7rem; color: var(--col-subtle); }
 
 @media (max-width: 480px) {
   .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
