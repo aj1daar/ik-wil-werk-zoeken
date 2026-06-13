@@ -1,11 +1,11 @@
 <template>
   <div class="donut-wrap">
-    <h3 class="chart-title">Status breakdown</h3>
-    <div v-if="isEmpty" class="chart-empty">No applications to display.</div>
+    <h3 class="chart-title">Rejection breakdown</h3>
+    <div v-if="isEmpty" class="chart-empty">{{ emptyMessage }}</div>
     <template v-else>
       <v-chart class="donut-chart" :option="option" autoresize />
       <ul class="donut-legend">
-        <li v-for="b in buckets" :key="b.label" class="donut-legend-item">
+        <li v-for="b in visibleBuckets" :key="b.key" class="donut-legend-item">
           <span class="donut-legend-dot" :style="{ background: b.color }" />
           <span class="donut-legend-label">{{ b.label }}</span>
           <span class="donut-legend-count">{{ b.value }}</span>
@@ -22,45 +22,52 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { PieChart } from 'echarts/charts'
 import { TooltipComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
+import type { Application } from '../../api'
 
 use([CanvasRenderer, PieChart, TooltipComponent])
 
 const props = defineProps<{
-  byStatus: Record<string, number>
+  applications: Application[]
+  from?: string
+  to?: string
 }>()
 
-const BUCKETS = [
-  {
-    label: 'Active',
-    color: '#3b82f6',
-    keys: ['Applied', 'OnHold'],
-  },
-  {
-    label: 'In Progress',
-    color: '#8b5cf6',
-    keys: ['InterviewScheduled', 'OfferReceived'],
-  },
-  {
-    label: 'Accepted',
-    color: '#10b981',
-    keys: ['Accepted'],
-  },
-  {
-    label: 'Declined',
-    color: '#ef4444',
-    keys: ['Rejected', 'Withdrawn'],
-  },
+const REASON_META = [
+  { key: 'another_candidate',    label: 'Another candidate selected', color: '#ef4444' },
+  { key: 'incompatible_profile', label: 'Incompatible profile',        color: '#dc2626' },
+  { key: 'dutch_language',       label: 'Dutch language requirement',  color: '#f97316' },
+  { key: 'salary_mismatch',      label: 'Salary mismatch',             color: '#f59e0b' },
+  { key: 'internal_hire',        label: 'Filled internally',           color: '#8b5cf6' },
+  { key: 'other',                label: 'Other',                       color: '#6b7280' },
+  { key: 'unknown',              label: 'No reason given',             color: '#d1d5db' },
 ] as const
 
-const buckets = computed(() =>
-  BUCKETS.map(b => ({
-    label: b.label,
-    color: b.color,
-    value: b.keys.reduce((sum, k) => sum + (props.byStatus[k] ?? 0), 0),
-  }))
-)
+const rejected = computed(() => {
+  const fromMs = props.from ? new Date(props.from).getTime() : -Infinity
+  const toMs   = props.to   ? new Date(props.to).getTime()   :  Infinity
+  return props.applications.filter(a => {
+    if (a.status !== 'Rejected') return false
+    const t = new Date(a.appliedAt).getTime()
+    return t >= fromMs && t <= toMs
+  })
+})
 
-const isEmpty = computed(() => buckets.value.every(b => b.value === 0))
+const buckets = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const a of rejected.value) {
+    const key = a.rejectionReason ?? 'unknown'
+    counts[key] = (counts[key] ?? 0) + 1
+  }
+  return REASON_META.map(m => ({ ...m, value: counts[m.key] ?? 0 }))
+})
+
+const visibleBuckets = computed(() => buckets.value.filter(b => b.value > 0))
+
+const isEmpty = computed(() => rejected.value.length === 0)
+
+const emptyMessage = computed(() =>
+  props.from || props.to ? 'No rejections in this period.' : 'No rejections yet.'
+)
 
 const option = computed(() => ({
   tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
@@ -70,7 +77,7 @@ const option = computed(() => ({
     avoidLabelOverlap: false,
     label: { show: false },
     emphasis: { label: { show: false } },
-    data: buckets.value.map(b => ({ name: b.label, value: b.value, itemStyle: { color: b.color } })),
+    data: visibleBuckets.value.map(b => ({ name: b.label, value: b.value, itemStyle: { color: b.color } })),
   }],
 }))
 </script>

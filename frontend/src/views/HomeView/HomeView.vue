@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
 import type { ApplicationStatus } from '../../api'
 import FunnelChart from '../../components/FunnelChart/FunnelChart.vue'
-import DonutChart from '../../components/DonutChart/DonutChart.vue'
+import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
 
 const store = useApplicationsStore()
@@ -199,7 +199,7 @@ const kpis = computed(() => {
       <FunnelChart :by-status="store.stats.byStatus" class="funnel-section" />
 
       <div class="charts-row">
-        <DonutChart :by-status="store.stats.byStatus" />
+        <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
         <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
       </div>
 
