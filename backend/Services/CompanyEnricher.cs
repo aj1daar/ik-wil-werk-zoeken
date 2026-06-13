@@ -10,15 +10,15 @@ public sealed class CompanyEnricher
 {
     public const int CurrentVersion = 2;
 
-    private const string Model             = "gemini-2.0-flash";
-    private const string GenerateEndpoint  = $"v1beta/models/{Model}:generateContent";
-    private const int    BatchSize         = 20;
-    private const int    MaxOutputTokens   = 4096;
+    private const string Model = "gemini-2.0-flash";
+    private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
+    private const int BatchSize = 20;
+    private const int MaxOutputTokens = 4096;
 
     private static readonly HashSet<string> ValidWorkingLanguages = new(StringComparer.Ordinal) { "English", "Dutch", "Mixed" };
-    private static readonly HashSet<string> ValidCompanySizes     = new(StringComparer.Ordinal) { "startup", "scaleup", "mid", "large", "enterprise" };
-    private static readonly HashSet<string> ValidRemotePolicies   = new(StringComparer.Ordinal) { "remote", "hybrid", "office", "unknown" };
-    private static readonly HashSet<string> ValidTargetMarkets    = new(StringComparer.Ordinal) { "B2B", "B2C", "B2G", "Mixed" };
+    private static readonly HashSet<string> ValidCompanySizes = new(StringComparer.Ordinal) { "startup", "scaleup", "mid", "large", "enterprise" };
+    private static readonly HashSet<string> ValidRemotePolicies = new(StringComparer.Ordinal) { "remote", "hybrid", "office", "unknown" };
+    private static readonly HashSet<string> ValidTargetMarkets = new(StringComparer.Ordinal) { "B2B", "B2C", "B2G", "Mixed" };
 
     private const string SystemPrompt =
         """
@@ -75,12 +75,12 @@ public sealed class CompanyEnricher
         If unsure, use null rather than guess. Output ONLY the JSON array.
         """;
 
-    private readonly IHttpClientFactory        _http;
-    private readonly ILogger<CompanyEnricher>  _logger;
+    private readonly IHttpClientFactory _http;
+    private readonly ILogger<CompanyEnricher> _logger;
 
     public CompanyEnricher(IHttpClientFactory http, ILogger<CompanyEnricher> logger)
     {
-        _http   = http;
+        _http = http;
         _logger = logger;
     }
 
@@ -147,23 +147,23 @@ public sealed class CompanyEnricher
                 {
                     if (!corrections.TryGetValue(idx, out var fix)) continue;
                     if (fix.WorkingLanguage is not null) r.WorkingLanguage = fix.WorkingLanguage;
-                    if (fix.CompanySize     is not null) r.CompanySize     = fix.CompanySize;
-                    if (fix.RemotePolicy    is not null) r.RemotePolicy    = fix.RemotePolicy;
-                    if (fix.TargetMarket    is not null) r.TargetMarket    = fix.TargetMarket;
+                    if (fix.CompanySize is not null) r.CompanySize = fix.CompanySize;
+                    if (fix.RemotePolicy is not null) r.RemotePolicy = fix.RemotePolicy;
+                    if (fix.TargetMarket is not null) r.TargetMarket = fix.TargetMarket;
                 }
             }
 
             // Apply results; collect companies whose URLs need validation
             var toValidateUrl = new List<SponsorCompany>();
             var count = 0;
-            var now   = DateTimeOffset.UtcNow;
+            var now = DateTimeOffset.UtcNow;
 
             for (var i = 0; i < Math.Min(results.Length, batch.Count); i++)
             {
                 if (results[i] is not { } r) continue;
                 var c = batch[i];
 
-                c.EnrichedAt        = now;
+                c.EnrichedAt = now;
                 c.EnrichmentVersion = CurrentVersion;
 
                 // Low-confidence: mark enriched so we don't retry, but don't write field data
@@ -174,16 +174,16 @@ public sealed class CompanyEnricher
                     continue;
                 }
 
-                c.Summary           = r.Summary;
-                c.CoreIndustry      = r.CoreIndustry;
-                c.TechStackTags     = r.TechStackTags;
-                c.FunctionalTags    = r.FunctionalTags;
-                c.WorkingLanguage   = ValidateEnum(r.WorkingLanguage, ValidWorkingLanguages);
-                c.CompanySize       = ValidateEnum(r.CompanySize,     ValidCompanySizes);
-                c.RemotePolicy      = ValidateEnum(r.RemotePolicy,    ValidRemotePolicies) ?? "unknown";
+                c.Summary = r.Summary;
+                c.CoreIndustry = r.CoreIndustry;
+                c.TechStackTags = r.TechStackTags;
+                c.FunctionalTags = r.FunctionalTags;
+                c.WorkingLanguage = ValidateEnum(r.WorkingLanguage, ValidWorkingLanguages);
+                c.CompanySize = ValidateEnum(r.CompanySize, ValidCompanySizes);
+                c.RemotePolicy = ValidateEnum(r.RemotePolicy, ValidRemotePolicies) ?? "unknown";
                 c.ParentCompanyName = r.ParentCompanyName;
-                c.WebsiteUrl        = r.WebsiteUrl;
-                c.TargetMarket      = ValidateEnum(r.TargetMarket,    ValidTargetMarkets);
+                c.WebsiteUrl = r.WebsiteUrl;
+                c.TargetMarket = ValidateEnum(r.TargetMarket, ValidTargetMarkets);
                 count++;
 
                 if (!string.IsNullOrEmpty(r.WebsiteUrl))
@@ -219,8 +219,8 @@ public sealed class CompanyEnricher
             var inputs = toRefine
                 .Select(t => new RefinementInput
                 {
-                    Name          = batch[t.Idx].Name,
-                    Kvk           = batch[t.Idx].KvKNumber,
+                    Name = batch[t.Idx].Name,
+                    Kvk = batch[t.Idx].KvKNumber,
                     InvalidFields = t.InvalidFields,
                 })
                 .ToArray();
@@ -240,9 +240,9 @@ public sealed class CompanyEnricher
                 corrections[toRefine[i].Idx] = new EnrichmentRefinementResult
                 {
                     WorkingLanguage = ValidateEnum(fix.WorkingLanguage, ValidWorkingLanguages),
-                    CompanySize     = ValidateEnum(fix.CompanySize,     ValidCompanySizes),
-                    RemotePolicy    = ValidateEnum(fix.RemotePolicy,    ValidRemotePolicies),
-                    TargetMarket    = ValidateEnum(fix.TargetMarket,    ValidTargetMarkets),
+                    CompanySize = ValidateEnum(fix.CompanySize, ValidCompanySizes),
+                    RemotePolicy = ValidateEnum(fix.RemotePolicy, ValidRemotePolicies),
+                    TargetMarket = ValidateEnum(fix.TargetMarket, ValidTargetMarkets),
                 };
             }
         }
@@ -266,13 +266,13 @@ public sealed class CompanyEnricher
             GenerationConfig = new GeminiGenerationConfig
             {
                 ResponseMimeType = "application/json",
-                MaxOutputTokens  = MaxOutputTokens
+                MaxOutputTokens = MaxOutputTokens
             }
         };
 
         var requestJson = JsonSerializer.Serialize(requestObj, CompanyEnricherJsonContext.Default.GeminiRequest);
 
-        using var client      = _http.CreateClient("gemini");
+        using var client = _http.CreateClient("gemini");
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint)
         {
             Content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json")
@@ -308,7 +308,7 @@ public sealed class CompanyEnricher
             cts.CancelAfter(TimeSpan.FromSeconds(5));
 
             using var client = _http.CreateClient();
-            using var req    = new HttpRequestMessage(HttpMethod.Head, url);
+            using var req = new HttpRequestMessage(HttpMethod.Head, url);
             req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (compatible; IWWZ/1.0)");
             using var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cts.Token);
 
@@ -360,15 +360,15 @@ public sealed class CompanyEnricher
 
 internal sealed class GeminiRequest
 {
-    [JsonPropertyName("systemInstruction")] public GeminiContent?          SystemInstruction { get; set; }
-    [JsonPropertyName("contents")]          public GeminiContent[]         Contents          { get; set; } = [];
-    [JsonPropertyName("generationConfig")]  public GeminiGenerationConfig? GenerationConfig  { get; set; }
+    [JsonPropertyName("systemInstruction")] public GeminiContent? SystemInstruction { get; set; }
+    [JsonPropertyName("contents")] public GeminiContent[] Contents { get; set; } = [];
+    [JsonPropertyName("generationConfig")] public GeminiGenerationConfig? GenerationConfig { get; set; }
 }
 
 internal sealed class GeminiContent
 {
     [JsonPropertyName("parts")] public GeminiPart[] Parts { get; set; } = [];
-    [JsonPropertyName("role")]  public string?      Role  { get; set; }
+    [JsonPropertyName("role")] public string? Role { get; set; }
 }
 
 internal sealed class GeminiPart
@@ -379,7 +379,7 @@ internal sealed class GeminiPart
 internal sealed class GeminiGenerationConfig
 {
     [JsonPropertyName("responseMimeType")] public string ResponseMimeType { get; set; } = "application/json";
-    [JsonPropertyName("maxOutputTokens")]  public int    MaxOutputTokens  { get; set; }
+    [JsonPropertyName("maxOutputTokens")] public int MaxOutputTokens { get; set; }
 }
 
 internal sealed class GeminiResponse
@@ -389,45 +389,45 @@ internal sealed class GeminiResponse
 
 internal sealed class GeminiCandidate
 {
-    [JsonPropertyName("content")]      public GeminiContent? Content      { get; set; }
-    [JsonPropertyName("finishReason")] public string?        FinishReason { get; set; }
+    [JsonPropertyName("content")] public GeminiContent? Content { get; set; }
+    [JsonPropertyName("finishReason")] public string? FinishReason { get; set; }
 }
 
 internal sealed class AnonymousCompanyInput
 {
     [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
-    [JsonPropertyName("kvk")]  public string Kvk  { get; set; } = string.Empty;
+    [JsonPropertyName("kvk")] public string Kvk { get; set; } = string.Empty;
 }
 
 internal sealed class CompanyEnrichmentResult
 {
-    [JsonPropertyName("confidence")]        public string?   Confidence        { get; set; }
-    [JsonPropertyName("summary")]           public string?   Summary           { get; set; }
-    [JsonPropertyName("coreIndustry")]      public string?   CoreIndustry      { get; set; }
-    [JsonPropertyName("techStackTags")]     public string[]? TechStackTags     { get; set; }
-    [JsonPropertyName("functionalTags")]    public string[]? FunctionalTags    { get; set; }
-    [JsonPropertyName("workingLanguage")]   public string?   WorkingLanguage   { get; set; }
-    [JsonPropertyName("companySize")]       public string?   CompanySize       { get; set; }
-    [JsonPropertyName("remotePolicy")]      public string?   RemotePolicy      { get; set; }
-    [JsonPropertyName("parentCompanyName")] public string?   ParentCompanyName { get; set; }
-    [JsonPropertyName("websiteUrl")]        public string?   WebsiteUrl        { get; set; }
-    [JsonPropertyName("targetMarket")]      public string?   TargetMarket      { get; set; }
+    [JsonPropertyName("confidence")] public string? Confidence { get; set; }
+    [JsonPropertyName("summary")] public string? Summary { get; set; }
+    [JsonPropertyName("coreIndustry")] public string? CoreIndustry { get; set; }
+    [JsonPropertyName("techStackTags")] public string[]? TechStackTags { get; set; }
+    [JsonPropertyName("functionalTags")] public string[]? FunctionalTags { get; set; }
+    [JsonPropertyName("workingLanguage")] public string? WorkingLanguage { get; set; }
+    [JsonPropertyName("companySize")] public string? CompanySize { get; set; }
+    [JsonPropertyName("remotePolicy")] public string? RemotePolicy { get; set; }
+    [JsonPropertyName("parentCompanyName")] public string? ParentCompanyName { get; set; }
+    [JsonPropertyName("websiteUrl")] public string? WebsiteUrl { get; set; }
+    [JsonPropertyName("targetMarket")] public string? TargetMarket { get; set; }
 }
 
 internal sealed class RefinementInput
 {
-    [JsonPropertyName("name")]          public string   Name          { get; set; } = string.Empty;
-    [JsonPropertyName("kvk")]           public string   Kvk           { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("kvk")] public string Kvk { get; set; } = string.Empty;
     [JsonPropertyName("invalidFields")] public string[] InvalidFields { get; set; } = [];
 }
 
 internal sealed class EnrichmentRefinementResult
 {
-    [JsonPropertyName("name")]            public string? Name            { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
     [JsonPropertyName("workingLanguage")] public string? WorkingLanguage { get; set; }
-    [JsonPropertyName("companySize")]     public string? CompanySize     { get; set; }
-    [JsonPropertyName("remotePolicy")]    public string? RemotePolicy    { get; set; }
-    [JsonPropertyName("targetMarket")]    public string? TargetMarket    { get; set; }
+    [JsonPropertyName("companySize")] public string? CompanySize { get; set; }
+    [JsonPropertyName("remotePolicy")] public string? RemotePolicy { get; set; }
+    [JsonPropertyName("targetMarket")] public string? TargetMarket { get; set; }
 }
 
 [JsonSerializable(typeof(GeminiRequest))]

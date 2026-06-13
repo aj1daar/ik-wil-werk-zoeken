@@ -10,11 +10,11 @@ namespace backend.Functions;
 
 public sealed class AdminFunction
 {
-    private readonly TokenService       _tokens;
-    private readonly UserStore          _users;
-    private readonly SponsorStore       _sponsorStore;
-    private readonly IndSponsorScraper  _scraper;
-    private readonly CompanyEnricher    _enricher;
+    private readonly TokenService _tokens;
+    private readonly UserStore _users;
+    private readonly SponsorStore _sponsorStore;
+    private readonly IndSponsorScraper _scraper;
+    private readonly CompanyEnricher _enricher;
     private readonly ILogger<AdminFunction> _logger;
 
     public AdminFunction(
@@ -25,12 +25,12 @@ public sealed class AdminFunction
         CompanyEnricher enricher,
         ILogger<AdminFunction> logger)
     {
-        _tokens       = tokens;
-        _users        = users;
+        _tokens = tokens;
+        _users = users;
         _sponsorStore = sponsorStore;
-        _scraper      = scraper;
-        _enricher     = enricher;
-        _logger       = logger;
+        _scraper = scraper;
+        _enricher = enricher;
+        _logger = logger;
     }
 
     // GET /api/admin/users
@@ -45,13 +45,13 @@ public sealed class AdminFunction
         var users = await _users.GetAllAsync();
         var summaries = users.Select(u => new AdminUserSummary
         {
-            UserId        = u.UserId,
-            Email         = u.Email,
-            FirstName     = u.FirstName,
-            LastName      = u.LastName,
-            Role          = u.Role,
+            UserId = u.UserId,
+            Email = u.Email,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            Role = u.Role,
             EmailVerified = u.EmailVerified,
-            CreatedAt     = u.CreatedAt,
+            CreatedAt = u.CreatedAt,
         }).ToArray();
 
         return await JsonOk(req, summaries, AppJsonSerializerContext.Default.AdminUserSummaryArray);
@@ -82,13 +82,13 @@ public sealed class AdminFunction
 
         var summary = new AdminUserSummary
         {
-            UserId        = target.UserId,
-            Email         = target.Email,
-            FirstName     = target.FirstName,
-            LastName      = target.LastName,
-            Role          = target.Role,
+            UserId = target.UserId,
+            Email = target.Email,
+            FirstName = target.FirstName,
+            LastName = target.LastName,
+            Role = target.Role,
             EmailVerified = target.EmailVerified,
-            CreatedAt     = target.CreatedAt,
+            CreatedAt = target.CreatedAt,
         };
 
         return await JsonOk(req, summary, AppJsonSerializerContext.Default.AdminUserSummary);
@@ -117,26 +117,26 @@ public sealed class AdminFunction
         var existing = (await _sponsorStore.GetAllAsync()).ToDictionary(c => c.Id);
         var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
 
-        var added   = 0;
+        var added = 0;
         var updated = 0;
 
         foreach (var company in freshCompanies)
         {
             if (existing.TryGetValue(company.Id, out var prev))
             {
-                company.Summary           = prev.Summary;
-                company.CoreIndustry      = prev.CoreIndustry;
-                company.TechStackTags     = prev.TechStackTags;
-                company.FunctionalTags    = prev.FunctionalTags;
-                company.WorkingLanguage   = prev.WorkingLanguage;
-                company.CompanySize       = prev.CompanySize;
-                company.RemotePolicy      = prev.RemotePolicy;
+                company.Summary = prev.Summary;
+                company.CoreIndustry = prev.CoreIndustry;
+                company.TechStackTags = prev.TechStackTags;
+                company.FunctionalTags = prev.FunctionalTags;
+                company.WorkingLanguage = prev.WorkingLanguage;
+                company.CompanySize = prev.CompanySize;
+                company.RemotePolicy = prev.RemotePolicy;
                 company.ParentCompanyName = prev.ParentCompanyName;
-                company.WebsiteUrl        = prev.WebsiteUrl;
-                company.TargetMarket      = prev.TargetMarket;
-                company.EnrichedAt        = prev.EnrichedAt;
+                company.WebsiteUrl = prev.WebsiteUrl;
+                company.TargetMarket = prev.TargetMarket;
+                company.EnrichedAt = prev.EnrichedAt;
                 company.EnrichmentVersion = prev.EnrichmentVersion;
-                company.RemovedAt         = null;
+                company.RemovedAt = null;
                 updated++;
             }
             else
@@ -186,11 +186,11 @@ public sealed class AdminFunction
 
         await _sponsorStore.LogSyncAsync(new SyncLog
         {
-            TriggerSource  = "admin",
-            Added          = added,
-            Updated        = updated,
-            Removed        = removed,
-            Enriched       = enriched,
+            TriggerSource = "admin",
+            Added = added,
+            Updated = updated,
+            Removed = removed,
+            Enriched = enriched,
             TotalAfterSync = freshCompanies.Count,
         });
 

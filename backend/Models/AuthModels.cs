@@ -4,7 +4,7 @@ namespace backend.Models;
 
 public sealed class LoginRequest
 {
-    [JsonPropertyName("email")]    public string Email    { get; set; } = string.Empty;
+    [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
     [JsonPropertyName("password")] public string Password { get; set; } = string.Empty;
 }
 
@@ -15,25 +15,25 @@ public sealed class LoginResponse
 
 public sealed class RegisterRequest
 {
-    [JsonPropertyName("firstName")]     public string FirstName    { get; set; } = string.Empty;
-    [JsonPropertyName("lastName")]      public string LastName     { get; set; } = string.Empty;
-    [JsonPropertyName("email")]         public string Email        { get; set; } = string.Empty;
-    [JsonPropertyName("password")]      public string Password     { get; set; } = string.Empty;
-    [JsonPropertyName("preferences")]   public PreferencesPayload? Preferences  { get; set; }
+    [JsonPropertyName("firstName")] public string FirstName { get; set; } = string.Empty;
+    [JsonPropertyName("lastName")] public string LastName { get; set; } = string.Empty;
+    [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
+    [JsonPropertyName("password")] public string Password { get; set; } = string.Empty;
+    [JsonPropertyName("preferences")] public PreferencesPayload? Preferences { get; set; }
     [JsonPropertyName("gdprConsentAt")] public string GdprConsentAt { get; set; } = string.Empty;
 }
 
 public sealed class UpdateProfileRequest
 {
-    [JsonPropertyName("firstName")]   public string FirstName  { get; set; } = string.Empty;
-    [JsonPropertyName("lastName")]    public string LastName   { get; set; } = string.Empty;
+    [JsonPropertyName("firstName")] public string FirstName { get; set; } = string.Empty;
+    [JsonPropertyName("lastName")] public string LastName { get; set; } = string.Empty;
     [JsonPropertyName("preferences")] public PreferencesPayload? Preferences { get; set; }
 }
 
 public sealed class ChangePasswordRequest
 {
     [JsonPropertyName("currentPassword")] public string CurrentPassword { get; set; } = string.Empty;
-    [JsonPropertyName("newPassword")]     public string NewPassword     { get; set; } = string.Empty;
+    [JsonPropertyName("newPassword")] public string NewPassword { get; set; } = string.Empty;
 }
 
 public sealed class ForgotPasswordRequest
@@ -43,7 +43,7 @@ public sealed class ForgotPasswordRequest
 
 public sealed class ResetPasswordRequest
 {
-    [JsonPropertyName("token")]       public string Token       { get; set; } = string.Empty;
+    [JsonPropertyName("token")] public string Token { get; set; } = string.Empty;
     [JsonPropertyName("newPassword")] public string NewPassword { get; set; } = string.Empty;
 }
 
@@ -55,7 +55,7 @@ public sealed class ResendVerificationRequest
 public sealed class ChangeEmailRequest
 {
     [JsonPropertyName("currentPassword")] public string CurrentPassword { get; set; } = string.Empty;
-    [JsonPropertyName("newEmail")]        public string NewEmail        { get; set; } = string.Empty;
+    [JsonPropertyName("newEmail")] public string NewEmail { get; set; } = string.Empty;
 }
 
 public sealed class MessageResponse
@@ -65,17 +65,17 @@ public sealed class MessageResponse
 
 internal sealed class ResendEmailRequest
 {
-    [JsonPropertyName("from")]    public string   From    { get; set; } = string.Empty;
-    [JsonPropertyName("to")]      public string[] To      { get; set; } = [];
-    [JsonPropertyName("subject")] public string   Subject { get; set; } = string.Empty;
-    [JsonPropertyName("html")]    public string   Html    { get; set; } = string.Empty;
+    [JsonPropertyName("from")] public string From { get; set; } = string.Empty;
+    [JsonPropertyName("to")] public string[] To { get; set; } = [];
+    [JsonPropertyName("subject")] public string Subject { get; set; } = string.Empty;
+    [JsonPropertyName("html")] public string Html { get; set; } = string.Empty;
 }
 
 public sealed class PreferencesPayload
 {
     [JsonPropertyName("targetRole")] public string? TargetRole { get; set; }
-    [JsonPropertyName("location")]   public string? Location   { get; set; }
-    [JsonPropertyName("workType")]   public string  WorkType   { get; set; } = "any";
+    [JsonPropertyName("location")] public string? Location { get; set; }
+    [JsonPropertyName("workType")] public string WorkType { get; set; } = "any";
 }
 
 public sealed class ErrorResponse
@@ -85,7 +85,7 @@ public sealed class ErrorResponse
 
 public sealed class StatsResponse
 {
-    [JsonPropertyName("total")]    public int Total { get; set; }
+    [JsonPropertyName("total")] public int Total { get; set; }
     [JsonPropertyName("byStatus")] public Dictionary<string, int> ByStatus { get; set; } = new();
 }
 
@@ -96,28 +96,28 @@ public sealed class PromoteRequest
 
 public sealed class BulkStatusRequest
 {
-    [JsonPropertyName("ids")]    public string[] Ids    { get; set; } = [];
-    [JsonPropertyName("status")] public string   Status { get; set; } = string.Empty;
+    [JsonPropertyName("ids")] public string[] Ids { get; set; } = [];
+    [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
 }
 
 public sealed class AdminUserSummary
 {
-    [JsonPropertyName("userId")]        public string UserId        { get; set; } = string.Empty;
-    [JsonPropertyName("email")]         public string Email         { get; set; } = string.Empty;
-    [JsonPropertyName("firstName")]     public string FirstName     { get; set; } = string.Empty;
-    [JsonPropertyName("lastName")]      public string LastName      { get; set; } = string.Empty;
-    [JsonPropertyName("role")]          public string Role          { get; set; } = string.Empty;
-    [JsonPropertyName("emailVerified")] public bool   EmailVerified { get; set; }
-    [JsonPropertyName("createdAt")]     public DateTimeOffset CreatedAt { get; set; }
+    [JsonPropertyName("userId")] public string UserId { get; set; } = string.Empty;
+    [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
+    [JsonPropertyName("firstName")] public string FirstName { get; set; } = string.Empty;
+    [JsonPropertyName("lastName")] public string LastName { get; set; } = string.Empty;
+    [JsonPropertyName("role")] public string Role { get; set; } = string.Empty;
+    [JsonPropertyName("emailVerified")] public bool EmailVerified { get; set; }
+    [JsonPropertyName("createdAt")] public DateTimeOffset CreatedAt { get; set; }
 }
 
 internal sealed class JwtPayload
 {
-    [JsonPropertyName("sub")]         public string Sub       { get; set; } = string.Empty;
-    [JsonPropertyName("email")]       public string Email     { get; set; } = string.Empty;
-    [JsonPropertyName("firstName")]   public string FirstName { get; set; } = string.Empty;
-    [JsonPropertyName("lastName")]    public string LastName  { get; set; } = string.Empty;
-    [JsonPropertyName("role")]        public string Role      { get; set; } = "user";
+    [JsonPropertyName("sub")] public string Sub { get; set; } = string.Empty;
+    [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
+    [JsonPropertyName("firstName")] public string FirstName { get; set; } = string.Empty;
+    [JsonPropertyName("lastName")] public string LastName { get; set; } = string.Empty;
+    [JsonPropertyName("role")] public string Role { get; set; } = "user";
     [JsonPropertyName("preferences")] public PreferencesPayload? Preferences { get; set; }
-    [JsonPropertyName("exp")]         public long   Exp       { get; set; }
+    [JsonPropertyName("exp")] public long Exp { get; set; }
 }

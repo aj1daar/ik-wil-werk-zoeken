@@ -10,16 +10,16 @@ namespace backend.Functions;
 
 public sealed class AuthFunction
 {
-    private readonly TokenService      _tokens;
-    private readonly UserStore         _users;
-    private readonly EmailService      _email;
+    private readonly TokenService _tokens;
+    private readonly UserStore _users;
+    private readonly EmailService _email;
     private readonly RateLimiterService _limiter;
 
     public AuthFunction(TokenService tokens, UserStore users, EmailService email, RateLimiterService limiter)
     {
-        _tokens  = tokens;
-        _users   = users;
-        _email   = email;
+        _tokens = tokens;
+        _users = users;
+        _email = email;
         _limiter = limiter;
     }
 
@@ -104,22 +104,22 @@ public sealed class AuthFunction
 
         var user = new User
         {
-            Email             = email,
-            FirstName         = body.FirstName.Trim(),
-            LastName          = body.LastName.Trim(),
-            PasswordHash      = PasswordHasher.Hash(body.Password),
-            TargetRole        = body.Preferences?.TargetRole?.Trim(),
+            Email = email,
+            FirstName = body.FirstName.Trim(),
+            LastName = body.LastName.Trim(),
+            PasswordHash = PasswordHasher.Hash(body.Password),
+            TargetRole = body.Preferences?.TargetRole?.Trim(),
             PreferredLocation = body.Preferences?.Location?.Trim(),
-            WorkType          = NormalizeWorkType(body.Preferences?.WorkType),
-            GdprConsentAt     = body.GdprConsentAt.Trim(),
-            EmailVerified     = false,
+            WorkType = NormalizeWorkType(body.Preferences?.WorkType),
+            GdprConsentAt = body.GdprConsentAt.Trim(),
+            EmailVerified = false,
         };
 
         await _users.CreateAsync(user);
 
         var verifyToken = _tokens.CreateVerificationToken(user.UserId);
-        var origin      = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
-        var verifyLink  = $"{origin}/verify-email?token={Uri.EscapeDataString(verifyToken)}";
+        var origin = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+        var verifyLink = $"{origin}/verify-email?token={Uri.EscapeDataString(verifyToken)}";
         await _email.SendVerificationAsync(email, verifyLink);
 
         return await JsonOk(req,
@@ -165,11 +165,11 @@ public sealed class AuthFunction
         if (user is null)
             return await ErrorResponse(req, HttpStatusCode.NotFound, "User not found");
 
-        user.FirstName         = body.FirstName.Trim();
-        user.LastName          = body.LastName.Trim();
-        user.TargetRole        = body.Preferences?.TargetRole?.Trim();
+        user.FirstName = body.FirstName.Trim();
+        user.LastName = body.LastName.Trim();
+        user.TargetRole = body.Preferences?.TargetRole?.Trim();
         user.PreferredLocation = body.Preferences?.Location?.Trim();
-        user.WorkType          = NormalizeWorkType(body.Preferences?.WorkType);
+        user.WorkType = NormalizeWorkType(body.Preferences?.WorkType);
 
         await _users.UpdateAsync(user);
 
@@ -265,11 +265,11 @@ public sealed class AuthFunction
         if (!string.IsNullOrWhiteSpace(body?.Email))
         {
             var email = body.Email.Trim().ToLowerInvariant();
-            var user  = await _users.GetByEmailAsync(email);
+            var user = await _users.GetByEmailAsync(email);
             if (user is not null)
             {
-                var token     = _tokens.CreateResetToken(user.UserId);
-                var origin    = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+                var token = _tokens.CreateResetToken(user.UserId);
+                var origin = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
                 var resetLink = $"{origin}/reset-password?token={Uri.EscapeDataString(token)}";
                 await _email.SendPasswordResetAsync(email, resetLink);
             }
@@ -323,7 +323,7 @@ public sealed class AuthFunction
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
 
-        var qs    = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        var qs = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
         var token = qs["token"];
 
         var userId = _tokens.ValidateVerificationToken(token);
@@ -392,7 +392,7 @@ public sealed class AuthFunction
             return await ErrorResponse(req, HttpStatusCode.Conflict, "An account with this email already exists");
 
         var changeToken = _tokens.CreateEmailChangeToken(user.UserId, newEmail);
-        var origin      = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+        var origin = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
         var confirmLink = $"{origin}/confirm-email-change?token={Uri.EscapeDataString(changeToken)}";
         await _email.SendEmailChangeAsync(newEmail, confirmLink);
 
@@ -409,7 +409,7 @@ public sealed class AuthFunction
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
 
-        var qs    = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        var qs = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
         var token = qs["token"];
 
         var result = _tokens.ValidateEmailChangeToken(token);
@@ -460,12 +460,12 @@ public sealed class AuthFunction
         if (!string.IsNullOrWhiteSpace(body?.Email))
         {
             var email = body.Email.Trim().ToLowerInvariant();
-            var user  = await _users.GetByEmailAsync(email);
+            var user = await _users.GetByEmailAsync(email);
             if (user is not null && !user.EmailVerified)
             {
                 var verifyToken = _tokens.CreateVerificationToken(user.UserId);
-                var origin      = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
-                var verifyLink  = $"{origin}/verify-email?token={Uri.EscapeDataString(verifyToken)}";
+                var origin = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") is { } o && o != "*" ? o : "http://localhost:5173";
+                var verifyLink = $"{origin}/verify-email?token={Uri.EscapeDataString(verifyToken)}";
                 await _email.SendVerificationAsync(email, verifyLink);
             }
         }
@@ -516,7 +516,7 @@ public sealed class AuthFunction
     private static bool ValidName(string value, out string error)
     {
         if (value.Trim().Length > 100)
-            { error = "Name fields must not exceed 100 characters"; return false; }
+        { error = "Name fields must not exceed 100 characters"; return false; }
         error = string.Empty;
         return true;
     }
@@ -525,9 +525,9 @@ public sealed class AuthFunction
     {
         var trimmed = value.Trim();
         if (trimmed.Length > 254)
-            { error = "Email must not exceed 254 characters"; return false; }
+        { error = "Email must not exceed 254 characters"; return false; }
         if (!EmailRegex.IsMatch(trimmed))
-            { error = "Invalid email address"; return false; }
+        { error = "Invalid email address"; return false; }
         error = string.Empty;
         return true;
     }
@@ -535,9 +535,9 @@ public sealed class AuthFunction
     private static bool ValidPassword(string value, out string error)
     {
         if (value.Length < 8)
-            { error = "Password must be at least 8 characters"; return false; }
+        { error = "Password must be at least 8 characters"; return false; }
         if (value.Length > 1000)
-            { error = "Password must not exceed 1000 characters"; return false; }
+        { error = "Password must not exceed 1000 characters"; return false; }
         error = string.Empty;
         return true;
     }
@@ -545,7 +545,7 @@ public sealed class AuthFunction
     private static bool ValidGdprDate(string value, out string error)
     {
         if (!DateTimeOffset.TryParse(value.Trim(), out _))
-            { error = "gdprConsentAt must be a valid ISO 8601 date-time"; return false; }
+        { error = "gdprConsentAt must be a valid ISO 8601 date-time"; return false; }
         error = string.Empty;
         return true;
     }
@@ -554,7 +554,7 @@ public sealed class AuthFunction
     {
         if (value is null) { error = string.Empty; return true; }
         if (!ValidWorkTypes.Contains(value.Trim().ToLowerInvariant()))
-            { error = $"workType must be one of: {string.Join(", ", ValidWorkTypes)}"; return false; }
+        { error = $"workType must be one of: {string.Join(", ", ValidWorkTypes)}"; return false; }
         error = string.Empty;
         return true;
     }
@@ -562,7 +562,7 @@ public sealed class AuthFunction
     private static bool ValidOptionalText(string? value, int maxLen, string field, out string error)
     {
         if (value is not null && value.Trim().Length > maxLen)
-            { error = $"{field} must not exceed {maxLen} characters"; return false; }
+        { error = $"{field} must not exceed {maxLen} characters"; return false; }
         error = string.Empty;
         return true;
     }

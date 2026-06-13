@@ -15,13 +15,13 @@ namespace backend.Data.Migrations
                 name: "ActivityLogs",
                 columns: table => new
                 {
-                    Id            = table.Column<string>(type: "text", nullable: false),
+                    Id = table.Column<string>(type: "text", nullable: false),
                     ApplicationId = table.Column<string>(type: "text", nullable: false),
-                    UserId        = table.Column<string>(type: "text", nullable: false),
-                    Field         = table.Column<string>(type: "text", nullable: false),
-                    OldValue      = table.Column<string>(type: "text", nullable: true),
-                    NewValue      = table.Column<string>(type: "text", nullable: true),
-                    ChangedAt     = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    Field = table.Column<string>(type: "text", nullable: false),
+                    OldValue = table.Column<string>(type: "text", nullable: true),
+                    NewValue = table.Column<string>(type: "text", nullable: true),
+                    ChangedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {

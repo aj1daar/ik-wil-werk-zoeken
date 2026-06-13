@@ -18,10 +18,10 @@ public sealed class EmailService
         var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest
         {
-            From    = from,
-            To      = [toEmail],
+            From = from,
+            To = [toEmail],
             Subject = "Verify your ik wil werk zoeken email address",
-            Html    = $"""
+            Html = $"""
                 <p>Welcome to <strong>ik wil werk zoeken</strong>!</p>
                 <p>Click the link below to verify your email address. The link expires in <strong>72 hours</strong>.</p>
                 <p><a href="{verifyLink}">{verifyLink}</a></p>
@@ -47,10 +47,10 @@ public sealed class EmailService
         var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest
         {
-            From    = from,
-            To      = [toEmail],
+            From = from,
+            To = [toEmail],
             Subject = "Confirm your new email address — ik wil werk zoeken",
-            Html    = $"""
+            Html = $"""
                 <p>You requested to change the email address on your <strong>ik wil werk zoeken</strong> account.</p>
                 <p>Click the link below to confirm this change. The link expires in <strong>24 hours</strong>.</p>
                 <p><a href="{confirmLink}">{confirmLink}</a></p>
@@ -77,10 +77,10 @@ public sealed class EmailService
         var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest
         {
-            From    = from,
-            To      = [toEmail],
+            From = from,
+            To = [toEmail],
             Subject = "Reset your ik wil werk zoeken password",
-            Html    = $"""
+            Html = $"""
                 <p>You requested a password reset for your <strong>ik wil werk zoeken</strong> account.</p>
                 <p>Click the link below to set a new password. This link expires in <strong>1 hour</strong>.</p>
                 <p><a href="{resetLink}">{resetLink}</a></p>

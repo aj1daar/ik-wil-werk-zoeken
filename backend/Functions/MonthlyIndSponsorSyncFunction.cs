@@ -40,24 +40,24 @@ public sealed class MonthlyIndSponsorSyncFunction
         var existing = (await _store.GetAllAsync()).ToDictionary(c => c.Id);
         var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
 
-        var added   = 0;
+        var added = 0;
         var updated = 0;
 
         foreach (var company in freshCompanies)
         {
             if (existing.TryGetValue(company.Id, out var prev))
             {
-                company.Summary           = prev.Summary;
-                company.CoreIndustry      = prev.CoreIndustry;
-                company.TechStackTags     = prev.TechStackTags;
-                company.FunctionalTags    = prev.FunctionalTags;
-                company.WorkingLanguage   = prev.WorkingLanguage;
-                company.CompanySize       = prev.CompanySize;
-                company.RemotePolicy      = prev.RemotePolicy;
+                company.Summary = prev.Summary;
+                company.CoreIndustry = prev.CoreIndustry;
+                company.TechStackTags = prev.TechStackTags;
+                company.FunctionalTags = prev.FunctionalTags;
+                company.WorkingLanguage = prev.WorkingLanguage;
+                company.CompanySize = prev.CompanySize;
+                company.RemotePolicy = prev.RemotePolicy;
                 company.ParentCompanyName = prev.ParentCompanyName;
-                company.WebsiteUrl        = prev.WebsiteUrl;
-                company.TargetMarket      = prev.TargetMarket;
-                company.EnrichedAt        = prev.EnrichedAt;
+                company.WebsiteUrl = prev.WebsiteUrl;
+                company.TargetMarket = prev.TargetMarket;
+                company.EnrichedAt = prev.EnrichedAt;
                 company.EnrichmentVersion = prev.EnrichmentVersion;
                 // Clear soft-delete if it was previously removed and has now returned
                 company.RemovedAt = null;
@@ -113,11 +113,11 @@ public sealed class MonthlyIndSponsorSyncFunction
 
         await _store.LogSyncAsync(new SyncLog
         {
-            TriggerSource  = "monthly",
-            Added          = added,
-            Updated        = updated,
-            Removed        = removed,
-            Enriched       = enriched,
+            TriggerSource = "monthly",
+            Added = added,
+            Updated = updated,
+            Removed = removed,
+            Enriched = enriched,
             TotalAfterSync = freshCompanies.Count,
         });
 

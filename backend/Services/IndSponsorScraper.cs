@@ -63,11 +63,11 @@ public sealed partial class IndSponsorScraper
         foreach (Match m in matches)
         {
             var rawName = WebUtility.HtmlDecode(m.Groups[1].Value.Trim());
-            var kvk     = m.Groups[2].Value.Trim();
+            var kvk = m.Groups[2].Value.Trim();
             var rawCity = WebUtility.HtmlDecode(m.Groups[3].Value.Trim());
 
             var cleanName = StripLegalSuffix(rawName);
-            var city      = string.IsNullOrWhiteSpace(rawCity) ? null : rawCity;
+            var city = string.IsNullOrWhiteSpace(rawCity) ? null : rawCity;
 
             results.Add(new SponsorCompany
             {

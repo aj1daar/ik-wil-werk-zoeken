@@ -12,16 +12,16 @@ namespace backend.Functions;
 public sealed class DashboardCrudFunction
 {
     private readonly SponsorStore _sponsors;
-    private readonly StageStore   _stages;
+    private readonly StageStore _stages;
     private readonly TokenService _tokens;
     private readonly AppDbContext _db;
 
     public DashboardCrudFunction(SponsorStore sponsors, StageStore stages, TokenService tokens, AppDbContext db)
     {
         _sponsors = sponsors;
-        _stages   = stages;
-        _tokens   = tokens;
-        _db       = db;
+        _stages = stages;
+        _tokens = tokens;
+        _db = db;
     }
 
     [Function("DashboardCrud")]
@@ -46,14 +46,14 @@ public sealed class DashboardCrudFunction
 
         var response = (entity.ToLowerInvariant(), req.Method.ToUpperInvariant()) switch
         {
-            ("sponsors",     "GET")    => await GetSponsors(req),
-            ("applications", "GET")    => await GetApplications(req, userId),
-            ("applications", "POST")   => await CreateApplication(req, userId),
-            ("applications", "PUT")    => await UpdateApplication(req, userId, id),
-            ("applications", "PATCH")  => await BulkUpdateStatus(req, userId),
+            ("sponsors", "GET") => await GetSponsors(req),
+            ("applications", "GET") => await GetApplications(req, userId),
+            ("applications", "POST") => await CreateApplication(req, userId),
+            ("applications", "PUT") => await UpdateApplication(req, userId, id),
+            ("applications", "PATCH") => await BulkUpdateStatus(req, userId),
             ("applications", "DELETE") => await DeleteApplication(req, userId, id),
-            ("activity",     "GET")    => await GetActivity(req, userId, id),
-            ("stats",        "GET")    => await GetStats(req, userId),
+            ("activity", "GET") => await GetActivity(req, userId, id),
+            ("stats", "GET") => await GetStats(req, userId),
             _ => await ErrorResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
         };
 
@@ -78,17 +78,17 @@ public sealed class DashboardCrudFunction
     {
         var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
         DateTimeOffset? from = DateTimeOffset.TryParse(query["from"], out var f) ? f : null;
-        DateTimeOffset? to   = DateTimeOffset.TryParse(query["to"],   out var t) ? t : null;
+        DateTimeOffset? to = DateTimeOffset.TryParse(query["to"], out var t) ? t : null;
 
         var all = await _stages.GetByUserIdAsync(userId);
         var filtered = all
             .Where(s => from == null || s.AppliedAt >= from.Value)
-            .Where(s => to   == null || s.AppliedAt <= to.Value)
+            .Where(s => to == null || s.AppliedAt <= to.Value)
             .ToList();
 
         var stats = new StatsResponse
         {
-            Total    = filtered.Count,
+            Total = filtered.Count,
             ByStatus = filtered
                 .GroupBy(s => s.Status)
                 .ToDictionary(g => g.Key, g => g.Count())
@@ -119,9 +119,9 @@ public sealed class DashboardCrudFunction
         if (!ValidateStage(item, out var err))
             return await ErrorResponse(req, HttpStatusCode.BadRequest, err);
 
-        item.UserId     = userId;
-        item.Status     = "Applied";
-        item.UpdatedAt  = DateTimeOffset.UtcNow;
+        item.UserId = userId;
+        item.Status = "Applied";
+        item.UpdatedAt = DateTimeOffset.UtcNow;
         await _stages.UpsertAsync(item);
 
         var response = req.CreateResponse(HttpStatusCode.Created);
@@ -147,22 +147,22 @@ public sealed class DashboardCrudFunction
 
         var updated = new ApplicationStage
         {
-            Id                 = id,
-            UserId             = userId,
-            CompanyName        = item.CompanyName,
-            Position           = item.Position,
-            AppliedAt          = item.AppliedAt,
-            Status             = item.Status,
-            RejectionReason    = item.Status == "Rejected" ? item.RejectionReason : null,
-            RejectionNote      = item.Status == "Rejected" ? item.RejectionNote   : null,
-            Notes              = item.Notes,
-            ContactPersonName  = item.ContactPersonName,
+            Id = id,
+            UserId = userId,
+            CompanyName = item.CompanyName,
+            Position = item.Position,
+            AppliedAt = item.AppliedAt,
+            Status = item.Status,
+            RejectionReason = item.Status == "Rejected" ? item.RejectionReason : null,
+            RejectionNote = item.Status == "Rejected" ? item.RejectionNote : null,
+            Notes = item.Notes,
+            ContactPersonName = item.ContactPersonName,
             ContactPersonEmail = item.ContactPersonEmail,
-            Locations          = item.Locations,
-            FollowUpDate       = item.FollowUpDate,
-            SponsorCompanyId   = item.SponsorCompanyId,
-            JobUrl             = item.JobUrl,
-            UpdatedAt          = DateTimeOffset.UtcNow,
+            Locations = item.Locations,
+            FollowUpDate = item.FollowUpDate,
+            SponsorCompanyId = item.SponsorCompanyId,
+            JobUrl = item.JobUrl,
+            UpdatedAt = DateTimeOffset.UtcNow,
         };
 
         var logs = BuildActivityLogs(existing, updated, userId);
@@ -200,7 +200,7 @@ public sealed class DashboardCrudFunction
         if (stages.Count == 0)
             return await ErrorResponse(req, HttpStatusCode.NotFound, "No matching applications found");
 
-        var now  = DateTimeOffset.UtcNow;
+        var now = DateTimeOffset.UtcNow;
         var logs = new List<ActivityLog>();
         foreach (var stage in stages)
         {
@@ -208,18 +208,18 @@ public sealed class DashboardCrudFunction
             logs.Add(new ActivityLog
             {
                 ApplicationId = stage.Id,
-                UserId        = userId,
-                Field         = "Status",
-                OldValue      = stage.Status,
-                NewValue      = body.Status,
-                ChangedAt     = now,
+                UserId = userId,
+                Field = "Status",
+                OldValue = stage.Status,
+                NewValue = body.Status,
+                ChangedAt = now,
             });
-            stage.Status    = body.Status;
+            stage.Status = body.Status;
             stage.UpdatedAt = now;
             if (body.Status != "Rejected")
             {
                 stage.RejectionReason = null;
-                stage.RejectionNote   = null;
+                stage.RejectionNote = null;
             }
         }
 
@@ -275,7 +275,7 @@ public sealed class DashboardCrudFunction
     internal static List<ActivityLog> BuildActivityLogs(ApplicationStage before, ApplicationStage after, string userId)
     {
         var logs = new List<ActivityLog>();
-        var now  = after.UpdatedAt;
+        var now = after.UpdatedAt;
 
         void Check(string field, string? oldVal, string? newVal)
         {
@@ -285,23 +285,23 @@ public sealed class DashboardCrudFunction
                 logs.Add(new ActivityLog
                 {
                     ApplicationId = after.Id,
-                    UserId        = userId,
-                    Field         = field,
-                    OldValue      = string.IsNullOrEmpty(o) ? null : o,
-                    NewValue      = string.IsNullOrEmpty(n) ? null : n,
-                    ChangedAt     = now,
+                    UserId = userId,
+                    Field = field,
+                    OldValue = string.IsNullOrEmpty(o) ? null : o,
+                    NewValue = string.IsNullOrEmpty(n) ? null : n,
+                    ChangedAt = now,
                 });
         }
 
-        Check("Status",             before.Status,             after.Status);
-        Check("CompanyName",        before.CompanyName,        after.CompanyName);
-        Check("Position",           before.Position,           after.Position);
-        Check("AppliedAt",          before.AppliedAt.ToString("yyyy-MM-dd"), after.AppliedAt.ToString("yyyy-MM-dd"));
-        Check("RejectionReason",    before.RejectionReason,    after.RejectionReason);
-        Check("Notes",              before.Notes,              after.Notes);
-        Check("ContactPersonName",  before.ContactPersonName,  after.ContactPersonName);
+        Check("Status", before.Status, after.Status);
+        Check("CompanyName", before.CompanyName, after.CompanyName);
+        Check("Position", before.Position, after.Position);
+        Check("AppliedAt", before.AppliedAt.ToString("yyyy-MM-dd"), after.AppliedAt.ToString("yyyy-MM-dd"));
+        Check("RejectionReason", before.RejectionReason, after.RejectionReason);
+        Check("Notes", before.Notes, after.Notes);
+        Check("ContactPersonName", before.ContactPersonName, after.ContactPersonName);
         Check("ContactPersonEmail", before.ContactPersonEmail, after.ContactPersonEmail);
-        Check("JobUrl",             before.JobUrl,             after.JobUrl);
+        Check("JobUrl", before.JobUrl, after.JobUrl);
         Check("FollowUpDate",
             before.FollowUpDate?.ToString("yyyy-MM-dd"),
             after.FollowUpDate?.ToString("yyyy-MM-dd"));
@@ -312,11 +312,11 @@ public sealed class DashboardCrudFunction
             logs.Add(new ActivityLog
             {
                 ApplicationId = after.Id,
-                UserId        = userId,
-                Field         = "Locations",
-                OldValue      = string.IsNullOrEmpty(oldLoc) ? null : oldLoc,
-                NewValue      = string.IsNullOrEmpty(newLoc) ? null : newLoc,
-                ChangedAt     = now,
+                UserId = userId,
+                Field = "Locations",
+                OldValue = string.IsNullOrEmpty(oldLoc) ? null : oldLoc,
+                NewValue = string.IsNullOrEmpty(newLoc) ? null : newLoc,
+                ChangedAt = now,
             });
 
         return logs;
@@ -339,42 +339,42 @@ public sealed class DashboardCrudFunction
     internal static bool ValidateStage(ApplicationStage s, out string error)
     {
         if (string.IsNullOrWhiteSpace(s.CompanyName))
-            { error = "companyName is required"; return false; }
+        { error = "companyName is required"; return false; }
         if (s.CompanyName.Length > 200)
-            { error = "companyName must not exceed 200 characters"; return false; }
+        { error = "companyName must not exceed 200 characters"; return false; }
 
         if (string.IsNullOrWhiteSpace(s.Position))
-            { error = "position is required"; return false; }
+        { error = "position is required"; return false; }
         if (s.Position.Length > 200)
-            { error = "position must not exceed 200 characters"; return false; }
+        { error = "position must not exceed 200 characters"; return false; }
 
         if (!ValidStatuses.Contains(s.Status))
-            { error = $"Invalid status '{s.Status}'"; return false; }
+        { error = $"Invalid status '{s.Status}'"; return false; }
 
         if (s.Status == "Rejected" && s.RejectionReason is not null
             && !ValidRejectionReasons.Contains(s.RejectionReason))
-            { error = $"Invalid rejectionReason '{s.RejectionReason}'"; return false; }
+        { error = $"Invalid rejectionReason '{s.RejectionReason}'"; return false; }
 
         if (s.RejectionNote?.Length > 500)
-            { error = "rejectionNote must not exceed 500 characters"; return false; }
+        { error = "rejectionNote must not exceed 500 characters"; return false; }
 
         if (s.Notes?.Length > 5000)
-            { error = "notes must not exceed 5000 characters"; return false; }
+        { error = "notes must not exceed 5000 characters"; return false; }
 
         if (s.ContactPersonName?.Length > 200)
-            { error = "contactPersonName must not exceed 200 characters"; return false; }
+        { error = "contactPersonName must not exceed 200 characters"; return false; }
 
         if (s.ContactPersonEmail?.Length > 254)
-            { error = "contactPersonEmail must not exceed 254 characters"; return false; }
+        { error = "contactPersonEmail must not exceed 254 characters"; return false; }
 
         if (s.JobUrl?.Length > 2000)
-            { error = "jobUrl must not exceed 2000 characters"; return false; }
+        { error = "jobUrl must not exceed 2000 characters"; return false; }
 
         if (s.Locations.Length > 20)
-            { error = "locations must not exceed 20 entries"; return false; }
+        { error = "locations must not exceed 20 entries"; return false; }
 
         if (s.Locations.Any(l => l.Length > 100))
-            { error = "each location must not exceed 100 characters"; return false; }
+        { error = "each location must not exceed 100 characters"; return false; }
 
         error = string.Empty;
         return true;

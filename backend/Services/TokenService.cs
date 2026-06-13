@@ -16,21 +16,21 @@ public sealed class TokenService
 
         var payload = new JwtPayload
         {
-            Sub       = user.UserId,
-            Email     = user.Email,
+            Sub = user.UserId,
+            Email = user.Email,
             FirstName = user.FirstName,
-            LastName  = user.LastName,
-            Role      = user.Role,
+            LastName = user.LastName,
+            Role = user.Role,
             Preferences = new PreferencesPayload
             {
                 TargetRole = user.TargetRole,
-                Location   = user.PreferredLocation,
-                WorkType   = user.WorkType,
+                Location = user.PreferredLocation,
+                WorkType = user.WorkType,
             },
             Exp = DateTimeOffset.UtcNow.AddDays(TokenLifetimeDays).ToUnixTimeSeconds(),
         };
 
-        var header  = Base64UrlEncode(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
+        var header = Base64UrlEncode(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));
         var payloadEncoded = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(
             payload, AppJsonSerializerContext.Default.JwtPayload));
         var signing = $"{header}.{payloadEncoded}";
@@ -50,7 +50,7 @@ public sealed class TokenService
         var parts = token.Split('.');
         if (parts.Length != 3) return false;
 
-        var signing     = $"{parts[0]}.{parts[1]}";
+        var signing = $"{parts[0]}.{parts[1]}";
         var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(signing)));
 
@@ -74,7 +74,7 @@ public sealed class TokenService
         if (token is null) return null;
         try
         {
-            var parts        = token.Split('.');
+            var parts = token.Split('.');
             var payloadBytes = Base64UrlDecode(parts[1]);
             var parsed = JsonSerializer.Deserialize(payloadBytes, AppJsonSerializerContext.Default.JwtPayload);
             return string.IsNullOrEmpty(parsed?.Email) ? null : parsed.Email;
@@ -88,7 +88,7 @@ public sealed class TokenService
         if (token is null) return null;
         try
         {
-            var parts        = token.Split('.');
+            var parts = token.Split('.');
             var payloadBytes = Base64UrlDecode(parts[1]);
             var parsed = JsonSerializer.Deserialize(payloadBytes, AppJsonSerializerContext.Default.JwtPayload);
             return string.IsNullOrEmpty(parsed?.Role) ? null : parsed.Role;
@@ -102,7 +102,7 @@ public sealed class TokenService
         if (token is null) return null;
         try
         {
-            var parts        = token.Split('.');
+            var parts = token.Split('.');
             var payloadBytes = Base64UrlDecode(parts[1]);
             var parsed = JsonSerializer.Deserialize(payloadBytes, AppJsonSerializerContext.Default.JwtPayload);
             return string.IsNullOrEmpty(parsed?.Sub) ? null : parsed.Sub;
@@ -113,9 +113,9 @@ public sealed class TokenService
     public string CreateResetToken(string userId)
     {
         var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-        var exp    = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
-        var data   = $"reset.{userId}.{exp}";
-        var sig    = Base64UrlEncode(HMACSHA256.HashData(
+        var exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
+        var data = $"reset.{userId}.{exp}";
+        var sig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
         return $"{userId}.{exp}.{sig}";
     }
@@ -129,13 +129,13 @@ public sealed class TokenService
 
         var userId = parts[0];
         var expStr = parts[1];
-        var sig    = parts[2];
+        var sig = parts[2];
 
         if (string.IsNullOrEmpty(userId) || !long.TryParse(expStr, out var exp)) return null;
         if (exp <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return null;
 
-        var secret      = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-        var data        = $"reset.{userId}.{exp}";
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var data = $"reset.{userId}.{exp}";
         var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
 
@@ -150,9 +150,9 @@ public sealed class TokenService
     public string CreateVerificationToken(string userId)
     {
         var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-        var exp    = DateTimeOffset.UtcNow.AddHours(72).ToUnixTimeSeconds();
-        var data   = $"verify.{userId}.{exp}";
-        var sig    = Base64UrlEncode(HMACSHA256.HashData(
+        var exp = DateTimeOffset.UtcNow.AddHours(72).ToUnixTimeSeconds();
+        var data = $"verify.{userId}.{exp}";
+        var sig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
         return $"{userId}.{exp}.{sig}";
     }
@@ -165,13 +165,13 @@ public sealed class TokenService
 
         var userId = parts[0];
         var expStr = parts[1];
-        var sig    = parts[2];
+        var sig = parts[2];
 
         if (string.IsNullOrEmpty(userId) || !long.TryParse(expStr, out var exp)) return null;
         if (exp <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return null;
 
-        var secret      = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-        var data        = $"verify.{userId}.{exp}";
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var data = $"verify.{userId}.{exp}";
         var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
 
@@ -185,11 +185,11 @@ public sealed class TokenService
     // Token: {userId}.{base64UrlEmail}.{exp}.{sig}   HMAC: "email-change.{userId}.{newEmail}.{exp}"
     public string CreateEmailChangeToken(string userId, string newEmail)
     {
-        var secret       = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-        var exp          = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds();
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var exp = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds();
         var encodedEmail = Base64UrlEncode(Encoding.UTF8.GetBytes(newEmail));
-        var data         = $"email-change.{userId}.{newEmail}.{exp}";
-        var sig          = Base64UrlEncode(HMACSHA256.HashData(
+        var data = $"email-change.{userId}.{newEmail}.{exp}";
+        var sig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
         return $"{userId}.{encodedEmail}.{exp}.{sig}";
     }
@@ -200,10 +200,10 @@ public sealed class TokenService
         var parts = token.Split('.');
         if (parts.Length != 4) return null;
 
-        var userId       = parts[0];
+        var userId = parts[0];
         var encodedEmail = parts[1];
-        var expStr       = parts[2];
-        var sig          = parts[3];
+        var expStr = parts[2];
+        var sig = parts[3];
 
         if (string.IsNullOrEmpty(userId) || !long.TryParse(expStr, out var exp)) return null;
         if (exp <= DateTimeOffset.UtcNow.ToUnixTimeSeconds()) return null;
@@ -212,8 +212,8 @@ public sealed class TokenService
         try { newEmail = Encoding.UTF8.GetString(Base64UrlDecode(encodedEmail)); }
         catch { return null; }
 
-        var secret      = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-        var data        = $"email-change.{userId}.{newEmail}.{exp}";
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
+        var data = $"email-change.{userId}.{newEmail}.{exp}";
         var expectedSig = Base64UrlEncode(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(data)));
 
