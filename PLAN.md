@@ -8,17 +8,17 @@ The company detail panel in CompaniesView already loads all enrichment data clie
 
 #### HIGH
 
-- [ ] **Show all enrichment chips in company detail panel** — the detail panel currently shows summary + tags, but omits `workingLanguage`, `remotePolicy`, `companySize`, `targetMarket`, and `parentCompanyName` even though all fields are already loaded. Add a metadata row below the "About" section with labelled chips for each non-null enrichment field (e.g. "English · Hybrid · Startup · B2B"). Mirrors the filter dropdowns so users can confirm what the filter matched.
+- [x] **Show all enrichment chips in company detail panel** — the detail panel currently shows summary + tags, but omits `workingLanguage`, `remotePolicy`, `companySize`, `targetMarket`, and `parentCompanyName` even though all fields are already loaded. Add a metadata row below the "About" section with labelled chips for each non-null enrichment field (e.g. "English · Hybrid · Startup · B2B"). Mirrors the filter dropdowns so users can confirm what the filter matched.
 
-- [ ] **Website link in company detail panel** — `websiteUrl` is enriched by Gemini and stored in the database but never surfaced in the UI. Show it as a clickable `<a href="..." target="_blank" rel="noopener">` link with a small external-link icon in the detail panel header (next to the KvK number). Also add a "Visit website" button in the panel footer alongside "Start Application". Guard against missing/invalid URLs with a simple `https://` prefix check.
+- [x] **Website link in company detail panel** — `websiteUrl` is enriched by Gemini and stored in the database but never surfaced in the UI. Show it as a clickable `<a href="..." target="_blank" rel="noopener">` link with a small external-link icon in the detail panel header (next to the KvK number). Also add a "Visit website" button in the panel footer alongside "Start Application". Guard against missing/invalid URLs with a simple `https://` prefix check.
 
 #### MEDIUM
 
-- [ ] **Company sort dropdown in CompaniesView** — companies currently appear in API-return order (insertion order). Add a sort `<select>` to the filter bar with options: Default order, A–Z by name, Z–A by name, by city A–Z. Sorting is applied client-side on top of existing `rows` computed (all data is already loaded). Reset sort on `clearFilters()`.
+- [x] **Company sort dropdown in CompaniesView** — companies currently appear in API-return order (insertion order). Add a sort `<select>` to the filter bar with options: Default order, A–Z by name, Z–A by name, by city A–Z. Sorting is applied client-side on top of existing `rows` computed (all data is already loaded). Reset sort on `clearFilters()`.
 
-- [ ] **"Not interested" company hiding** — allow users to use a button in the detail panel to hide a company from the browse list. Store hidden IDs in `localStorage` under key `iwwz_hidden_companies`. Filter them out of `rows` unless a "Show hidden (N)" toggle in the filter bar is active. A "Unhide" button appears in the detail panel for hidden companies. No backend changes — purely local preference.
+- [x] **"Not interested" company hiding** — allow users to use a button in the detail panel to hide a company from the browse list. Store hidden IDs in `localStorage` under key `iwwz_hidden_companies`. Filter them out of `rows` unless a "Show hidden (N)" toggle in the filter bar is active. A "Unhide" button appears in the detail panel for hidden companies. No backend changes — purely local preference.
 
-- [ ] **"Load all" button in CompaniesView** — alongside the existing "Load more (N remaining)" button, add a "Load all" button that sets `displayCount = store.companies.length` in one click. Useful for users who want to Ctrl+F the page or scroll through the full list. Label shows the remaining count: "Load all (12,740)".
+- [x] **"Load all" button in CompaniesView** — alongside the existing "Load more (N remaining)" button, add a "Load all" button that sets `displayCount = store.companies.length` in one click. Useful for users who want to Ctrl+F the page or scroll through the full list. Label shows the remaining count: "Load all (12,740)".
 
 ---
 
@@ -26,19 +26,19 @@ The company detail panel in CompaniesView already loads all enrichment data clie
 
 #### HIGH
 
-- [ ] **Unsaved changes warning in ApplicationPanel** — the panel has no dirty-state guard: editing fields then pressing X silently discards all changes. Add `isDirty` computed that compares current field values against the props snapshot. Wire the X button through a `requestClose()` guard that calls `window.confirm` when dirty. Match the pattern just added to `NewApplicationModal`. The "Save" and "Delete" buttons bypass the guard (intended actions).
+- [x] **Unsaved changes warning in ApplicationPanel** — the panel has no dirty-state guard: editing fields then pressing X silently discards all changes. Add `isDirty` computed that compares current field values against the props snapshot. Wire the X button through a `requestClose()` guard that calls `window.confirm` when dirty. Match the pattern just added to `NewApplicationModal`. The "Save" and "Delete" buttons bypass the guard (intended actions).
 
-- [ ] **Extend ApplicationsView text search to notes and contacts** — the current search filter (`companyName.includes(q) || position.includes(q)`) misses notes, contact name, and contact email. Extend the condition to also check `a.notes`, `a.contactPersonName`, `a.contactPersonEmail`. Zero backend changes; pure frontend one-liner addition. Allows searching "SQL" to find applications where you noted the role required SQL skills, or searching a recruiter's name.
+- [x] **Extend ApplicationsView text search to notes and contacts** — the current search filter (`companyName.includes(q) || position.includes(q)`) misses notes, contact name, and contact email. Extend the condition to also check `a.notes`, `a.contactPersonName`, `a.contactPersonEmail`. Zero backend changes; pure frontend one-liner addition. Allows searching "SQL" to find applications where you noted the role required SQL skills, or searching a recruiter's name.
 
-- [ ] **Job posting URL field on applications** — add a nullable `JobUrl string?` field to track the original job posting link per application. Backend: add column to `ApplicationStage` + EF Core migration; include field in `DashboardCrudFunction` create/update. Frontend: add `jobUrl?: string` to the `Application` interface in `api.ts`; add an optional URL input in `NewApplicationModal` and in `ApplicationPanel` with an external-link icon that opens the URL in a new tab. Add `'JobUrl': 'Job posting URL'` to `FIELD_LABELS` so activity log renders it correctly.
+- [x] **Job posting URL field on applications** — add a nullable `JobUrl string?` field to track the original job posting link per application. Backend: add column to `ApplicationStage` + EF Core migration; include field in `DashboardCrudFunction` create/update. Frontend: add `jobUrl?: string` to the `Application` interface in `api.ts`; add an optional URL input in `NewApplicationModal` and in `ApplicationPanel` with an external-link icon that opens the URL in a new tab. Add `'JobUrl': 'Job posting URL'` to `FIELD_LABELS` so activity log renders it correctly.
 
 #### MEDIUM
 
-- [ ] **Sort by follow-up date in ApplicationsView** — add a `'followup'` sort option to the sort dropdown ("Follow-up date ↑"). Sort by `followUpDate` ascending; applications without a follow-up date sort last. This makes it trivial to see which applications need attention today. Backend change: none — `followUpDate` is already in the API response.
+- [x] **Sort by follow-up date in ApplicationsView** — add a `'followup'` sort option to the sort dropdown ("Follow-up date ↑"). Sort by `followUpDate` ascending; applications without a follow-up date sort last. This makes it trivial to see which applications need attention today. Backend change: none — `followUpDate` is already in the API response.
 
-- [ ] **Overdue follow-ups section on HomeView** — below the KPI strip, show a collapsible "Follow-up needed" card listing applications where `followUpDate ≤ today`. Use `store.applications` (already loaded in HomeView via `store.load()`). Show at most 5, with a "See all" link to ApplicationsView filtered to overdue items. Each row shows company name, position, status chip, and the overdue follow-up date in red. When there are no overdue items, hide the card entirely. No API call — computed from the already-loaded application list.
+- [x] **Overdue follow-ups section on HomeView** — below the KPI strip, show a collapsible "Follow-up needed" card listing applications where `followUpDate ≤ today`. Use `store.applications` (already loaded in HomeView via `store.load()`). Show at most 5, with a "See all" link to ApplicationsView filtered to overdue items. Each row shows company name, position, status chip, and the overdue follow-up date in red. When there are no overdue items, hide the card entirely. No API call — computed from the already-loaded application list.
 
-- [ ] **ApplicationsView split-panel desktop mode** — add a toggle button (list icon vs split icon) in the ApplicationsView toolbar. In split mode (desktop ≥ 1024 px only), the layout switches from full-width list + modal overlay to a two-column split: list on the left (~55%), detail panel on the right (~45%) using the existing `split-panel.css` layout (already used in CompaniesView). On mobile, always fall back to the modal. The toggle preference is persisted in `localStorage`. `ApplicationPanel` already supports the split context via `height: 100%` + `panel-body { overflow-y: auto }`.
+- [x] **ApplicationsView split-panel desktop mode** — add a toggle button (list icon vs split icon) in the ApplicationsView toolbar. In split mode (desktop ≥ 1024 px only), the layout switches from full-width list + modal overlay to a two-column split: list on the left (~55%), detail panel on the right (~45%) using the existing `split-panel.css` layout (already used in CompaniesView). On mobile, always fall back to the modal. The toggle preference is persisted in `localStorage`. `ApplicationPanel` already supports the split context via `height: 100%` + `panel-body { overflow-y: auto }`.
 
 ---
 
@@ -46,7 +46,7 @@ The company detail panel in CompaniesView already loads all enrichment data clie
 
 #### MEDIUM
 
-- [ ] **Kanban board view for ApplicationsView** — add a second view mode toggle (list / board) in the ApplicationsView toolbar. In board mode, show one column per status with application cards arranged vertically. Status columns: Applied · Interviewing · Offer Received · On Hold · Rejected · Withdrawn · Accepted. Clicking a card opens the existing detail panel/modal. No drag-and-drop required for v1 — status changes via the panel. Columns with zero cards are hidden by default with a "show empty" toggle. Counts per column shown in column header. Pure frontend, no backend changes.
+- [x] **Kanban board view for ApplicationsView** — add a second view mode toggle (list / board) in the ApplicationsView toolbar. In board mode, show one column per status with application cards arranged vertically. Status columns: Applied · Interviewing · Offer Received · On Hold · Rejected · Withdrawn · Accepted. Clicking a card opens the existing detail panel/modal. No drag-and-drop required for v1 — status changes via the panel. Columns with zero cards are hidden by default with a "show empty" toggle. Counts per column shown in column header. Pure frontend, no backend changes.
 
 #### LOW
 
