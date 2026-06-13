@@ -10,7 +10,6 @@
   flex-shrink: 0;
   position: relative;
   z-index: 20;
-  flex-wrap: wrap;
 }
 
 /* ── left ─────────────────────────────────────────────────────────────────── */
@@ -61,11 +60,11 @@
   background: var(--col-accent);
   color: #fff;
   border-radius: 9999px;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.3rem;
+  min-width: 0.95rem;
+  height: 0.95rem;
+  padding: 0 0.2rem;
   line-height: 1;
 }
 
@@ -145,20 +144,31 @@
 
 /* ── breakpoints ─────────────────────────────────────────────────────────── */
 
+/* Mobile: everything goes into the hamburger menu */
 @media (max-width: 767px) {
   .app-nav {
     height: auto;
     min-height: 60px;
     align-items: center;
+    flex-wrap: wrap;
   }
 
-  .nav-links  { display: none; }
+  .nav-links    { display: none; }
   .desktop-only { display: none !important; }
   .nav-hamburger { display: flex; }
-  .mobile-menu { display: flex; }
+  .mobile-menu  { display: flex; }
 }
 
-@media (min-width: 768px) {
+/* Tablet / narrow desktop: nav-links visible; Admin + Sign Out in hamburger */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .desktop-only  { display: none !important; }
+  .nav-hamburger { display: flex; }
+  /* Hide duplicated nav-links in mobile dropdown at this range */
+  .mobile-nav-link { display: none; }
+}
+
+/* Full desktop: everything in the nav bar, no hamburger */
+@media (min-width: 1024px) {
   .nav-hamburger { display: none; }
   .mobile-menu   { display: none !important; }
 }

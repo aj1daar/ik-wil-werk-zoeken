@@ -71,7 +71,10 @@ async function loadSyncLogs() {
   try {
     syncLogs.value = await api.adminGetSyncLogs()
   } catch (e) {
-    logsError.value = e instanceof Error ? e.message : 'Failed to load sync logs'
+    const msg = e instanceof Error ? e.message : ''
+    if (!msg.startsWith('404')) {
+      logsError.value = msg || 'Failed to load sync logs'
+    }
   } finally {
     loadingLogs.value = false
   }

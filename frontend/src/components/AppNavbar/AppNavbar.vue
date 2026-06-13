@@ -95,7 +95,7 @@ const activeCount = () =>
         v-for="link in NAV_LINKS"
         :key="link.to"
         :to="link.to"
-        :class="['mobile-link', route.path === link.to && 'mobile-link--active']"
+        :class="['mobile-link', 'mobile-nav-link', route.path === link.to && 'mobile-link--active']"
         @click="closeMenu"
         role="menuitem"
       >

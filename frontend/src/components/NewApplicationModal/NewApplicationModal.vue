@@ -12,7 +12,8 @@ const emit  = defineEmits<{ close: [] }>()
 const store          = useApplicationsStore()
 const companiesStore = useCompaniesStore()
 
-const companyName     = ref(props.prefillCompany ?? '')
+const initialCompany = props.prefillCompany ?? ''
+const companyName     = ref(initialCompany)
 const sponsorCompanyId = ref<string | undefined>(undefined)
 const selectedCompany  = ref<SponsorCompany | null>(null)
 const suggestions      = ref<SponsorCompany[]>([])
@@ -27,6 +28,17 @@ const saving        = ref(false)
 const error         = ref('')
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const isDirty = computed(() =>
+  companyName.value.trim() !== initialCompany ||
+  position.value.trim() !== '' ||
+  locations.value.length > 0
+)
+
+function requestClose() {
+  if (isDirty.value && !window.confirm('Discard this application? Your data will be lost.')) return
+  emit('close')
+}
 
 onMounted(() => { companiesStore.load() })
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
@@ -128,11 +140,11 @@ async function submit() {
 </script>
 
 <template>
-  <div class="modal-backdrop" @click.self="$emit('close')">
+  <div class="modal-backdrop" @click.self="requestClose">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
         <h2 id="modal-title" class="modal-title">New Application</h2>
-        <button @click="$emit('close')" class="btn-icon" aria-label="Close">
+        <button @click="requestClose" class="btn-icon" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -216,7 +228,7 @@ async function submit() {
       <div class="modal-footer">
         <p v-if="error" class="save-error" role="alert">{{ error }}</p>
         <div class="footer-actions">
-          <button @click="$emit('close')" class="btn-secondary">Cancel</button>
+          <button @click="requestClose" class="btn-secondary">Cancel</button>
           <button @click="submit" :disabled="saving" class="btn-primary">
             {{ saving ? 'Saving…' : 'Add Application' }}
           </button>

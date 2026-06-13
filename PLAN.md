@@ -86,9 +86,9 @@
 
 #### HIGH
 
-- [ ] **Batch Gemini enrichment (20 companies per call)** — current code calls Gemini once per company; at 12,800 sponsors that's ~2,560 s at 5 concurrent → Azure Function timeout. Send up to 20 companies per call with a JSON array response. Reduces API calls 20× (640 vs 12,800), cuts tokens ~4× (~1.6M vs ~6.4M), and keeps the full sync well inside the 10-minute Function limit. Requires rewriting `CompanyEnricher.EnrichAsync` → `EnrichBatchAsync(IReadOnlyList<SponsorCompany>)` and updating the prompt to return an ordered array.
+- [x] **Batch Gemini enrichment (20 companies per call)** — current code calls Gemini once per company; at 12,800 sponsors that's ~2,560 s at 5 concurrent → Azure Function timeout. Send up to 20 companies per call with a JSON array response. Reduces API calls 20× (640 vs 12,800), cuts tokens ~4× (~1.6M vs ~6.4M), and keeps the full sync well inside the 10-minute Function limit. Requires rewriting `CompanyEnricher.EnrichAsync` → `EnrichBatchAsync(IReadOnlyList<SponsorCompany>)` and updating the prompt to return an ordered array.
 
-- [ ] **Extended enrichment fields** — add six new columns to `SponsorCompany` (backend model + EF Core migration + model snapshot) and update the Gemini prompt schema:
+- [x] **Extended enrichment fields** — add six new columns to `SponsorCompany` (backend model + EF Core migration + model snapshot) and update the Gemini prompt schema:
   - `WorkingLanguage` (`"English"` | `"Dutch"` | `"Mixed"`) — **most useful filter** for an HSM job seeker; many IND-registered companies are Dutch-only
   - `CompanySize` (`"startup"` | `"scaleup"` | `"mid"` | `"large"` | `"enterprise"`) — shapes application strategy and how formal the visa/relocation process is
   - `RemotePolicy` (`"remote"` | `"hybrid"` | `"office"` | `"unknown"`) — location flexibility
@@ -97,13 +97,13 @@
   - `TargetMarket` (`"B2B"` | `"B2C"` | `"B2G"` | `"Mixed"`) — helps calibrate cover letter tone and expectations
   - Full-stack: update `SponsorCompany` TypeScript interface in `api.ts` with the six new optional fields + `enrichmentVersion?: number`
 
-- [ ] **Enrichment versioning** — add `EnrichmentVersion int` (default 0) to `SponsorCompany`. The enricher sets it to the current schema version (start at 1) on each successful call. Monthly sync and admin reload re-enrich companies where `EnrichmentVersion < CurrentVersion` OR `EnrichedAt is null`. This enables zero-downtime schema upgrades without manually clearing the `EnrichedAt` field across 12,800 rows.
+- [x] **Enrichment versioning** — add `EnrichmentVersion int` (default 0) to `SponsorCompany`. The enricher sets it to the current schema version (start at 1) on each successful call. Monthly sync and admin reload re-enrich companies where `EnrichmentVersion < CurrentVersion` OR `EnrichedAt is null`. This enables zero-downtime schema upgrades without manually clearing the `EnrichedAt` field across 12,800 rows.
 
 #### MEDIUM
 
-- [ ] **Working language + company size + remote policy filters** — add three filter dropdowns to CompaniesView (depends on extended enrichment fields above). Working language is the highest-priority. Also requires: (a) three new store getters in `companies.ts` — `allWorkingLanguages`, `allCompanySizes`, `allRemotePolicies` (derive unique values from loaded data, same pattern as `allCities`); (b) add `workingLanguage`, `companySize`, `remotePolicy` params to the existing `filter()` method; (c) three `<select>` dropdowns in CompaniesView's filter bar.
+- [x] **Working language + company size + remote policy filters** — add three filter dropdowns to CompaniesView (depends on extended enrichment fields above). Working language is the highest-priority. Also requires: (a) three new store getters in `companies.ts` — `allWorkingLanguages`, `allCompanySizes`, `allRemotePolicies` (derive unique values from loaded data, same pattern as `allCities`); (b) add `workingLanguage`, `companySize`, `remotePolicy` params to the existing `filter()` method; (c) three `<select>` dropdowns in CompaniesView's filter bar.
 
-- [ ] **Incremental sync robustness** — monthly sync currently preserves enrichment by `EnrichedAt is null` check (good). Extend it: (a) track which KvK numbers were removed from the IND register and soft-delete or flag them; (b) re-enrich where `EnrichmentVersion < CurrentVersion`; (c) log a summary of added/removed/re-enriched counts to a persistent `SyncLog` table so an admin can audit sync history.
+- [x] **Incremental sync robustness** — monthly sync currently preserves enrichment by `EnrichedAt is null` check (good). Extend it: (a) track which KvK numbers were removed from the IND register and soft-delete or flag them; (b) re-enrich where `EnrichmentVersion < CurrentVersion`; (c) log a summary of added/removed/re-enriched counts to a persistent `SyncLog` table so an admin can audit sync history.
 
 ---
 
@@ -126,7 +126,7 @@
 
 - [x] **"Applied here" overlay in CompaniesView** — for each company card, if `appliedSponsorIds` (from applications store) contains the company's `id`, show a status chip for the user's most recent application to that company (same chip classes as ApplicationsView). Add a "Applied / Not yet applied" filter toggle to the filter bar. Requires `sponsorCompanyId` link to be in place.
 
-- [ ] **Parent company grouping in CompaniesView** — once `ParentCompanyName` is populated, group subsidiaries under the parent in the list (e.g. "ABN AMRO · 8 entities"). A toggle shows/hides subsidiaries. Reduces the perceived list from ~12,800 to ~3,000–4,000 unique employers. Keeps the full list accessible for users who know the specific legal entity.
+- [x] **Parent company grouping in CompaniesView** — once `ParentCompanyName` is populated, group subsidiaries under the parent in the list (e.g. "ABN AMRO · 8 entities"). A toggle shows/hides subsidiaries. Reduces the perceived list from ~12,800 to ~3,000–4,000 unique employers. Keeps the full list accessible for users who know the specific legal entity.
 
 ---
 
@@ -222,3 +222,17 @@ The app already has CSS custom properties (`--col-*`) and consistent button styl
 #### LOW
 
 - [x] **Response rate KPI strip** — a single row of 3–4 large-number KPIs above the charts: `Total applied`, `Response rate` ((Interviews + Offers + Accepted) / Total, as a %), `Offer rate` (Offers / Total), `Avg. days to response` (mean of `updatedAt − appliedAt` for stages that reached Interview+). No chart library needed — plain styled `<div>` elements. Gives instant signal without needing to read the charts.
+
+---
+
+### Bug Fixes
+
+- [x] **Admin Panel 404 / sync-logs graceful failure** — `GET /api/admin/sync-logs` may return 404 on older deployments where the endpoint is not yet available. Previously this showed a red error banner in AdminView. Fix: treat a 404 response as an empty sync history (show "No syncs recorded yet." instead of an error message). Other non-404 errors still surface as a visible error.
+
+- [x] **NewApplicationModal discards data on outside click without confirmation** — clicking the backdrop or the X/Cancel button while fields are filled silently discarded all entered data. Fix: added `isDirty` computed (true when company name, position, or locations differ from initial state); `requestClose()` calls `window.confirm` when dirty; backdrop, X button, and Cancel button all route through `requestClose`. Successful form submission still calls `emit('close')` directly.
+
+- [x] **Navbar wraps to two rows at medium viewport widths (768–1023 px)** — `flex-wrap: wrap` on `.app-nav` caused the Admin Panel and Sign Out buttons to overflow below the 60 px nav boundary, hiding page content under the nav. Fix: removed `flex-wrap` from the base nav styles; added a tablet breakpoint (768–1023 px) where `.desktop-only` items (Admin Panel, Sign Out) are hidden from the navbar and the hamburger button is shown instead — these items appear in the mobile dropdown. At ≥1024 px all items show in the nav bar. Nav-link items (Home, My Applications, Companies, Profile) stay visible in the navbar at all desktop widths; the `mobile-nav-link` CSS class hides the duplicate nav-link entries in the dropdown at tablet widths.
+
+- [x] **Application detail panel not scrollable in modal view** — `.modal-box` had `max-height: 90vh` but no explicit `height`. The `ApplicationPanel` inner `.panel { height: 100%; }` resolved to `auto` (content height) rather than the modal's clamped height, so `overflow-y: auto` on `.panel-body` never triggered. Fix: added `height: 90vh` alongside `max-height: 90vh` on `.modal-box` so the panel fills the modal completely and the body section scrolls correctly. The footer (Save/Delete) and header remain fixed while body content scrolls.
+
+- [x] **"My Applications" badge looks disproportionate for 2-digit counts** — at 12+ active applications the badge became a wide pill shape at 1.1 rem height. Fix: reduced badge dimensions (`height: 0.95rem`, `min-width: 0.95rem`, `font-size: 0.6rem`, `padding: 0 0.2rem`) so single and double-digit counts stay proportional.

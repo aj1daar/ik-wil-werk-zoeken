@@ -402,6 +402,7 @@ function printPage() {
   border-radius: 12px;
   width: 100%;
   max-width: 560px;
+  height: 90vh;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
