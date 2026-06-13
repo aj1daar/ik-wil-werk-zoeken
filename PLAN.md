@@ -142,7 +142,7 @@ No new dependencies — all Vue `<Transition>` / `<TransitionGroup>` + CSS. Ever
 
 - [x] **Application detail panel slide** — ApplicationPanel currently appears instantly. Add a slide-in from the right (desktop: translateX 24px → 0 + fade, 200 ms) and slide-out on close. On mobile (bottom-sheet mode) use translateY instead.
 
-- [ ] **List stagger on load / filter change** — wrap the `v-for` application rows in `<TransitionGroup name="list">`. On initial load and when filters change, items fade + translateY 6px with a small stagger (`transition-delay: calc(index * 20ms)`, capped at 10 items to avoid long waits). Items that leave (filtered out) fade out in place.
+- [x] **List stagger on load / filter change** — wrap the `v-for` application rows in `<TransitionGroup name="list">`. On initial load and when filters change, items fade + translateY 6px with a small stagger (`transition-delay: calc(index * 20ms)`, capped at 10 items to avoid long waits). Items that leave (filtered out) fade out in place.
 
 #### LOW
 

@@ -238,10 +238,11 @@ function printPage() {
         <template v-else>No applications match your filters.</template>
       </div>
 
-      <ul v-else>
+      <TransitionGroup v-else tag="ul" name="list">
         <li
-          v-for="app in filtered"
+          v-for="(app, index) in filtered"
           :key="app.id"
+          :style="{ '--i': Math.min(index, 9) }"
           @click="selectRow(app.id)"
           :class="['company-row', { 'company-row--active': selectedId === app.id, 'company-row--checked': checkedIds.has(app.id) }]"
           role="button"
@@ -271,7 +272,7 @@ function printPage() {
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </li>
-      </ul>
+      </TransitionGroup>
     </div>
 
     <!-- Bulk action bar -->

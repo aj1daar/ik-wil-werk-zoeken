@@ -1,7 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { Transition } from 'vue'
+import { Transition, TransitionGroup } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ApplicationsView from '../ApplicationsView.vue'
 
@@ -144,5 +144,63 @@ describe('ApplicationsView – application panel behaviour', () => {
     await rows[1].trigger('click')
     const panel = wrapper.findComponent({ name: 'ApplicationPanel' })
     expect(panel.props('application').companyName).toBe('Beta')
+  })
+})
+
+// ── list stagger transition ───────────────────────────────────────────────────
+
+describe('ApplicationsView – list stagger transition', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders a <TransitionGroup name="list"> wrapping the application rows', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    const groups = (wrapper.findAllComponents(TransitionGroup) as unknown as VueWrapper<any>[])
+      .filter(t => t.props('name') === 'list')
+    expect(groups.length).toBe(1)
+  })
+
+  it('TransitionGroup renders as a <ul> element', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    const group = (wrapper.findAllComponents(TransitionGroup) as unknown as VueWrapper<any>[])
+      .find(t => t.props('name') === 'list')
+    expect(group?.props('tag')).toBe('ul')
+  })
+
+  it('each row has a --i CSS variable capped at 9', async () => {
+    const apps = Array.from({ length: 15 }, (_, i) =>
+      makeApp({ id: `app-${i}`, companyName: `Co ${i}` })
+    )
+    const wrapper = mountView(apps)
+    await flushPromises()
+    const rows = wrapper.findAll('.company-row')
+    expect(rows).toHaveLength(15)
+    // First 10 rows get 0–9, remaining rows are capped at 9
+    expect(rows[0].attributes('style')).toContain('--i: 0')
+    expect(rows[9].attributes('style')).toContain('--i: 9')
+    expect(rows[14].attributes('style')).toContain('--i: 9')
+  })
+
+  it('rows are hidden after search filter removes all matches', async () => {
+    const wrapper = mountView([makeApp({ companyName: 'Acme' })])
+    await flushPromises()
+    expect(wrapper.findAll('.company-row')).toHaveLength(1)
+    await wrapper.find('input.filter-input').setValue('zzzzz')
+    await flushPromises()
+    expect(wrapper.findAll('.company-row')).toHaveLength(0)
+    expect(wrapper.text()).toContain('No applications match your filters')
+  })
+
+  it('rows reappear when filter is cleared', async () => {
+    const wrapper = mountView([makeApp({ companyName: 'Acme' })])
+    await flushPromises()
+    const input = wrapper.find('input.filter-input')
+    await input.setValue('zzzzz')
+    await flushPromises()
+    expect(wrapper.findAll('.company-row')).toHaveLength(0)
+    await input.setValue('')
+    await flushPromises()
+    expect(wrapper.findAll('.company-row')).toHaveLength(1)
   })
 })

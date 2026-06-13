@@ -205,6 +205,19 @@ body {
   }
   .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
 
+  /* Application list stagger transition */
+  .list-enter-active {
+    transition: opacity 200ms ease, transform 200ms ease;
+    transition-delay: calc(var(--i, 0) * 20ms);
+  }
+  .list-leave-active  { transition: opacity 150ms ease; }
+  .list-enter-from    { opacity: 0; transform: translateY(6px); }
+  .list-leave-to      { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .list-enter-active,
+    .list-leave-active { transition: none; transition-delay: 0ms; }
+  }
+
   /* Modal open/close transition */
   .modal-enter-active,
   .modal-leave-active { transition: opacity 200ms ease; }
