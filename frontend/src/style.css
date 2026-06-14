@@ -398,6 +398,16 @@ textarea::placeholder { color: var(--col-subtle); }
   .state-msg--error { color: var(--col-error); }
 }
 
+/* ── Thin styled scrollbar ───────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--col-border) transparent;
+}
+*::-webkit-scrollbar       { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--col-raised); border-radius: 9999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--col-border); }
+
 /* ── Suppress native browser password-reveal buttons (Edge ::-ms-reveal) so they
    don't overlap our custom toggle and intercept clicks ── */
 input[type="password"]::-ms-reveal,
