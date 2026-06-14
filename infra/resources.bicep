@@ -90,8 +90,6 @@ resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
       netFrameworkVersion: 'v8.0'
       appSettings: [
         { name: 'AzureWebJobsStorage', value: storageConnectionString }
-        { name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', value: storageConnectionString }
-        { name: 'WEBSITE_CONTENTSHARE', value: toLower(functionAppName) }
         { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
