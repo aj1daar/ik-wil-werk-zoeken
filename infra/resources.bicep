@@ -88,10 +88,6 @@ resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
     httpsOnly: true
     siteConfig: {
       netFrameworkVersion: 'v8.0'
-      cors: {
-        allowedOrigins: ['https://iwwz.nogoibay.org']
-        supportCredentials: false
-      }
       appSettings: [
         { name: 'AzureWebJobsStorage', value: storageConnectionString }
         { name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', value: storageConnectionString }
