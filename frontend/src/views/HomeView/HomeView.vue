@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
-import type { ApplicationStatus } from '../../api'
+import { useApplicationsStore } from '../../stores/applications'
 import FunnelChart from '../../components/FunnelChart/FunnelChart.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
@@ -86,10 +85,6 @@ onMounted(() => {
   return fetchStats()
 })
 watch(fromTo, fetchStats)
-
-function count(status: ApplicationStatus): number {
-  return store.stats?.byStatus[status] ?? 0
-}
 
 const kpis = computed(() => {
   if (!store.stats) return null
@@ -216,12 +211,6 @@ const kpis = computed(() => {
         <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
       </div>
 
-      <div class="stats-grid">
-        <div v-for="status in ALL_STATUSES" :key="status" class="stat-card">
-          <span :class="['stat-chip', STATUS_COLOR[status]]">{{ STATUS_LABELS[status] }}</span>
-          <span class="stat-count">{{ count(status) }}</span>
-        </div>
-      </div>
     </template>
   </div>
 </template>
@@ -306,23 +295,6 @@ const kpis = computed(() => {
 @media (max-width: 600px) {
   .charts-row { grid-template-columns: 1fr; }
 }
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1rem;
-}
-.stat-card {
-  display: flex; flex-direction: column; align-items: flex-start; gap: .5rem;
-  padding: 1.25rem 1rem; background: var(--col-surface);
-  border: 1px solid var(--col-border); border-radius: .75rem;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 4%, transparent);
-}
-.stat-chip {
-  display: inline-block; padding: .2rem .6rem; border-radius: 9999px;
-  font-size: .75rem; font-weight: 600;
-}
-.stat-count { font-size: 2rem; font-weight: 700; color: var(--col-text); }
 
 .overdue-card {
   background: color-mix(in srgb, #f59e0b 8%, var(--col-surface));

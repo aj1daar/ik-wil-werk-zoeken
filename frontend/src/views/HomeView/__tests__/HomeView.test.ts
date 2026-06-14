@@ -185,31 +185,6 @@ describe('HomeView – stats display', () => {
     expect(w.find('.total-number').text()).toBe('17')
   })
 
-  it('shows a stat card for each of the 7 statuses', async () => {
-    vi.mocked(api.getStats).mockResolvedValue(makeStats(0, {}))
-    const w = mountHome()
-    await flushPromises()
-    expect(w.findAll('.stat-card')).toHaveLength(7)
-  })
-
-  it('shows 0 for statuses with no count', async () => {
-    vi.mocked(api.getStats).mockResolvedValue(makeStats(3, { Applied: 3 }))
-    const w = mountHome()
-    await flushPromises()
-    const cards = w.findAll('.stat-card')
-    const rejectedCard = cards.find(c => c.text().includes('Rejected'))
-    expect(rejectedCard?.find('.stat-count').text()).toBe('0')
-  })
-
-  it('shows correct count for a status', async () => {
-    vi.mocked(api.getStats).mockResolvedValue(makeStats(5, { Applied: 5 }))
-    const w = mountHome()
-    await flushPromises()
-    const cards = w.findAll('.stat-card')
-    const appliedCard = cards.find(c => c.text().includes('Applied'))
-    expect(appliedCard?.find('.stat-count').text()).toBe('5')
-  })
-
   it('calls getStats once on mount', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     mountHome()
