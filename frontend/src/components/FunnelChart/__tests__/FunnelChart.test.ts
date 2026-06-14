@@ -68,12 +68,18 @@ describe('FunnelChart – bar segments', () => {
     expect(grows).toContain('5')
   })
 
-  it('renders all 7 segments when all statuses have counts', () => {
+  it('renders all 8 segments when all statuses have counts', () => {
     const w = mountChart({
-      Applied: 10, InterviewScheduled: 4, OfferReceived: 2, Accepted: 1,
-      OnHold: 1, Rejected: 3, Withdrawn: 2,
+      Applied: 10, InterviewScheduled: 4, Assessment: 2, OfferReceived: 2,
+      Accepted: 1, OnHold: 1, Rejected: 3, Withdrawn: 2,
     })
-    expect(w.findAll('.sb-seg')).toHaveLength(7)
+    expect(w.findAll('.sb-seg')).toHaveLength(8)
+  })
+
+  it('Assessment segment renders when count > 0', () => {
+    const w = mountChart({ Applied: 5, Assessment: 3 })
+    expect(w.findAll('.sb-seg')).toHaveLength(2)
+    expect(w.find('.sb-total').text()).toContain('8')
   })
 })
 

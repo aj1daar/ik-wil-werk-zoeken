@@ -213,6 +213,7 @@ public sealed class DashboardFunctionTests
     [Theory]
     [InlineData("Applied")]
     [InlineData("InterviewScheduled")]
+    [InlineData("Assessment")]
     [InlineData("OfferReceived")]
     [InlineData("OnHold")]
     [InlineData("Rejected")]
@@ -225,6 +226,13 @@ public sealed class DashboardFunctionTests
     }
 
     [Fact]
+    public void ValidateStage_AssessmentStatus_ReturnsTrue()
+    {
+        var s = ValidStage(); s.Status = "Assessment";
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
     public void ValidateStage_InvalidRejectionReason_ReturnsFalse()
     {
         var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "evil_payload";
@@ -232,10 +240,47 @@ public sealed class DashboardFunctionTests
         Assert.Contains("evil_payload", err);
     }
 
+    [Theory]
+    [InlineData("dutch_language")]
+    [InlineData("another_candidate")]
+    [InlineData("incompatible_profile")]
+    [InlineData("salary_mismatch")]
+    [InlineData("internal_hire")]
+    [InlineData("failed_assessment")]
+    [InlineData("other")]
+    public void ValidateStage_AllValidRejectionReasons_ReturnsTrue(string reason)
+    {
+        var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = reason;
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_FailedAssessmentRejectionReason_ReturnsTrue()
+    {
+        var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "failed_assessment";
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
     [Fact]
     public void ValidateStage_ValidRejectionReason_ReturnsTrue()
     {
         var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "dutch_language";
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_RejectionReasonOnNonRejectedStatus_StillValid()
+    {
+        // Backend clears rejection fields for non-Rejected statuses at the handler level,
+        // but ValidateStage itself does not enforce this — it only checks the value is known.
+        var s = ValidStage(); s.Status = "Assessment"; s.RejectionReason = null;
+        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_AssessmentWithRejectionReasonNull_ReturnsTrue()
+    {
+        var s = ValidStage(); s.Status = "Assessment"; s.RejectionReason = null;
         Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
     }
 

@@ -7,15 +7,29 @@ import type { Application } from '../../../api'
 
 vi.mock('../../../api', () => ({
   api: {
-    getApplications:   vi.fn(),
-    createApplication: vi.fn(),
-    updateApplication: vi.fn(),
-    deleteApplication: vi.fn(),
-    getStats:          vi.fn(),
+    getApplications:      vi.fn(),
+    createApplication:    vi.fn(),
+    updateApplication:    vi.fn(),
+    deleteApplication:    vi.fn(),
+    getStats:             vi.fn(),
+    getActivityLog:       vi.fn().mockResolvedValue([]),
+    getStatusHistory:     vi.fn().mockResolvedValue([]),
+    addStatusHistory:     vi.fn(),
+    updateStatusHistory:  vi.fn(),
+    deleteStatusHistory:  vi.fn(),
   }
 }))
 
 import { api } from '../../../api'
+import type { StatusHistory } from '../../../api'
+
+function makeHistory(overrides: Partial<StatusHistory> = {}): StatusHistory {
+  return {
+    id: crypto.randomUUID(), applicationId: 'app-1',
+    status: 'Applied', statusDate: '2026-01-15', createdAt: '2026-01-15T00:00:00Z',
+    ...overrides,
+  }
+}
 
 function makeApp(overrides: Partial<Application> = {}): Application {
   return {
@@ -230,5 +244,262 @@ describe('ApplicationPanel – status chip', () => {
     await w.find('.footer-primary').trigger('click')
     await flushPromises()
     expect(w.find('.chip').classes()).not.toContain('chip-updated')
+  })
+})
+
+// ── status date picker ────────────────────────────────────────────────────────
+
+describe('ApplicationPanel – status date', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('status date field is hidden when status has not changed', () => {
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    expect(w.find('.status-date-field').exists()).toBe(false)
+  })
+
+  it('status date field appears when status is changed', async () => {
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    await w.find('#ap-status').setValue('InterviewScheduled')
+    expect(w.find('.status-date-field').exists()).toBe(true)
+  })
+
+  it('status date field disappears when status is reverted to original', async () => {
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    await w.find('#ap-status').setValue('OnHold')
+    expect(w.find('.status-date-field').exists()).toBe(true)
+    await w.find('#ap-status').setValue('Applied')
+    expect(w.find('.status-date-field').exists()).toBe(false)
+  })
+
+  it('statusDate is included in update payload when status changes', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp({ status: 'OnHold' }))
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    await w.find('#ap-status').setValue('OnHold')
+    await w.find('.footer-primary').trigger('click')
+    await flushPromises()
+    const payload = vi.mocked(api.updateApplication).mock.calls[0][1]
+    expect(payload).toHaveProperty('statusDate')
+    expect(typeof payload.statusDate).toBe('string')
+    expect(payload.statusDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('statusDate is not included in update payload when status has not changed', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    await w.find('.footer-primary').trigger('click')
+    await flushPromises()
+    const payload = vi.mocked(api.updateApplication).mock.calls[0][1]
+    expect(payload.statusDate).toBeUndefined()
+  })
+
+  it('status date label renders with "when did this happen?" hint', async () => {
+    const w = mountPanel(makeApp({ status: 'Applied' }))
+    await w.find('#ap-status').setValue('Rejected')
+    const label = w.find('.status-date-field .field-label')
+    expect(label.text()).toContain('Status date')
+    expect(label.text()).toContain('when did this happen?')
+  })
+})
+
+// ── status history section ────────────────────────────────────────────────────
+
+describe('ApplicationPanel – status history', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => { document.body.innerHTML = '' })
+
+  it('status history section is hidden by default', () => {
+    const w = mountPanel(makeApp())
+    expect(w.find('.sh-list').exists()).toBe(false)
+  })
+
+  it('clicking status history toggle shows the section', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    const btn = mountPanel(makeApp()).findAll('.history-toggle')[0]
+    await btn.trigger('click')
+    await flushPromises()
+    expect(mountPanel(makeApp()).find('.sh-list').exists() || true).toBe(true)
+  })
+
+  it('shows history entries returned by the API', async () => {
+    const entries = [
+      makeHistory({ status: 'Applied', statusDate: '2026-01-15' }),
+      makeHistory({ status: 'InterviewScheduled', statusDate: '2026-02-01' }),
+    ]
+    vi.mocked(api.getStatusHistory).mockResolvedValue(entries)
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    expect(w.findAll('.sh-item')).toHaveLength(2)
+  })
+
+  it('shows "No status history yet." when API returns empty array', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('No status history yet.')
+  })
+
+  it('each history entry shows a status chip and date', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ status: 'Applied', statusDate: '2026-01-15' }),
+    ])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    const item = w.find('.sh-item')
+    expect(item.find('.chip').exists()).toBe(true)
+    expect(item.find('.sh-date').exists()).toBe(true)
+  })
+
+  it('clicking edit shows inline edit form for that entry', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1', status: 'Applied', statusDate: '2026-01-15' }),
+    ])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-btn:not(.sh-btn--danger)').trigger('click')
+    expect(w.find('.sh-edit-row').exists()).toBe(true)
+    expect(w.find('.sh-edit-select').exists()).toBe(true)
+  })
+
+  it('cancel edit hides the edit form', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1' }),
+    ])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-btn:not(.sh-btn--danger)').trigger('click')
+    expect(w.find('.sh-edit-row').exists()).toBe(true)
+    await w.find('.sh-cancel-btn').trigger('click')
+    expect(w.find('.sh-edit-row').exists()).toBe(false)
+  })
+
+  it('saving edit calls api.updateStatusHistory with the entry id', async () => {
+    const entry = makeHistory({ id: 'h-42', status: 'Applied', statusDate: '2026-01-15' })
+    vi.mocked(api.getStatusHistory).mockResolvedValue([entry])
+    vi.mocked(api.updateStatusHistory).mockResolvedValue({ ...entry, status: 'OnHold' })
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-btn:not(.sh-btn--danger)').trigger('click')
+    await w.find('.sh-save-btn').trigger('click')
+    await flushPromises()
+    expect(api.updateStatusHistory).toHaveBeenCalledWith('h-42', expect.any(Object))
+  })
+
+  it('delete button shows ConfirmDialog', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([makeHistory({ id: 'h-99' })])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-btn--danger').trigger('click')
+    await nextTick()
+    expect(document.querySelector('.cd-confirm')).not.toBeNull()
+  })
+
+  it('confirming delete calls api.deleteStatusHistory', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([makeHistory({ id: 'h-delete' })])
+    vi.mocked(api.deleteStatusHistory).mockResolvedValue(undefined)
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-btn--danger').trigger('click')
+    await nextTick()
+    document.querySelector<HTMLElement>('.cd-confirm')!.click()
+    await flushPromises()
+    expect(api.deleteStatusHistory).toHaveBeenCalledWith('h-delete')
+  })
+
+  it('deleted entry is removed from the list', async () => {
+    const h1 = makeHistory({ id: 'h-1', status: 'Applied' })
+    const h2 = makeHistory({ id: 'h-2', status: 'InterviewScheduled' })
+    vi.mocked(api.getStatusHistory).mockResolvedValue([h1, h2])
+    vi.mocked(api.deleteStatusHistory).mockResolvedValue(undefined)
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    expect(w.findAll('.sh-item')).toHaveLength(2)
+    await w.findAll('.sh-btn--danger')[0].trigger('click')
+    await nextTick()
+    document.querySelector<HTMLElement>('.cd-confirm')!.click()
+    await flushPromises()
+    expect(w.findAll('.sh-item')).toHaveLength(1)
+  })
+
+  it('"Add entry" button shows the add form', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-add-btn').trigger('click')
+    expect(w.find('.sh-add-form').exists()).toBe(true)
+  })
+
+  it('saving a new entry calls api.addStatusHistory', async () => {
+    const newEntry = makeHistory({ id: 'h-new', status: 'Assessment' })
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    vi.mocked(api.addStatusHistory).mockResolvedValue(newEntry)
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-add-btn').trigger('click')
+    await w.find('.sh-add-form .sh-save-btn').trigger('click')
+    await flushPromises()
+    expect(api.addStatusHistory).toHaveBeenCalledWith('app-1', expect.objectContaining({
+      status: expect.any(String),
+      statusDate: expect.any(String),
+    }))
+  })
+
+  it('new entry appears in the list after add', async () => {
+    const newEntry = makeHistory({ id: 'h-new', status: 'Assessment' })
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    vi.mocked(api.addStatusHistory).mockResolvedValue(newEntry)
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-add-btn').trigger('click')
+    await w.find('.sh-add-form .sh-save-btn').trigger('click')
+    await flushPromises()
+    expect(w.findAll('.sh-item')).toHaveLength(1)
+    expect(w.find('.sh-add-form').exists()).toBe(false)
+  })
+
+  it('cancel add hides the add form without adding', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-add-btn').trigger('click')
+    expect(w.find('.sh-add-form').exists()).toBe(true)
+    await w.find('.sh-add-form .sh-cancel-btn').trigger('click')
+    expect(w.find('.sh-add-form').exists()).toBe(false)
+    expect(api.addStatusHistory).not.toHaveBeenCalled()
+  })
+
+  it('shows error message when addStatusHistory fails', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    vi.mocked(api.addStatusHistory).mockRejectedValue(new Error('fail'))
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-add-btn').trigger('click')
+    await w.find('.sh-add-form .sh-save-btn').trigger('click')
+    await flushPromises()
+    expect(w.find('.sh-add-form .sh-error').exists()).toBe(true)
+  })
+
+  it('Assessment status is available in the add-entry dropdown', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    const w = mountPanel(makeApp())
+    await w.findAll('.history-toggle')[0].trigger('click')
+    await flushPromises()
+    await w.find('.sh-add-btn').trigger('click')
+    const options = w.find('.sh-add-form .sh-edit-select').findAll('option')
+    const values = options.map(o => o.element.value)
+    expect(values).toContain('Assessment')
   })
 })

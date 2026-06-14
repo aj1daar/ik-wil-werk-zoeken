@@ -127,11 +127,33 @@ describe('RejectionChart – rejection counting', () => {
     expect(items[0].find('.donut-legend-count').text()).toBe('1')
   })
 
-  it('all six known rejection reasons are recognised', () => {
-    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'other'] as const
+  it('all seven known rejection reasons are recognised', () => {
+    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'other'] as const
     const apps = reasons.map(r => makeApp({ rejectionReason: r }))
     const w = mountChart(apps)
-    expect(w.findAll('.donut-legend-item')).toHaveLength(6)
+    expect(w.findAll('.donut-legend-item')).toHaveLength(7)
+  })
+
+  it('failed_assessment is recognised as a distinct rejection reason', () => {
+    const w = mountChart([makeApp({ rejectionReason: 'failed_assessment' })])
+    const items = w.findAll('.donut-legend-item')
+    const labels = items.map(i => i.find('.donut-legend-label').text())
+    expect(labels).toContain('Did not pass assessment')
+    expect(items[labels.indexOf('Did not pass assessment')].find('.donut-legend-count').text()).toBe('1')
+  })
+
+  it('failed_assessment and other are counted independently', () => {
+    const apps = [
+      makeApp({ rejectionReason: 'failed_assessment' }),
+      makeApp({ rejectionReason: 'failed_assessment' }),
+      makeApp({ rejectionReason: 'other' }),
+    ]
+    const w = mountChart(apps)
+    const items = w.findAll('.donut-legend-item')
+    const labels = items.map(i => i.find('.donut-legend-label').text())
+    const counts = items.map(i => i.find('.donut-legend-count').text())
+    expect(counts[labels.indexOf('Did not pass assessment')]).toBe('2')
+    expect(counts[labels.indexOf('Other')]).toBe('1')
   })
 })
 
