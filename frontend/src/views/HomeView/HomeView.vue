@@ -86,35 +86,7 @@ onMounted(() => {
 })
 watch(fromTo, fetchStats)
 
-const kpis = computed(() => {
-  if (!store.stats) return null
-  const s = store.stats.byStatus
-  const total = store.stats.total
-  const responded = (s.InterviewScheduled ?? 0) + (s.OfferReceived ?? 0) + (s.Accepted ?? 0)
-  const offered   = (s.OfferReceived ?? 0) + (s.Accepted ?? 0)
 
-  const responseRate = total > 0 ? `${Math.round((responded / total) * 100)}%` : '—'
-  const offerRate    = total > 0 ? `${Math.round((offered   / total) * 100)}%` : '—'
-
-  const { from, to } = fromTo.value
-  const respondedApps = store.applications.filter(a => {
-    if (!['InterviewScheduled', 'OfferReceived', 'Accepted'].includes(a.status)) return false
-    const t = new Date(a.appliedAt).getTime()
-    if (from && t < new Date(from).getTime()) return false
-    if (to   && t > new Date(to).getTime())   return false
-    return true
-  })
-
-  const avgDays = respondedApps.length > 0
-    ? `${Math.round(
-        respondedApps.reduce((sum, a) =>
-          sum + (new Date(a.updatedAt).getTime() - new Date(a.appliedAt).getTime()), 0
-        ) / respondedApps.length / 86_400_000
-      )} d`
-    : '—'
-
-  return { responseRate, offerRate, avgDays }
-})
 </script>
 
 <template>
@@ -162,26 +134,7 @@ const kpis = computed(() => {
 
     <div v-else-if="store.statsError" class="state-msg state-msg--error" role="alert">{{ store.statsError }}</div>
 
-    <template v-else-if="store.stats && kpis">
-      <div class="kpi-strip">
-        <div class="kpi-card">
-          <span class="total-number kpi-value">{{ store.stats.total }}</span>
-          <span class="kpi-label">Total applied</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-value">{{ kpis.responseRate }}</span>
-          <span class="kpi-label">Response rate</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-value">{{ kpis.offerRate }}</span>
-          <span class="kpi-label">Offer rate</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-value">{{ kpis.avgDays }}</span>
-          <span class="kpi-label">Avg. days to response</span>
-        </div>
-      </div>
-
+    <template v-else-if="store.stats">
       <div v-if="overdueApps.length > 0" class="overdue-card">
         <button class="overdue-header" @click="showOverdue = !showOverdue" :aria-expanded="showOverdue">
           <span class="overdue-title">
@@ -268,21 +221,6 @@ const kpis = computed(() => {
 .state-msg { color: var(--col-muted); padding: 2rem 0; text-align: center; }
 .state-msg--error { color: var(--col-error); }
 
-.kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-.kpi-card {
-  display: flex; flex-direction: column; gap: .25rem;
-  padding: 1.25rem 1rem; background: var(--col-surface);
-  border: 1px solid var(--col-border); border-radius: .75rem;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 5%, transparent);
-}
-.kpi-value    { font-size: 2rem; font-weight: 800; color: var(--col-text); line-height: 1.1; }
-.total-number { font-size: 2.5rem; }
-.kpi-label    { font-size: .75rem; color: var(--col-muted); text-transform: uppercase; letter-spacing: .04em; }
 
 .funnel-section { margin-bottom: 1.5rem; }
 
