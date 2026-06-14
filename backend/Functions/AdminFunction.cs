@@ -42,19 +42,28 @@ public sealed class AdminFunction
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
         if (!IsAdmin(req, out var forbidden)) return forbidden!;
 
-        var users = await _users.GetAllAsync();
-        var summaries = users.Select(u => new AdminUserSummary
+        try
         {
-            UserId = u.UserId,
-            Email = u.Email,
-            FirstName = u.FirstName,
-            LastName = u.LastName,
-            Role = u.Role,
-            EmailVerified = u.EmailVerified,
-            CreatedAt = u.CreatedAt,
-        }).ToArray();
+            var users = await _users.GetAllAsync();
+            var summaries = users.Select(u => new AdminUserSummary
+            {
+                UserId = u.UserId,
+                Email = u.Email,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Role = u.Role,
+                EmailVerified = u.EmailVerified,
+                CreatedAt = u.CreatedAt,
+            }).ToArray();
 
-        return await JsonOk(req, summaries, AppJsonSerializerContext.Default.AdminUserSummaryArray);
+            return await JsonOk(req, summaries, AppJsonSerializerContext.Default.AdminUserSummaryArray);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in AdminListUsers");
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError,
+                $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     // POST /api/admin/promote
@@ -66,32 +75,41 @@ public sealed class AdminFunction
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
         if (!IsAdmin(req, out var forbidden)) return forbidden!;
 
-        PromoteRequest? body = null;
-        try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.PromoteRequest); }
-        catch { /* malformed JSON */ }
-
-        if (string.IsNullOrWhiteSpace(body?.Email))
-            return await ErrorResponse(req, HttpStatusCode.BadRequest, "email is required");
-
-        var target = await _users.GetByEmailAsync(body.Email.Trim().ToLowerInvariant());
-        if (target is null)
-            return await ErrorResponse(req, HttpStatusCode.NotFound, "User not found");
-
-        target.Role = "admin";
-        await _users.UpdateAsync(target);
-
-        var summary = new AdminUserSummary
+        try
         {
-            UserId = target.UserId,
-            Email = target.Email,
-            FirstName = target.FirstName,
-            LastName = target.LastName,
-            Role = target.Role,
-            EmailVerified = target.EmailVerified,
-            CreatedAt = target.CreatedAt,
-        };
+            PromoteRequest? body = null;
+            try { body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.PromoteRequest); }
+            catch { /* malformed JSON */ }
 
-        return await JsonOk(req, summary, AppJsonSerializerContext.Default.AdminUserSummary);
+            if (string.IsNullOrWhiteSpace(body?.Email))
+                return await ErrorResponse(req, HttpStatusCode.BadRequest, "email is required");
+
+            var target = await _users.GetByEmailAsync(body.Email.Trim().ToLowerInvariant());
+            if (target is null)
+                return await ErrorResponse(req, HttpStatusCode.NotFound, "User not found");
+
+            target.Role = "admin";
+            await _users.UpdateAsync(target);
+
+            var summary = new AdminUserSummary
+            {
+                UserId = target.UserId,
+                Email = target.Email,
+                FirstName = target.FirstName,
+                LastName = target.LastName,
+                Role = target.Role,
+                EmailVerified = target.EmailVerified,
+                CreatedAt = target.CreatedAt,
+            };
+
+            return await JsonOk(req, summary, AppJsonSerializerContext.Default.AdminUserSummary);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in AdminPromote");
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError,
+                $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     // POST /api/admin/reload-sponsors
@@ -103,103 +121,112 @@ public sealed class AdminFunction
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
         if (!IsAdmin(req, out var forbidden)) return forbidden!;
 
-        IReadOnlyList<SponsorCompany> freshCompanies;
         try
         {
-            freshCompanies = await _scraper.FetchAsync();
+            IReadOnlyList<SponsorCompany> freshCompanies;
+            try
+            {
+                freshCompanies = await _scraper.FetchAsync();
+            }
+            catch (Exception ex)
+            {
+                return await ErrorResponse(req, HttpStatusCode.BadGateway,
+                    $"Failed to fetch IND sponsor register: {ex.Message}");
+            }
+
+            var existing = (await _sponsorStore.GetAllAsync()).ToDictionary(c => c.Id);
+            var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
+
+            var added = 0;
+            var updated = 0;
+
+            foreach (var company in freshCompanies)
+            {
+                if (existing.TryGetValue(company.Id, out var prev))
+                {
+                    company.Summary = prev.Summary;
+                    company.CoreIndustry = prev.CoreIndustry;
+                    company.TechStackTags = prev.TechStackTags;
+                    company.FunctionalTags = prev.FunctionalTags;
+                    company.WorkingLanguage = prev.WorkingLanguage;
+                    company.CompanySize = prev.CompanySize;
+                    company.RemotePolicy = prev.RemotePolicy;
+                    company.ParentCompanyName = prev.ParentCompanyName;
+                    company.WebsiteUrl = prev.WebsiteUrl;
+                    company.TargetMarket = prev.TargetMarket;
+                    company.EnrichedAt = prev.EnrichedAt;
+                    company.EnrichmentVersion = prev.EnrichmentVersion;
+                    company.RemovedAt = null;
+                    updated++;
+                }
+                else
+                {
+                    added++;
+                }
+            }
+
+            await _sponsorStore.UpsertAllAsync(freshCompanies);
+
+            var removedIds = existing.Keys
+                .Where(id => !freshIds.Contains(id) && existing[id].RemovedAt == null)
+                .ToList();
+            await _sponsorStore.SoftDeleteRemovedAsync(removedIds);
+            var removed = removedIds.Count;
+
+            _logger.LogInformation(
+                "Admin reload complete — added: {Added}, updated: {Updated}, removed: {Removed}, total: {Total}",
+                added, updated, removed, freshCompanies.Count);
+
+            var toEnrich = freshCompanies
+                .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
+                .ToList();
+            var enriched = 0;
+
+            if (toEnrich.Count > 0)
+            {
+                var batches = toEnrich
+                    .Select((c, i) => (c, i))
+                    .GroupBy(x => x.i / 20)
+                    .Select(g => g.Select(x => x.c).ToList())
+                    .ToList();
+
+                var cts = new CancellationTokenSource();
+                await Parallel.ForEachAsync(
+                    batches,
+                    new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cts.Token },
+                    async (batch, ct) =>
+                    {
+                        var count = await _enricher.EnrichBatchAsync(batch, ct);
+                        Interlocked.Add(ref enriched, count);
+                    });
+
+                foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
+                    await _sponsorStore.UpsertAsync(company);
+            }
+
+            await _sponsorStore.LogSyncAsync(new SyncLog
+            {
+                TriggerSource = "admin",
+                Added = added,
+                Updated = updated,
+                Removed = removed,
+                Enriched = enriched,
+                TotalAfterSync = freshCompanies.Count,
+            });
+
+            var result = new MessageResponse
+            {
+                Message = $"Sync complete — added: {added}, updated: {updated}, removed: {removed}, total: {freshCompanies.Count}, enriched: {enriched}"
+            };
+
+            return await JsonOk(req, result, AppJsonSerializerContext.Default.MessageResponse);
         }
         catch (Exception ex)
         {
-            return await ErrorResponse(req, HttpStatusCode.BadGateway,
-                $"Failed to fetch IND sponsor register: {ex.Message}");
+            _logger.LogError(ex, "Unhandled exception in AdminReloadSponsors");
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError,
+                $"Internal error: {ex.GetType().Name}: {ex.Message}");
         }
-
-        var existing = (await _sponsorStore.GetAllAsync()).ToDictionary(c => c.Id);
-        var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
-
-        var added = 0;
-        var updated = 0;
-
-        foreach (var company in freshCompanies)
-        {
-            if (existing.TryGetValue(company.Id, out var prev))
-            {
-                company.Summary = prev.Summary;
-                company.CoreIndustry = prev.CoreIndustry;
-                company.TechStackTags = prev.TechStackTags;
-                company.FunctionalTags = prev.FunctionalTags;
-                company.WorkingLanguage = prev.WorkingLanguage;
-                company.CompanySize = prev.CompanySize;
-                company.RemotePolicy = prev.RemotePolicy;
-                company.ParentCompanyName = prev.ParentCompanyName;
-                company.WebsiteUrl = prev.WebsiteUrl;
-                company.TargetMarket = prev.TargetMarket;
-                company.EnrichedAt = prev.EnrichedAt;
-                company.EnrichmentVersion = prev.EnrichmentVersion;
-                company.RemovedAt = null;
-                updated++;
-            }
-            else
-            {
-                added++;
-            }
-        }
-
-        await _sponsorStore.UpsertAllAsync(freshCompanies);
-
-        var removedIds = existing.Keys
-            .Where(id => !freshIds.Contains(id) && existing[id].RemovedAt == null)
-            .ToList();
-        await _sponsorStore.SoftDeleteRemovedAsync(removedIds);
-        var removed = removedIds.Count;
-
-        _logger.LogInformation(
-            "Admin reload complete — added: {Added}, updated: {Updated}, removed: {Removed}, total: {Total}",
-            added, updated, removed, freshCompanies.Count);
-
-        var toEnrich = freshCompanies
-            .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
-            .ToList();
-        var enriched = 0;
-
-        if (toEnrich.Count > 0)
-        {
-            var batches = toEnrich
-                .Select((c, i) => (c, i))
-                .GroupBy(x => x.i / 20)
-                .Select(g => g.Select(x => x.c).ToList())
-                .ToList();
-
-            var cts = new CancellationTokenSource();
-            await Parallel.ForEachAsync(
-                batches,
-                new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cts.Token },
-                async (batch, ct) =>
-                {
-                    var count = await _enricher.EnrichBatchAsync(batch, ct);
-                    Interlocked.Add(ref enriched, count);
-                });
-
-            foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
-                await _sponsorStore.UpsertAsync(company);
-        }
-
-        await _sponsorStore.LogSyncAsync(new SyncLog
-        {
-            TriggerSource = "admin",
-            Added = added,
-            Updated = updated,
-            Removed = removed,
-            Enriched = enriched,
-            TotalAfterSync = freshCompanies.Count,
-        });
-
-        var result = new MessageResponse
-        {
-            Message = $"Sync complete — added: {added}, updated: {updated}, removed: {removed}, total: {freshCompanies.Count}, enriched: {enriched}"
-        };
-
-        return await JsonOk(req, result, AppJsonSerializerContext.Default.MessageResponse);
     }
 
     // GET /api/admin/sync-logs
@@ -211,8 +238,17 @@ public sealed class AdminFunction
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
         if (!IsAdmin(req, out var forbidden)) return forbidden!;
 
-        var logs = await _sponsorStore.GetSyncLogsAsync();
-        return await JsonOk(req, logs.ToArray(), AppJsonSerializerContext.Default.SyncLogArray);
+        try
+        {
+            var logs = await _sponsorStore.GetSyncLogsAsync();
+            return await JsonOk(req, logs.ToArray(), AppJsonSerializerContext.Default.SyncLogArray);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in AdminSyncLogs");
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError,
+                $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

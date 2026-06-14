@@ -7,6 +7,7 @@ using backend.Services;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace backend.Functions;
 
@@ -16,13 +17,15 @@ public sealed class DashboardCrudFunction
     private readonly StageStore _stages;
     private readonly TokenService _tokens;
     private readonly AppDbContext _db;
+    private readonly ILogger<DashboardCrudFunction> _logger;
 
-    public DashboardCrudFunction(SponsorStore sponsors, StageStore stages, TokenService tokens, AppDbContext db)
+    public DashboardCrudFunction(SponsorStore sponsors, StageStore stages, TokenService tokens, AppDbContext db, ILogger<DashboardCrudFunction> logger)
     {
         _sponsors = sponsors;
         _stages = stages;
         _tokens = tokens;
         _db = db;
+        _logger = logger;
     }
 
     [Function("DashboardCrud")]
@@ -45,24 +48,35 @@ public sealed class DashboardCrudFunction
         if (string.IsNullOrWhiteSpace(userId))
             return WithCors(await ErrorResponse(req, HttpStatusCode.Unauthorized, "Unauthorized"));
 
-        var response = (entity.ToLowerInvariant(), req.Method.ToUpperInvariant()) switch
+        try
         {
-            ("sponsors", "GET") => await GetSponsors(req),
-            ("applications", "GET") => await GetApplications(req, userId),
-            ("applications", "POST") => await CreateApplication(req, userId),
-            ("applications", "PUT") => await UpdateApplication(req, userId, id),
-            ("applications", "PATCH") => await BulkUpdateStatus(req, userId),
-            ("applications", "DELETE") => await DeleteApplication(req, userId, id),
-            ("activity", "GET") => await GetActivity(req, userId, id),
-            ("stats", "GET") => await GetStats(req, userId),
-            ("status-history", "GET") => await GetStatusHistory(req, userId, id),
-            ("status-history", "POST") => await AddStatusHistoryEntry(req, userId, id),
-            ("status-history-item", "PUT") => await UpdateStatusHistoryItem(req, userId, id),
-            ("status-history-item", "DELETE") => await DeleteStatusHistoryItem(req, userId, id),
-            _ => await ErrorResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
-        };
+            var response = (entity.ToLowerInvariant(), req.Method.ToUpperInvariant()) switch
+            {
+                ("sponsors", "GET") => await GetSponsors(req),
+                ("applications", "GET") => await GetApplications(req, userId),
+                ("applications", "POST") => await CreateApplication(req, userId),
+                ("applications", "PUT") => await UpdateApplication(req, userId, id),
+                ("applications", "PATCH") => await BulkUpdateStatus(req, userId),
+                ("applications", "DELETE") => await DeleteApplication(req, userId, id),
+                ("activity", "GET") => await GetActivity(req, userId, id),
+                ("stats", "GET") => await GetStats(req, userId),
+                ("status-history", "GET") => await GetStatusHistory(req, userId, id),
+                ("status-history", "POST") => await AddStatusHistoryEntry(req, userId, id),
+                ("status-history-item", "PUT") => await UpdateStatusHistoryItem(req, userId, id),
+                ("status-history-item", "DELETE") => await DeleteStatusHistoryItem(req, userId, id),
+                _ => await ErrorResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
+            };
 
-        return WithCors(response);
+            return WithCors(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in DashboardCrud {Method} {Entity}/{Id}", req.Method, entity, id);
+            var errResponse = req.CreateResponse(HttpStatusCode.InternalServerError);
+            AuthFunction.AddCors(errResponse);
+            await errResponse.WriteStringAsync($"Internal error: {ex.GetType().Name}: {ex.Message}");
+            return errResponse;
+        }
     }
 
     // ── sponsors ──────────────────────────────────────────────────────────────
