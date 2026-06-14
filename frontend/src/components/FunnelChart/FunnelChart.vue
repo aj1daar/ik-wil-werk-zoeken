@@ -28,7 +28,8 @@ const rows = computed(() =>
   }))
 )
 
-const segments = computed(() => rows.value.filter(r => r.count > 0))
+const segments   = computed(() => rows.value.filter(r => r.count > 0))
+const sortedRows = computed(() => [...rows.value].sort((a, b) => b.count - a.count))
 
 const isEmpty  = computed(() => total.value === 0)
 const hovered  = ref<string | null>(null)
@@ -78,7 +79,7 @@ const hoveredRow = computed(() => rows.value.find(r => r.key === hovered.value) 
       <!-- Legend -->
       <div class="sb-legend">
         <div
-          v-for="row in rows"
+          v-for="row in sortedRows"
           :key="row.key"
           class="sb-leg-row"
           :class="{ 'sb-leg-row--zero': row.count === 0, 'sb-leg-row--hi': hovered === row.key }"
