@@ -130,11 +130,11 @@ watch(fromTo, fetchStats)
       </div>
     </div>
 
-    <div v-if="store.statsLoading" class="state-msg">Loading…</div>
+    <div v-if="store.statsLoading && !store.stats" class="state-msg">Loading…</div>
 
     <div v-else-if="store.statsError" class="state-msg state-msg--error" role="alert">{{ store.statsError }}</div>
 
-    <template v-else-if="store.stats">
+    <div v-else-if="store.stats" :class="['content-area', { 'content-area--updating': store.statsLoading }]">
       <div v-if="overdueApps.length > 0" class="overdue-card">
         <button class="overdue-header" @click="showOverdue = !showOverdue" :aria-expanded="showOverdue">
           <span class="overdue-title">
@@ -163,8 +163,7 @@ watch(fromTo, fetchStats)
         <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
         <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
       </div>
-
-    </template>
+    </div>
   </div>
 </template>
 
@@ -262,4 +261,7 @@ watch(fromTo, fetchStats)
 .overdue-sep { color: var(--col-subtle); }
 .overdue-position { color: var(--col-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .overdue-date { font-size: .75rem; color: #b45309; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+
+.content-area { transition: opacity 200ms ease; }
+.content-area--updating { opacity: 0.4; pointer-events: none; }
 </style>

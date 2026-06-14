@@ -20,14 +20,6 @@ function makeStats(total = 0, byStatus: Record<string, number> = {}) {
   return { total, byStatus }
 }
 
-function makeApp(overrides: Partial<Application> = {}): Application {
-  return {
-    id: 'app-1', userId: 'u1', companyName: 'Acme', position: 'Engineer',
-    appliedAt: '2026-01-01T00:00:00Z', status: 'Applied', locations: [],
-    updatedAt: '2026-01-15T00:00:00Z', ...overrides,
-  }
-}
-
 function mountHome(apps: Application[] = []) {
   const pinia = createPinia()
   setActivePinia(pinia)
