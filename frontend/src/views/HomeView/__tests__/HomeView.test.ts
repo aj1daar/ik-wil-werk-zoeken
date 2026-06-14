@@ -47,14 +47,13 @@ describe('HomeView – rendering', () => {
     expect(w.find('h1').text()).toBe('Dashboard')
   })
 
-  it('renders all seven range buttons', async () => {
+  it('renders all six range buttons', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     const w = mountHome()
     await flushPromises()
     const buttons = w.findAll('button.range-btn')
-    expect(buttons).toHaveLength(7)
+    expect(buttons).toHaveLength(6)
     const labels = buttons.map(b => b.text())
-    expect(labels).toContain('Overall')
     expect(labels).toContain('Last week')
     expect(labels).toContain('Last month')
     expect(labels).toContain('Last 3 months')
@@ -63,12 +62,12 @@ describe('HomeView – rendering', () => {
     expect(labels).toContain('Custom')
   })
 
-  it('"Overall" button is active by default', async () => {
+  it('"Last year" button is active by default', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     const w = mountHome()
     await flushPromises()
-    const overallBtn = w.findAll('button.range-btn').find(b => b.text() === 'Overall')
-    expect(overallBtn?.classes()).toContain('range-btn--active')
+    const lastYearBtn = w.findAll('button.range-btn').find(b => b.text() === 'Last year')
+    expect(lastYearBtn?.classes()).toContain('range-btn--active')
   })
 
   it('custom date inputs are hidden until Custom is selected', async () => {
@@ -94,7 +93,7 @@ describe('HomeView – range selection', () => {
     expect(threeMonthBtn?.classes()).toContain('range-btn--active')
   })
 
-  it('clicking "Custom" shows the date inputs', async () => {
+  it('clicking "Custom" shows the Overall checkbox and date inputs', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     const w = mountHome()
     await flushPromises()
@@ -102,7 +101,26 @@ describe('HomeView – range selection', () => {
     const customBtn = w.findAll('button.range-btn').find(b => b.text() === 'Custom')
     await customBtn!.trigger('click')
     expect(w.find('.custom-range').exists()).toBe(true)
+    expect(w.find('.custom-overall-cb').exists()).toBe(true)
     expect(w.findAll('input[type="date"]')).toHaveLength(2)
+  })
+
+  it('checking Overall in Custom hides date inputs and calls getStats with no params', async () => {
+    vi.mocked(api.getStats).mockResolvedValue(makeStats())
+    const w = mountHome()
+    await flushPromises()
+
+    const customBtn = w.findAll('button.range-btn').find(b => b.text() === 'Custom')
+    await customBtn!.trigger('click')
+    vi.mocked(api.getStats).mockClear()
+
+    await w.find('.custom-overall-cb').setValue(true)
+    await flushPromises()
+
+    expect(w.findAll('input[type="date"]')).toHaveLength(0)
+    const [from, to] = vi.mocked(api.getStats).mock.calls[0]
+    expect(from).toBeUndefined()
+    expect(to).toBeUndefined()
   })
 
   it('clicking a range button calls api.getStats again', async () => {
@@ -133,25 +151,25 @@ describe('HomeView – range selection', () => {
     expect(to).toBeTruthy()
   })
 
-  it('"Overall" button passes no date params to getStats', async () => {
+  it('"Last year" button passes from/to to getStats', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     const w = mountHome()
     await flushPromises()
     vi.mocked(api.getStats).mockClear()
 
-    // Re-click Overall to trigger watch
-    const overallBtn = w.findAll('button.range-btn').find(b => b.text() === 'Last 3 months')
-    await overallBtn!.trigger('click')
+    // Switch away then back to Last year to trigger watch
+    const threeMonthBtn = w.findAll('button.range-btn').find(b => b.text() === 'Last 3 months')
+    await threeMonthBtn!.trigger('click')
     await flushPromises()
     vi.mocked(api.getStats).mockClear()
 
-    const overall = w.findAll('button.range-btn').find(b => b.text() === 'Overall')
-    await overall!.trigger('click')
+    const lastYearBtn = w.findAll('button.range-btn').find(b => b.text() === 'Last year')
+    await lastYearBtn!.trigger('click')
     await flushPromises()
 
     const [from, to] = vi.mocked(api.getStats).mock.calls[0]
-    expect(from).toBeUndefined()
-    expect(to).toBeUndefined()
+    expect(from).toBeTruthy()
+    expect(to).toBeTruthy()
   })
 })
 

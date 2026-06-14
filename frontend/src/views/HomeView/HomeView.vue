@@ -27,12 +27,12 @@ function dismissBanner() {
 
 type RangeKey = 'all' | '1w' | '1m' | '3m' | '6m' | '1y' | 'custom'
 
-const range      = ref<RangeKey>('all')
+const range      = ref<RangeKey>('1y')
 const customFrom = ref('')
 const customTo   = ref('')
+const customAll  = ref(false)
 
 const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
-  { key: 'all', label: 'Overall' },
   { key: '1w',  label: 'Last week' },
   { key: '1m',  label: 'Last month' },
   { key: '3m',  label: 'Last 3 months' },
@@ -66,6 +66,7 @@ const fromTo = computed<{ from?: string; to?: string }>(() => {
     return { from: toIso(f), to: toIso(now) }
   }
   if (range.value === 'custom') {
+    if (customAll.value) return {}
     return {
       from: customFrom.value ? new Date(customFrom.value).toISOString() : undefined,
       to:   customTo.value   ? new Date(customTo.value).toISOString()   : undefined,
@@ -145,13 +146,19 @@ const kpis = computed(() => {
     </div>
 
     <div v-if="range === 'custom'" class="custom-range">
-      <div class="custom-range-field">
-        <label class="field-label">From</label>
-        <input v-model="customFrom" type="date" class="field-input" />
-      </div>
-      <div class="custom-range-field">
-        <label class="field-label">To</label>
-        <input v-model="customTo" type="date" class="field-input" />
+      <label class="custom-overall-toggle">
+        <input v-model="customAll" type="checkbox" class="custom-overall-cb" />
+        Overall (all time)
+      </label>
+      <div v-if="!customAll" class="custom-date-row">
+        <div class="custom-range-field">
+          <label class="field-label">From</label>
+          <input v-model="customFrom" type="date" class="field-input" />
+        </div>
+        <div class="custom-range-field">
+          <label class="field-label">To</label>
+          <input v-model="customTo" type="date" class="field-input" />
+        </div>
       </div>
     </div>
 
@@ -243,7 +250,13 @@ const kpis = computed(() => {
   box-shadow: 0 2px 8px color-mix(in srgb, var(--col-invert-bg) 35%, transparent);
 }
 
-.custom-range { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.custom-range { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
+.custom-overall-toggle {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .875rem; color: var(--col-text); cursor: pointer; user-select: none;
+}
+.custom-overall-cb { width: 1rem; height: 1rem; accent-color: var(--col-accent); cursor: pointer; }
+.custom-date-row { display: flex; gap: 1rem; flex-wrap: wrap; }
 .custom-range-field { display: flex; flex-direction: column; gap: .25rem; }
 
 .onboarding-banner {
