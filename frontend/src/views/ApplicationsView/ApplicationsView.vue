@@ -431,6 +431,8 @@ function printPage() {
   </div>
 </template>
 
+<style src="../../assets/split-panel.css" scoped></style>
+
 <style scoped>
 /* layout wrappers */
 .list-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
