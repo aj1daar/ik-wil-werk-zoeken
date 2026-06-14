@@ -97,7 +97,7 @@ async function openPanel() {
   open.value = true
   await nextTick()
   positionPanel()
-  panelRef.value?.focus()
+  panelRef.value?.focus({ preventScroll: true })
 }
 
 function closePanel() {
