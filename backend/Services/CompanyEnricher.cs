@@ -8,7 +8,7 @@ namespace backend.Services;
 
 public sealed class CompanyEnricher
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     private const string Model = "gemini-2.0-flash";
     private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
@@ -22,21 +22,25 @@ public sealed class CompanyEnricher
 
     internal static readonly HashSet<string> ValidTechStackTags = new(StringComparer.Ordinal)
     {
-        ".NET", "AI/ML", "Android", "API-first", "AWS", "Azure", "Big Data",
-        "C#", "C++", "Cloud", "Data Engineering", "Distributed Systems",
-        "Elasticsearch", "Go", "iOS", "Java", "JavaScript", "Kafka",
-        "Kotlin", "Kubernetes", "Microservices", "Node.js", "PHP",
-        "Python", "React", "REST API", "SAP", "Scala", "SQL", "TypeScript",
+        ".NET", "AI/ML", "Android", "Angular", "API-first", "AWS", "Azure",
+        "Big Data", "C#", "C++", "Cloud", "Computer Vision", "Data Engineering",
+        "Distributed Systems", "Docker", "Elasticsearch", "Embedded", "Flutter",
+        "Go", "GraphQL", "iOS", "Java", "JavaScript", "Kafka", "Kotlin",
+        "Kubernetes", "Linux", "MATLAB", "Microservices", "Node.js", "PHP",
+        "PostgreSQL", "Python", "React", "REST API", "Ruby", "Rust", "SAP",
+        "Scala", "Spark", "SQL", "Swift", "Terraform", "TypeScript", "Unity", "Vue.js",
     };
 
     internal static readonly HashSet<string> ValidFunctionalTags = new(StringComparer.Ordinal)
     {
-        "Automotive Tech", "B2B SaaS", "Consulting", "Deep Tech", "E-commerce",
-        "Enterprise", "Financial Services", "Fintech", "Geospatial", "Hardware",
-        "Healthcare Tech", "High-Tech", "IoT", "Logistics", "Manufacturing",
-        "Marketplace", "Payments", "Platform", "R&D", "SaaS",
-        "Semiconductor", "SME", "Software & Technology", "Staffing",
-        "Sustainability", "Travel & Hospitality",
+        "AgriTech", "Analytics", "Automotive Tech", "B2B SaaS", "BioTech",
+        "CleanTech", "Consulting", "CyberSecurity", "Deep Tech", "E-commerce",
+        "Energy", "Enterprise", "Financial Services", "Fintech", "Food Tech",
+        "Gaming", "Geospatial", "Hardware", "Healthcare Tech", "High-Tech",
+        "IoT", "Logistics", "Manufacturing", "Marketplace", "MedTech",
+        "Payments", "Platform", "R&D", "SaaS", "Semiconductor",
+        "SME", "Software & Technology", "Staffing", "Sustainability",
+        "Telecom", "Travel & Hospitality",
     };
 
     private const string SystemPrompt =
@@ -44,35 +48,43 @@ public sealed class CompanyEnricher
         You are a company research assistant. Given a JSON array of Dutch companies (each with "name" and "kvk"),
         return a JSON array of the SAME LENGTH AND ORDER — no other text, no markdown, no code fences.
 
+        LANGUAGE RULE: ALL text values (summary, coreIndustry, parentCompanyName, city) MUST be written in English.
+        Do not use Dutch words or sentences anywhere in the output.
+
         Each output element must have these exact keys:
         {
           "confidence": "high" | "medium" | "low",
-          "summary": "2-3 sentences about what the company does, or null if you have no reliable knowledge",
-          "coreIndustry": "single broad industry label, or null if unknown",
-          "techStackTags": [up to 6 tags from the TECH STACK list below] or [],
+          "summary": "2-3 English sentences about what the company does, or null if you have no reliable knowledge",
+          "coreIndustry": "single broad English industry label, or null if unknown",
+          "techStackTags": [up to 8 tags from the TECH STACK list below] or [],
           "functionalTags": [up to 6 tags from the FUNCTIONAL list below] or [],
           "workingLanguage": "English" | "Dutch" | "Mixed" | null,
           "companySize": "startup" | "scaleup" | "mid" | "large" | "enterprise" | null,
           "remotePolicy": "remote" | "hybrid" | "office" | "unknown",
-          "parentCompanyName": "well-known parent brand name, or null if none",
+          "parentCompanyName": "well-known parent brand name in English, or null if none",
           "websiteUrl": "https://... or null",
-          "targetMarket": "B2B" | "B2C" | "B2G" | "Mixed" | null
+          "targetMarket": "B2B" | "B2C" | "B2G" | "Mixed" | null,
+          "city": "primary Dutch city of the company's headquarters, or null if uncertain"
         }
 
         ALLOWED TECH STACK TAGS — use ONLY these exact strings (any other value will be discarded):
-        ".NET", "AI/ML", "Android", "API-first", "AWS", "Azure", "Big Data",
-        "C#", "C++", "Cloud", "Data Engineering", "Distributed Systems",
-        "Elasticsearch", "Go", "iOS", "Java", "JavaScript", "Kafka",
-        "Kotlin", "Kubernetes", "Microservices", "Node.js", "PHP",
-        "Python", "React", "REST API", "SAP", "Scala", "SQL", "TypeScript"
+        ".NET", "AI/ML", "Android", "Angular", "API-first", "AWS", "Azure",
+        "Big Data", "C#", "C++", "Cloud", "Computer Vision", "Data Engineering",
+        "Distributed Systems", "Docker", "Elasticsearch", "Embedded", "Flutter",
+        "Go", "GraphQL", "iOS", "Java", "JavaScript", "Kafka", "Kotlin",
+        "Kubernetes", "Linux", "MATLAB", "Microservices", "Node.js", "PHP",
+        "PostgreSQL", "Python", "React", "REST API", "Ruby", "Rust", "SAP",
+        "Scala", "Spark", "SQL", "Swift", "Terraform", "TypeScript", "Unity", "Vue.js"
 
         ALLOWED FUNCTIONAL TAGS — use ONLY these exact strings (any other value will be discarded):
-        "Automotive Tech", "B2B SaaS", "Consulting", "Deep Tech", "E-commerce",
-        "Enterprise", "Financial Services", "Fintech", "Geospatial", "Hardware",
-        "Healthcare Tech", "High-Tech", "IoT", "Logistics", "Manufacturing",
-        "Marketplace", "Payments", "Platform", "R&D", "SaaS",
-        "Semiconductor", "SME", "Software & Technology", "Staffing",
-        "Sustainability", "Travel & Hospitality"
+        "AgriTech", "Analytics", "Automotive Tech", "B2B SaaS", "BioTech",
+        "CleanTech", "Consulting", "CyberSecurity", "Deep Tech", "E-commerce",
+        "Energy", "Enterprise", "Financial Services", "Fintech", "Food Tech",
+        "Gaming", "Geospatial", "Hardware", "Healthcare Tech", "High-Tech",
+        "IoT", "Logistics", "Manufacturing", "Marketplace", "MedTech",
+        "Payments", "Platform", "R&D", "SaaS", "Semiconductor",
+        "SME", "Software & Technology", "Staffing", "Sustainability",
+        "Telecom", "Travel & Hospitality"
 
         STRICT RULES — invalid values will be discarded server-side:
         - confidence: "high" = reliable, specific knowledge; "medium" = partial; "low" = guessing most fields.
@@ -80,11 +92,13 @@ public sealed class CompanyEnricher
         - companySize MUST be exactly one of: "startup", "scaleup", "mid", "large", "enterprise" — or null.
         - remotePolicy MUST be exactly one of: "remote", "hybrid", "office", "unknown". Never null.
         - targetMarket MUST be exactly one of: "B2B", "B2C", "B2G", "Mixed" — or null.
-        - websiteUrl: only include if CERTAIN it is the company's official, currently-active website. Prefer null.
+        - websiteUrl: only include if CERTAIN it is the company's official, currently-active website. Prefer null over a guess.
+        - city: only include if CERTAIN this is the company's primary HQ city in the Netherlands (e.g. "Amsterdam",
+                "Rotterdam", "Eindhoven", "Utrecht", "Delft"). Prefer null over a guess. Never invent a city.
         - companySize guide: startup < 50 employees, scaleup 50–250, mid 250–1000, large 1000–5000, enterprise > 5000.
-        - coreIndustry: one broad label, e.g. "Software & Technology", "Financial Services", "Healthcare", "Logistics".
+        - coreIndustry: one broad English label, e.g. "Software & Technology", "Financial Services", "Healthcare".
 
-        Self-check before outputting: verify every tag comes from the allowed list above.
+        Self-check before outputting: (1) every tag is from the allowed list, (2) all text is in English.
         Output ONLY the JSON array.
         """;
 
@@ -212,6 +226,8 @@ public sealed class CompanyEnricher
                 c.ParentCompanyName = r.ParentCompanyName;
                 c.WebsiteUrl = r.WebsiteUrl;
                 c.TargetMarket = ValidateEnum(r.TargetMarket, ValidTargetMarkets);
+                if (string.IsNullOrEmpty(c.City) && !string.IsNullOrEmpty(r.City))
+                    c.City = r.City;
                 count++;
 
                 if (!string.IsNullOrEmpty(r.WebsiteUrl))
@@ -447,6 +463,7 @@ internal sealed class CompanyEnrichmentResult
     [JsonPropertyName("parentCompanyName")] public string? ParentCompanyName { get; set; }
     [JsonPropertyName("websiteUrl")] public string? WebsiteUrl { get; set; }
     [JsonPropertyName("targetMarket")] public string? TargetMarket { get; set; }
+    [JsonPropertyName("city")] public string? City { get; set; }
 }
 
 internal sealed class RefinementInput

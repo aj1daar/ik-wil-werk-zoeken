@@ -17,9 +17,9 @@ public sealed class CompanyEnricherTests
     // ── CurrentVersion constant ───────────────────────────────────────────────
 
     [Fact]
-    public void CurrentVersion_IsThree()
+    public void CurrentVersion_IsFour()
     {
-        Assert.Equal(3, CompanyEnricher.CurrentVersion);
+        Assert.Equal(4, CompanyEnricher.CurrentVersion);
     }
 
     // ── EnrichBatchAsync — no API key ─────────────────────────────────────────
@@ -634,6 +634,10 @@ public sealed class CompanyEnricherTests
     {
         Assert.Contains("React", CompanyEnricher.ValidTechStackTags);
         Assert.Contains("Python", CompanyEnricher.ValidTechStackTags);
+        Assert.Contains("Vue.js", CompanyEnricher.ValidTechStackTags);
+        Assert.Contains("Docker", CompanyEnricher.ValidTechStackTags);
+        Assert.Contains("Terraform", CompanyEnricher.ValidTechStackTags);
+        Assert.Contains("MATLAB", CompanyEnricher.ValidTechStackTags);
         Assert.DoesNotContain("ReactJS", CompanyEnricher.ValidTechStackTags);
     }
 
@@ -642,7 +646,90 @@ public sealed class CompanyEnricherTests
     {
         Assert.Contains("Fintech", CompanyEnricher.ValidFunctionalTags);
         Assert.Contains("Payments", CompanyEnricher.ValidFunctionalTags);
+        Assert.Contains("AgriTech", CompanyEnricher.ValidFunctionalTags);
+        Assert.Contains("CyberSecurity", CompanyEnricher.ValidFunctionalTags);
+        Assert.Contains("MedTech", CompanyEnricher.ValidFunctionalTags);
+        Assert.Contains("Gaming", CompanyEnricher.ValidFunctionalTags);
         Assert.DoesNotContain("Made-up Domain", CompanyEnricher.ValidFunctionalTags);
+    }
+
+    // ── City enrichment ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EnrichBatchAsync_PopulatesCity_WhenGeminiProvidesIt()
+    {
+        var company = MakeCompany("ASML", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence        = "high",
+                summary           = "ASML manufactures photolithography machines.",
+                coreIndustry      = "Semiconductor",
+                techStackTags     = Array.Empty<string>(),
+                functionalTags    = new[] { "Semiconductor" },
+                workingLanguage   = "English",
+                companySize       = "enterprise",
+                remotePolicy      = "hybrid",
+                parentCompanyName = (string?)null,
+                websiteUrl        = (string?)null,
+                targetMarket      = "B2B",
+                city              = "Eindhoven",
+            }
+        });
+        var factory = new GeminiHttpClientFactory(HttpStatusCode.OK, WrapGeminiResponse(resultJson));
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Equal("Eindhoven", company.City);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichBatchAsync_DoesNotOverwriteExistingCity()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        company.City = "Rotterdam"; // pre-set from IND data
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence        = "high",
+                summary           = "Acme does things.",
+                coreIndustry      = "Tech",
+                techStackTags     = Array.Empty<string>(),
+                functionalTags    = Array.Empty<string>(),
+                workingLanguage   = "English",
+                companySize       = "mid",
+                remotePolicy      = "hybrid",
+                parentCompanyName = (string?)null,
+                websiteUrl        = (string?)null,
+                targetMarket      = "B2B",
+                city              = "Amsterdam",  // Gemini says Amsterdam but we keep Rotterdam
+            }
+        });
+        var factory = new GeminiHttpClientFactory(HttpStatusCode.OK, WrapGeminiResponse(resultJson));
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+            Assert.Equal("Rotterdam", company.City);  // unchanged
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
