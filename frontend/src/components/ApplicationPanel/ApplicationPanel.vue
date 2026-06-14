@@ -33,11 +33,7 @@ const chipFlash        = ref(false)
 const showDiscardConfirm = ref(false)
 const showDeleteConfirm  = ref(false)
 
-// Status date — shown when user changes status; defaults to today
 const todayYmd = new Date().toISOString().slice(0, 10)
-const statusDate = ref(todayYmd)
-const statusChanged = computed(() => status.value !== props.application.status)
-watch(status, () => { statusDate.value = todayYmd })
 
 // Typeahead
 const suggestions      = ref<SponsorCompany[]>([])
@@ -53,7 +49,6 @@ const showHistory      = ref(false)
 // Status history
 const statusHistory    = ref<StatusHistory[]>([])
 const historyLoading   = ref(false)
-const showStatusHistory = ref(false)
 const editingEntryId   = ref<string | null>(null)
 const editStatus       = ref('')
 const editDate         = ref('')
@@ -82,7 +77,7 @@ watch(() => props.application, (a) => {
   activityLogs.value    = []
   statusHistory.value   = []
   showHistory.value     = false
-  showStatusHistory.value = false
+  loadStatusHistory()
 })
 
 const isRejected = computed(() => status.value === 'Rejected')
@@ -102,7 +97,21 @@ const isDirty = computed(() =>
   JSON.stringify(locations.value) !== JSON.stringify([...props.application.locations])
 )
 
-onMounted(() => { companiesStore.load() })
+const sortedHistory = computed(() =>
+  [...statusHistory.value].sort((a, b) =>
+    a.statusDate.localeCompare(b.statusDate) || a.createdAt.localeCompare(b.createdAt)
+  )
+)
+
+function updateStatusFromHistory() {
+  if (statusHistory.value.length === 0) return
+  const latest = [...statusHistory.value].sort((a, b) =>
+    b.statusDate.localeCompare(a.statusDate) || b.createdAt.localeCompare(a.createdAt)
+  )[0]
+  status.value = latest.status as typeof status.value
+}
+
+onMounted(() => { companiesStore.load(); loadStatusHistory() })
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
 
 function onCompanyInput() {
@@ -179,7 +188,6 @@ async function save() {
       position:           position.value.trim(),
       appliedAt:          new Date(appliedAt.value).toISOString(),
       status:             status.value,
-      statusDate:         statusChanged.value ? statusDate.value : undefined,
       rejectionReason:    isRejected.value && rejectionReason.value ? rejectionReason.value : undefined,
       rejectionNote:      isRejected.value && rejectionNote.value ? rejectionNote.value : undefined,
       notes:              notes.value || undefined,
@@ -190,7 +198,6 @@ async function save() {
       jobUrl:             jobUrl.value || undefined,
     })
     if (showHistory.value) await loadHistory()
-    if (showStatusHistory.value) await loadStatusHistory()
     chipFlash.value = true
     setTimeout(() => { chipFlash.value = false }, 600)
   } catch {
@@ -242,13 +249,6 @@ async function loadStatusHistory() {
   }
 }
 
-async function toggleStatusHistory() {
-  showStatusHistory.value = !showStatusHistory.value
-  if (showStatusHistory.value && statusHistory.value.length === 0) {
-    await loadStatusHistory()
-  }
-}
-
 function startEdit(entry: StatusHistory) {
   editingEntryId.value = entry.id
   editStatus.value     = entry.status
@@ -274,6 +274,8 @@ async function saveEdit(entry: StatusHistory) {
       b.statusDate.localeCompare(a.statusDate) || b.createdAt.localeCompare(a.createdAt)
     )
     editingEntryId.value = null
+    updateStatusFromHistory()
+    await store.update(props.application.id, { status: status.value })
   } catch {
     historyError.value = 'Save failed. Please try again.'
   }
@@ -290,6 +292,8 @@ async function deleteEntry() {
   try {
     await api.deleteStatusHistory(pendingDeleteId.value)
     statusHistory.value = statusHistory.value.filter(h => h.id !== pendingDeleteId.value)
+    updateStatusFromHistory()
+    await store.update(props.application.id, { status: status.value })
   } catch {
     historyError.value = 'Delete failed. Please try again.'
   } finally {
@@ -317,9 +321,9 @@ async function saveAdd() {
       status:     newEntryStatus.value,
       statusDate: newEntryDate.value,
     })
-    statusHistory.value = [entry, ...statusHistory.value].sort((a, b) =>
-      b.statusDate.localeCompare(a.statusDate) || b.createdAt.localeCompare(a.createdAt)
-    )
+    statusHistory.value = [entry, ...statusHistory.value]
+    updateStatusFromHistory()
+    await store.update(props.application.id, { status: status.value })
     addingEntry.value = false
   } catch {
     addError.value = 'Failed to add entry. Please try again.'
@@ -417,19 +421,78 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         <input id="ap-date" v-model="appliedAt" type="date" class="field-input" />
       </div>
 
-      <div class="field">
-        <label class="field-label" for="ap-status">Status</label>
-        <select id="ap-status" v-model="status" class="field-input">
-          <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
-        </select>
-      </div>
+      <!-- Status journey (inline timeline) -->
+      <div class="sj-section">
+        <div class="sj-header">
+          <span class="field-label">Status journey</span>
+        </div>
+        <div v-if="historyLoading" class="sj-empty">Loading…</div>
+        <template v-else>
+          <p v-if="historyError" class="sh-error">{{ historyError }}</p>
+          <ul v-if="sortedHistory.length > 0" class="sj-list">
+            <li v-for="entry in sortedHistory" :key="entry.id" class="sj-item">
+              <div class="sj-line-col">
+                <span class="sj-dot"></span>
+                <span class="sj-line"></span>
+              </div>
+              <div class="sj-content">
+                <template v-if="editingEntryId === entry.id">
+                  <div class="sh-edit-row">
+                    <select v-model="editStatus" class="field-input sh-edit-select">
+                      <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
+                    </select>
+                    <DatePicker v-model="editDate" placeholder="Date" />
+                  </div>
+                  <div class="sh-edit-actions">
+                    <button class="btn-primary sh-save-btn" @click="saveEdit(entry)">Save</button>
+                    <button class="btn-ghost sh-cancel-btn" @click="cancelEdit">Cancel</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="sj-row">
+                    <span :class="['chip', STATUS_COLOR[entry.status]]">{{ STATUS_LABELS[entry.status] }}</span>
+                    <span class="sj-date">{{ formatStatusDate(entry.statusDate) }}</span>
+                    <div class="sh-actions">
+                      <button class="sh-btn" @click="startEdit(entry)" title="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button class="sh-btn sh-btn--danger" @click="confirmDeleteEntry(entry.id)" title="Delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </li>
+          </ul>
+          <div v-else class="sj-empty">No status changes yet.</div>
 
-      <div v-if="statusChanged" class="field status-date-field">
-        <label class="field-label" for="ap-status-date">
-          Status date
-          <span class="optional">(when did this happen?)</span>
-        </label>
-        <DatePicker v-model="statusDate" id="ap-status-date" placeholder="Pick a date" />
+          <template v-if="addingEntry">
+            <div class="sh-add-form">
+              <div class="sh-edit-row">
+                <select v-model="newEntryStatus" class="field-input sh-edit-select">
+                  <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
+                </select>
+                <DatePicker v-model="newEntryDate" placeholder="Date" />
+              </div>
+              <p v-if="addError" class="sh-error">{{ addError }}</p>
+              <div class="sh-edit-actions">
+                <button class="btn-primary sh-save-btn" @click="saveAdd">Add</button>
+                <button class="btn-ghost sh-cancel-btn" @click="cancelAdd">Cancel</button>
+              </div>
+            </div>
+          </template>
+          <button v-else class="sh-add-btn" @click="startAdd">
+            <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Change status
+          </button>
+        </template>
       </div>
 
       <template v-if="isRejected">
@@ -526,83 +589,6 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           :href="`mailto:${application.contactPersonEmail}`"
           class="mailto-link"
         >{{ application.contactPersonEmail }}</a>
-      </div>
-
-      <!-- Status history -->
-      <div class="history-section">
-        <button class="history-toggle" @click="toggleStatusHistory" :aria-expanded="showStatusHistory">
-          <svg xmlns="http://www.w3.org/2000/svg" class="history-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          Status history
-          <svg xmlns="http://www.w3.org/2000/svg" :class="['chevron', { 'chevron--open': showStatusHistory }]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        <div v-if="showStatusHistory" class="history-body">
-          <div v-if="historyLoading" class="history-empty">Loading…</div>
-          <template v-else>
-            <p v-if="historyError" class="sh-error">{{ historyError }}</p>
-
-            <ul v-if="statusHistory.length > 0" class="sh-list">
-              <li v-for="entry in statusHistory" :key="entry.id" class="sh-item">
-                <template v-if="editingEntryId === entry.id">
-                  <div class="sh-edit-row">
-                    <select v-model="editStatus" class="field-input sh-edit-select">
-                      <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
-                    </select>
-                    <DatePicker v-model="editDate" placeholder="Date" />
-                  </div>
-                  <div class="sh-edit-actions">
-                    <button class="btn-primary sh-save-btn" @click="saveEdit(entry)">Save</button>
-                    <button class="btn-ghost sh-cancel-btn" @click="cancelEdit">Cancel</button>
-                  </div>
-                </template>
-                <template v-else>
-                  <span :class="['chip', STATUS_COLOR[entry.status]]">{{ STATUS_LABELS[entry.status] }}</span>
-                  <span class="sh-date">{{ formatStatusDate(entry.statusDate) }}</span>
-                  <div class="sh-actions">
-                    <button class="sh-btn" @click="startEdit(entry)" title="Edit">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button class="sh-btn sh-btn--danger" @click="confirmDeleteEntry(entry.id)" title="Delete">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </template>
-              </li>
-            </ul>
-            <div v-else class="history-empty">No status history yet.</div>
-
-            <!-- Add entry form -->
-            <template v-if="addingEntry">
-              <div class="sh-add-form">
-                <div class="sh-edit-row">
-                  <select v-model="newEntryStatus" class="field-input sh-edit-select">
-                    <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
-                  </select>
-                  <DatePicker v-model="newEntryDate" placeholder="Date" />
-                </div>
-                <p v-if="addError" class="sh-error">{{ addError }}</p>
-                <div class="sh-edit-actions">
-                  <button class="btn-primary sh-save-btn" @click="saveAdd">Add</button>
-                  <button class="btn-ghost sh-cancel-btn" @click="cancelAdd">Cancel</button>
-                </div>
-              </div>
-            </template>
-            <button v-else class="sh-add-btn" @click="startAdd">
-              <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add entry
-            </button>
-          </template>
-        </div>
       </div>
 
       <!-- Change history (activity log) -->
@@ -709,8 +695,19 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .mailto-link { font-size: .8rem; color: var(--col-accent); text-decoration: none; margin-top: .125rem; }
 .mailto-link:hover { text-decoration: underline; }
 
-/* status date */
-.status-date-field { background: color-mix(in srgb, var(--col-accent-lt) 60%, transparent); border: 1px solid var(--col-border-lt); border-radius: .5rem; padding: .625rem .75rem; }
+/* status journey */
+.sj-section { display: flex; flex-direction: column; gap: .5rem; }
+.sj-header { display: flex; align-items: center; justify-content: space-between; }
+.sj-empty { font-size: .8rem; color: var(--col-subtle); padding: .125rem 0; }
+.sj-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+.sj-item { display: flex; gap: .625rem; align-items: flex-start; }
+.sj-line-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: .75rem; }
+.sj-dot { width: .625rem; height: .625rem; border-radius: 50%; background: var(--col-accent); flex-shrink: 0; margin-top: .35rem; }
+.sj-line { flex: 1; width: 2px; background: var(--col-border); min-height: .75rem; }
+.sj-item:last-child .sj-line { display: none; }
+.sj-content { flex: 1; padding-bottom: .625rem; }
+.sj-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.sj-date { font-size: .8rem; color: var(--col-muted); flex: 1; }
 
 /* follow-up date */
 .overdue-badge { display: inline-block; background: var(--col-error); color: #fff; font-size: .65rem; font-weight: 700; border-radius: 9999px; padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }

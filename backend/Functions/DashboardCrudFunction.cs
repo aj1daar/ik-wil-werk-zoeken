@@ -194,14 +194,14 @@ public sealed class DashboardCrudFunction
         var logs = BuildActivityLogs(existing, updated, userId);
         await _stages.UpsertAsync(updated);
 
-        if (existing.Status != updated.Status)
+        if (existing.Status != updated.Status && statusDate.HasValue)
         {
             _db.StatusHistories.Add(new StatusHistory
             {
                 ApplicationId = id,
                 UserId = userId,
                 Status = updated.Status,
-                StatusDate = statusDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                StatusDate = statusDate.Value,
             });
         }
 
