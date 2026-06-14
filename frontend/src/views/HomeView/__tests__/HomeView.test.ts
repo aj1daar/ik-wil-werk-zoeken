@@ -93,7 +93,7 @@ describe('HomeView – range selection', () => {
     expect(threeMonthBtn?.classes()).toContain('range-btn--active')
   })
 
-  it('clicking "Custom" shows the Overall checkbox and date inputs', async () => {
+  it('clicking "Custom" shows the Overall checkbox and date pickers', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     const w = mountHome()
     await flushPromises()
@@ -102,10 +102,10 @@ describe('HomeView – range selection', () => {
     await customBtn!.trigger('click')
     expect(w.find('.custom-range').exists()).toBe(true)
     expect(w.find('.custom-overall-cb').exists()).toBe(true)
-    expect(w.findAll('input[type="date"]')).toHaveLength(2)
+    expect(w.findAll('.dp-trigger')).toHaveLength(2)
   })
 
-  it('checking Overall in Custom hides date inputs and calls getStats with no params', async () => {
+  it('checking Overall in Custom hides date pickers and calls getStats with no params', async () => {
     vi.mocked(api.getStats).mockResolvedValue(makeStats())
     const w = mountHome()
     await flushPromises()
@@ -117,7 +117,7 @@ describe('HomeView – range selection', () => {
     await w.find('.custom-overall-cb').setValue(true)
     await flushPromises()
 
-    expect(w.findAll('input[type="date"]')).toHaveLength(0)
+    expect(w.findAll('.dp-trigger')).toHaveLength(0)
     const [from, to] = vi.mocked(api.getStats).mock.calls[0]
     expect(from).toBeUndefined()
     expect(to).toBeUndefined()

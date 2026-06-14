@@ -5,6 +5,7 @@ import type { ApplicationStatus } from '../../api'
 import FunnelChart from '../../components/FunnelChart/FunnelChart.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
+import DatePicker from '../../components/DatePicker/DatePicker.vue'
 
 const store = useApplicationsStore()
 
@@ -153,11 +154,11 @@ const kpis = computed(() => {
       <div v-if="!customAll" class="custom-date-row">
         <div class="custom-range-field">
           <label class="field-label">From</label>
-          <input v-model="customFrom" type="date" class="field-input" />
+          <DatePicker v-model="customFrom" placeholder="Start date" />
         </div>
         <div class="custom-range-field">
           <label class="field-label">To</label>
-          <input v-model="customTo" type="date" class="field-input" />
+          <DatePicker v-model="customTo" placeholder="End date" />
         </div>
       </div>
     </div>
