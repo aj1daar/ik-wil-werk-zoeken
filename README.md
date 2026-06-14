@@ -16,28 +16,31 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 - **Activity log** — every field change is logged with old/new values and timestamp; collapsible history section in the detail panel
 - **Bulk status update** — select multiple applications and change their status in one action
 - **Job posting URL** — optional link to the original job posting, openable in one click from the detail panel
+- **Company typeahead** — both the new-application modal and the detail panel search the IND sponsor list as you type; selecting a company pre-fills available enrichment context
 - **Text search** — searches company name, position, notes, contact name, and contact email
 - **Sort options** — newest, oldest, last updated, company A–Z, follow-up date ↑
+- **Collapsible filter panel** — status filter and sort controls collapse behind a toggle button with an active-filter count badge
 - **CSV export** — download all applications as a CSV file
-- **Unsaved changes guard** — detail panel and new-application modal warn before discarding edits
+- **Unsaved changes guard** — custom confirm dialog (not a browser native popup) warns before discarding edits or deleting an application
 
 ### IND Sponsor Browser
 - **Company browser** — searchable, filterable list of all IND-recognized sponsor companies, synced monthly from the Dutch public register
-- **Company enrichment** — AI-generated fields per company: working language, remote policy, company size, website URL, target market, parent company name, core industry, tech stack tags, functional tags, and a plain-language summary
+- **Company enrichment** — AI-generated fields per company (via Gemini, all output in English): city, working language, remote policy, company size, website URL, target market, parent company name, core industry, tech stack tags, functional tags, and a plain-language summary. City from the IND register takes precedence over the AI value when available.
+- **Tag taxonomy** — 47 tech-stack tags (`.NET`, `AI/ML`, `Docker`, `Vue.js`, `MATLAB`, `Terraform`, …) and 36 functional tags (`AgriTech`, `CyberSecurity`, `MedTech`, `Gaming`, `Telecom`, …); constrained server-side so free-form AI output is normalised to the allowed enum
+- **Searchable tag panel** — top 60 most-used tags shown by default (sorted by usage frequency); type to search across all tags
 - **Advanced filters** — city, working language, company size, remote policy, tech/functional tags (include/exclude), applied-only toggle
 - **Sort options** — A→Z, Z→A, city A–Z, default (API order)
 - **Company grouping** — subsidiaries are collapsed under their parent company; toggle to expand
 - **"Not interested" hiding** — hide individual companies from the list; stored in `localStorage`; "Show hidden (N)" toggle to reveal
 - **Load all** — single click to show all companies instead of paging through 60-at-a-time
 - **Applied overlay** — companies where you have an active application show your current status chip
-- **Company typeahead** — new-application modal searches the IND sponsor list as you type and pre-fills city and enrichment context on selection
 
 ### Dashboard
 - **KPI strip** — total applied, response rate, offer rate, average days to first response
-- **Application funnel chart** — conversion pipeline (Applied → Interviewing → Offer → Accepted) with drop-off percentages
+- **Application status bar** — horizontal stacked bar showing all 7 statuses proportionally; hover any segment or legend row for an exact count and percentage; zero-count statuses shown dimmed in the legend
 - **Rejection breakdown chart** — donut chart of rejection reasons (another candidate, incompatible profile, Dutch language requirement, salary mismatch, filled internally, other, no reason given)
 - **Applications over time** — area chart of weekly application volume
-- **Date range filter** — Overall, Last month, Last 3 months, Last 6 months, Last year, Custom; all charts and KPIs respond to the filter
+- **Date range filter** — Last week, Last month, Last 3 months, Last 6 months, Last year (default), Custom; all charts and KPIs respond to the filter. Custom mode includes an "Overall (all time)" toggle and a native-styled date picker (no browser date popup)
 - **Overdue follow-ups card** — collapsible amber card listing applications with past-due follow-up dates (max 5, sorted by urgency)
 
 ### Auth & Accounts
@@ -50,6 +53,8 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 - **Account deletion** — GDPR right-to-erasure; removes all applications and user data
 
 ### UI / UX
+- **Custom confirm dialog** — replaces all `window.confirm()` calls; styled to match the design system, keyboard-accessible (Esc to cancel, Enter to confirm)
+- **Custom date picker** — fully themed calendar dropdown replacing native `<input type="date">`; keyboard-navigable with arrow keys, Page Up/Down for month, Enter to select
 - **Dark mode** — toggleable via moon/sun button in navbar; persisted in `localStorage`
 - **Page transitions** — fade + 8 px translateY on every route change
 - **Panel & modal animations** — slide-in/out for detail panel, scale + fade for modals, stagger on list load/filter
@@ -64,12 +69,12 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 | Layer | Technology |
 |---|---|
 | Frontend | Vue 3 + TypeScript + Vite + Pinia + Vue Router |
-| Charts | Apache ECharts + vue-echarts |
+| Charts | Apache ECharts + vue-echarts (rejection donut, area chart); pure CSS/Vue (status stacked bar) |
 | Backend | Azure Functions (.NET 8 isolated worker) |
 | Database | PostgreSQL (Azure Database for PostgreSQL Flexible Server) via EF Core |
 | Auth | JWT HS256 · PBKDF2-SHA256 (100 000 iterations) |
 | Email | Resend (verification, password reset, email change) |
-| AI enrichment | Google Gemini (batch company summaries, 20 companies per call) |
+| AI enrichment | Google Gemini 2.0 Flash (batch company enrichment, 20 companies per call) |
 | Hosting | Cloudflare Pages (frontend) · Azure consumption plan (backend) |
 
 ---
@@ -94,17 +99,19 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 │                            UserStore, StageStore, SponsorStore,
 │                            IndSponsorScraper, CompanyEnricher, RateLimiterService
 │
-├── backend.Tests/           xUnit tests (262 tests)
+├── backend.Tests/           xUnit tests (276 tests)
 │
 ├── frontend/                Vue 3 SPA
 │   └── src/
 │       ├── components/
 │       │   ├── AppNavbar/               Top navigation bar
 │       │   ├── AppLogo/                 Inline SVG logo
-│       │   ├── ApplicationPanel/        Application detail / edit panel
+│       │   ├── ApplicationPanel/        Application detail / edit panel (with company typeahead)
 │       │   ├── NewApplicationModal/     Create application modal with company typeahead
+│       │   ├── ConfirmDialog/           Custom confirm/cancel dialog (replaces window.confirm)
+│       │   ├── DatePicker/              Custom calendar date picker (replaces input[type=date])
 │       │   ├── PasswordField/           Password input with show/hide toggle
-│       │   ├── FunnelChart/             ECharts application funnel
+│       │   ├── FunnelChart/             Horizontal stacked bar by application status (pure CSS)
 │       │   ├── RejectionChart/          ECharts rejection reason donut
 │       │   ├── AreaChart/               ECharts applications-over-time area chart
 │       │   └── ui/                      AppSelect, AppInput, AppButton shared components
@@ -115,7 +122,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 │       ├── composables/     useSessionExpiry, useTokenRefresh, useTheme
 │       └── router/          index.ts — auth-guard + admin-guard navigation
 │
-├── frontend/src/**/__tests__/  Vitest tests (559 tests)
+├── frontend/src/**/__tests__/  Vitest tests (555 tests)
 │
 └── infra/                   Azure Bicep (subscription-scope)
     ├── main.bicep            Resource group + module wiring
@@ -235,22 +242,57 @@ pnpm dev
 
 ## Testing
 
-### Backend (xUnit · 262 tests)
+### Backend (xUnit · 276 tests)
 
 ```bash
 dotnet test backend.Tests
 ```
 
-Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`/`GetUserId`/`GetRole`, reset and email-change token creation and validation), `StageStore` (EF Core CRUD, user isolation, not-found handling, follow-up dates, job URL, bulk status update, activity log), `UserStore` (CRUD, email uniqueness, role promotion), `SponsorStore` (upsert, soft-delete, sync logs), seed data integrity, `CreateResetToken` / `ValidateResetToken`.
+Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`/`GetUserId`/`GetRole`, reset and email-change token creation and validation), `StageStore` (EF Core CRUD, user isolation, not-found handling, follow-up dates, job URL, bulk status update, activity log), `UserStore` (CRUD, email uniqueness, role promotion), `SponsorStore` (upsert, soft-delete, sync logs), `CompanyEnricher` (batch enrichment, tag enum filtering, city population, low-confidence skipping, refinement pass, URL validation), seed data integrity.
 
-### Frontend (Vitest · 559 tests)
+### Frontend (Vitest · 555 tests)
 
 ```bash
 cd frontend
 pnpm test
 ```
 
-Covers: auth store, companies store (search, filter, grouping), applications store (CRUD, stats, date-range filtering, bulk update), `AppLogo` / `PasswordField` / `ApplicationPanel` / `NewApplicationModal` / `AppSelect` / `AppInput` / `AppButton` components, `FunnelChart` / `RejectionChart` / `AreaChart` (ECharts mocked), router navigation guards (auth + admin), `LoginView`, `RegisterView`, `HomeView` (stats dashboard, date filter, overdue follow-ups, range buttons), `ApplicationsView` (sort, filter, split-panel, kanban), `CompaniesView` (sort, filter, hiding, grouping, load-all), `AdminView`, `ForgotPasswordView`, `ResetPasswordView`.
+Covers: auth store, companies store (search, filter, grouping, tag usage ranking), applications store (CRUD, stats, date-range filtering, bulk update), `AppLogo` / `PasswordField` / `ApplicationPanel` / `NewApplicationModal` / `ConfirmDialog` / `DatePicker` / `AppSelect` / `AppInput` / `AppButton` components, `FunnelChart` (status stacked bar — segments, legend, reactivity) / `RejectionChart` / `AreaChart` (ECharts mocked), router navigation guards (auth + admin), `LoginView`, `RegisterView`, `HomeView` (stats dashboard, date filter, custom date picker, overdue follow-ups, range buttons), `ApplicationsView` (sort, filter, split-panel, kanban), `CompaniesView` (sort, filter, hiding, grouping, load-all, tag search), `AdminView`, `ForgotPasswordView`, `ResetPasswordView`.
+
+---
+
+## AI Enrichment
+
+Company data is enriched via **Google Gemini 2.0 Flash** in batches of 20. All output is enforced to be in English. Fields enriched:
+
+| Field | Source priority | Notes |
+|---|---|---|
+| `city` | IND register → Gemini | Gemini only fills if IND didn't provide a city |
+| `summary` | Gemini | 2–3 sentence plain-English description |
+| `coreIndustry` | Gemini | Single broad English label |
+| `techStackTags` | Gemini | Up to 8 tags from a fixed 47-value enum |
+| `functionalTags` | Gemini | Up to 6 tags from a fixed 36-value enum |
+| `workingLanguage` | Gemini | `English` / `Dutch` / `Mixed` |
+| `companySize` | Gemini | `startup` / `scaleup` / `mid` / `large` / `enterprise` |
+| `remotePolicy` | Gemini | `remote` / `hybrid` / `office` / `unknown` |
+| `targetMarket` | Gemini | `B2B` / `B2C` / `B2G` / `Mixed` |
+| `parentCompanyName` | Gemini | Well-known parent brand, or null |
+| `websiteUrl` | Gemini + HTTP validation | URL is validated with a HEAD request; nulled on failure |
+
+Low-confidence results (`"confidence": "low"`) mark the company as enriched without writing field data, preventing expensive re-enrichment on every sync. A refinement pass corrects invalid enum values returned by the model.
+
+Enrichment is versioned (`CurrentVersion = 4`). Bumping the version triggers re-enrichment of all companies on the next monthly sync or manual admin reload.
+
+### Gemini cost estimate for full initial enrichment (12,800 companies)
+
+| | Tokens | Cost |
+|---|---|---|
+| Input (640 calls × ~800 tokens) | ~512K | $0.05 |
+| Output (640 calls × ~3,300 tokens) | ~2.1M | $0.85 |
+| Refinement pass (~10% of batches) | ~55K | $0.10 |
+| **Total** | | **~$1.00** |
+
+Pricing basis: Gemini 2.0 Flash at $0.10/1M input tokens, $0.40/1M output tokens. Ongoing monthly syncs add only the delta (new/changed companies), typically a few hundred at most.
 
 ---
 
