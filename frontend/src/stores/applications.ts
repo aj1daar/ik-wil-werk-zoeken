@@ -85,7 +85,7 @@ export const useApplicationsStore = defineStore('applications', {
       return created
     },
 
-    async update(id: string, data: Partial<Application>) {
+    async update(id: string, data: Partial<Application> & { statusDate?: string }) {
       const updated = await api.updateApplication(id, data)
       const idx = this.applications.findIndex(a => a.id === id)
       if (idx !== -1) this.applications[idx] = updated
