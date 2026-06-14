@@ -17,9 +17,9 @@ public sealed class CompanyEnricherTests
     // ── CurrentVersion constant ───────────────────────────────────────────────
 
     [Fact]
-    public void CurrentVersion_IsTwo()
+    public void CurrentVersion_IsThree()
     {
-        Assert.Equal(2, CompanyEnricher.CurrentVersion);
+        Assert.Equal(3, CompanyEnricher.CurrentVersion);
     }
 
     // ── EnrichBatchAsync — no API key ─────────────────────────────────────────
@@ -578,6 +578,71 @@ public sealed class CompanyEnricherTests
         {
             Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
         }
+    }
+
+    // ── Tag enum filtering ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EnrichBatchAsync_FiltersInvalidTags_KeepsValidOnes()
+    {
+        var company = MakeCompany("Acme", "12345678");
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence        = "high",
+                summary           = "A company.",
+                coreIndustry      = "Software & Technology",
+                techStackTags     = new[] { "React", "ReactJS", "Node.js", "CoolFramework" }, // ReactJS + CoolFramework are invalid
+                functionalTags    = new[] { "Fintech", "Payments", "Made-up Domain" },         // Made-up Domain is invalid
+                workingLanguage   = "English",
+                companySize       = "mid",
+                remotePolicy      = "hybrid",
+                parentCompanyName = (string?)null,
+                websiteUrl        = (string?)null,
+                targetMarket      = "B2B",
+            }
+        });
+        var factory = new GeminiHttpClientFactory(HttpStatusCode.OK, WrapGeminiResponse(resultJson));
+
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            await enricher.EnrichBatchAsync([company]);
+
+            Assert.NotNull(company.TechStackTags);
+            Assert.Contains("React", company.TechStackTags!);
+            Assert.Contains("Node.js", company.TechStackTags!);
+            Assert.DoesNotContain("ReactJS", company.TechStackTags!);
+            Assert.DoesNotContain("CoolFramework", company.TechStackTags!);
+
+            Assert.NotNull(company.FunctionalTags);
+            Assert.Contains("Fintech", company.FunctionalTags!);
+            Assert.Contains("Payments", company.FunctionalTags!);
+            Assert.DoesNotContain("Made-up Domain", company.FunctionalTags!);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public void ValidTechStackTags_ContainsExpectedValues()
+    {
+        Assert.Contains("React", CompanyEnricher.ValidTechStackTags);
+        Assert.Contains("Python", CompanyEnricher.ValidTechStackTags);
+        Assert.DoesNotContain("ReactJS", CompanyEnricher.ValidTechStackTags);
+    }
+
+    [Fact]
+    public void ValidFunctionalTags_ContainsExpectedValues()
+    {
+        Assert.Contains("Fintech", CompanyEnricher.ValidFunctionalTags);
+        Assert.Contains("Payments", CompanyEnricher.ValidFunctionalTags);
+        Assert.DoesNotContain("Made-up Domain", CompanyEnricher.ValidFunctionalTags);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

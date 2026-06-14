@@ -8,17 +8,36 @@ namespace backend.Services;
 
 public sealed class CompanyEnricher
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     private const string Model = "gemini-2.0-flash";
     private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
     private const int BatchSize = 20;
-    private const int MaxOutputTokens = 4096;
+    private const int MaxOutputTokens = 8192;
 
     private static readonly HashSet<string> ValidWorkingLanguages = new(StringComparer.Ordinal) { "English", "Dutch", "Mixed" };
     private static readonly HashSet<string> ValidCompanySizes = new(StringComparer.Ordinal) { "startup", "scaleup", "mid", "large", "enterprise" };
     private static readonly HashSet<string> ValidRemotePolicies = new(StringComparer.Ordinal) { "remote", "hybrid", "office", "unknown" };
     private static readonly HashSet<string> ValidTargetMarkets = new(StringComparer.Ordinal) { "B2B", "B2C", "B2G", "Mixed" };
+
+    internal static readonly HashSet<string> ValidTechStackTags = new(StringComparer.Ordinal)
+    {
+        ".NET", "AI/ML", "Android", "API-first", "AWS", "Azure", "Big Data",
+        "C#", "C++", "Cloud", "Data Engineering", "Distributed Systems",
+        "Elasticsearch", "Go", "iOS", "Java", "JavaScript", "Kafka",
+        "Kotlin", "Kubernetes", "Microservices", "Node.js", "PHP",
+        "Python", "React", "REST API", "SAP", "Scala", "SQL", "TypeScript",
+    };
+
+    internal static readonly HashSet<string> ValidFunctionalTags = new(StringComparer.Ordinal)
+    {
+        "Automotive Tech", "B2B SaaS", "Consulting", "Deep Tech", "E-commerce",
+        "Enterprise", "Financial Services", "Fintech", "Geospatial", "Hardware",
+        "Healthcare Tech", "High-Tech", "IoT", "Logistics", "Manufacturing",
+        "Marketplace", "Payments", "Platform", "R&D", "SaaS",
+        "Semiconductor", "SME", "Software & Technology", "Staffing",
+        "Sustainability", "Travel & Hospitality",
+    };
 
     private const string SystemPrompt =
         """
@@ -30,8 +49,8 @@ public sealed class CompanyEnricher
           "confidence": "high" | "medium" | "low",
           "summary": "2-3 sentences about what the company does, or null if you have no reliable knowledge",
           "coreIndustry": "single broad industry label, or null if unknown",
-          "techStackTags": ["up to 6 technology or platform tags"] or [],
-          "functionalTags": ["up to 6 functional domain tags"] or [],
+          "techStackTags": [up to 6 tags from the TECH STACK list below] or [],
+          "functionalTags": [up to 6 tags from the FUNCTIONAL list below] or [],
           "workingLanguage": "English" | "Dutch" | "Mixed" | null,
           "companySize": "startup" | "scaleup" | "mid" | "large" | "enterprise" | null,
           "remotePolicy": "remote" | "hybrid" | "office" | "unknown",
@@ -40,23 +59,32 @@ public sealed class CompanyEnricher
           "targetMarket": "B2B" | "B2C" | "B2G" | "Mixed" | null
         }
 
+        ALLOWED TECH STACK TAGS — use ONLY these exact strings (any other value will be discarded):
+        ".NET", "AI/ML", "Android", "API-first", "AWS", "Azure", "Big Data",
+        "C#", "C++", "Cloud", "Data Engineering", "Distributed Systems",
+        "Elasticsearch", "Go", "iOS", "Java", "JavaScript", "Kafka",
+        "Kotlin", "Kubernetes", "Microservices", "Node.js", "PHP",
+        "Python", "React", "REST API", "SAP", "Scala", "SQL", "TypeScript"
+
+        ALLOWED FUNCTIONAL TAGS — use ONLY these exact strings (any other value will be discarded):
+        "Automotive Tech", "B2B SaaS", "Consulting", "Deep Tech", "E-commerce",
+        "Enterprise", "Financial Services", "Fintech", "Geospatial", "Hardware",
+        "Healthcare Tech", "High-Tech", "IoT", "Logistics", "Manufacturing",
+        "Marketplace", "Payments", "Platform", "R&D", "SaaS",
+        "Semiconductor", "SME", "Software & Technology", "Staffing",
+        "Sustainability", "Travel & Hospitality"
+
         STRICT RULES — invalid values will be discarded server-side:
-        - confidence: "high" = reliable, specific knowledge of this company;
-                      "medium" = partial or indirect knowledge;
-                      "low" = you don't recognise this company or would be guessing most fields.
-        - workingLanguage MUST be exactly one of: "English", "Dutch", "Mixed" — or null. No other strings.
+        - confidence: "high" = reliable, specific knowledge; "medium" = partial; "low" = guessing most fields.
+        - workingLanguage MUST be exactly one of: "English", "Dutch", "Mixed" — or null.
         - companySize MUST be exactly one of: "startup", "scaleup", "mid", "large", "enterprise" — or null.
         - remotePolicy MUST be exactly one of: "remote", "hybrid", "office", "unknown". Never null.
-        - targetMarket MUST be exactly one of: "B2B", "B2C", "B2G", "Mixed" — or null. No other strings.
-        - websiteUrl: only include if you are CERTAIN this is the company's official, currently-active website.
-                      Prefer null over an uncertain URL. Never invent a URL.
-        - companySize guide: startup < 50 employees, scaleup 50-250, mid 250-1000, large 1000-5000, enterprise > 5000.
+        - targetMarket MUST be exactly one of: "B2B", "B2C", "B2G", "Mixed" — or null.
+        - websiteUrl: only include if CERTAIN it is the company's official, currently-active website. Prefer null.
+        - companySize guide: startup < 50 employees, scaleup 50–250, mid 250–1000, large 1000–5000, enterprise > 5000.
+        - coreIndustry: one broad label, e.g. "Software & Technology", "Financial Services", "Healthcare", "Logistics".
 
-        coreIndustry examples: "Software & Technology", "Financial Services", "Healthcare", "Logistics"
-        techStackTags examples: "Cloud", "AI/ML", "Java", "AWS", "SAP", ".NET", "Kubernetes"
-        functionalTags examples: "B2B SaaS", "Consulting", "E-commerce", "R&D", "Staffing", "Fintech"
-
-        Self-check before outputting: verify every constrained field uses ONLY the allowed values above.
+        Self-check before outputting: verify every tag comes from the allowed list above.
         Output ONLY the JSON array.
         """;
 
@@ -176,8 +204,8 @@ public sealed class CompanyEnricher
 
                 c.Summary = r.Summary;
                 c.CoreIndustry = r.CoreIndustry;
-                c.TechStackTags = r.TechStackTags;
-                c.FunctionalTags = r.FunctionalTags;
+                c.TechStackTags = FilterTags(r.TechStackTags, ValidTechStackTags);
+                c.FunctionalTags = FilterTags(r.FunctionalTags, ValidFunctionalTags);
                 c.WorkingLanguage = ValidateEnum(r.WorkingLanguage, ValidWorkingLanguages);
                 c.CompanySize = ValidateEnum(r.CompanySize, ValidCompanySizes);
                 c.RemotePolicy = ValidateEnum(r.RemotePolicy, ValidRemotePolicies) ?? "unknown";
@@ -340,6 +368,13 @@ public sealed class CompanyEnricher
 
     private static string? ValidateEnum(string? value, HashSet<string> allowed) =>
         value is not null && allowed.Contains(value) ? value : null;
+
+    private static string[]? FilterTags(string[]? tags, HashSet<string> allowed)
+    {
+        if (tags is null || tags.Length == 0) return null;
+        var filtered = tags.Where(allowed.Contains).ToArray();
+        return filtered.Length > 0 ? filtered : null;
+    }
 
     private static string StripCodeFence(string text)
     {
