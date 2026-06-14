@@ -22,6 +22,15 @@ const prefillCompany      = ref('')
 const prefillSponsorId    = ref<string | undefined>(undefined)
 const showFilters         = ref(false)
 const showDropdownFilters = ref(false)
+const tagSearch           = ref('')
+
+const TAG_LIMIT = 60
+const visibleTags = computed(() => {
+  const q = tagSearch.value.trim().toLowerCase()
+  const all = store.allTagsByUsage
+  if (!q) return all.slice(0, TAG_LIMIT)
+  return all.filter(t => t.toLowerCase().includes(q))
+})
 const displayCount        = ref(60)
 const sortOrder           = ref<'default' | 'az' | 'za' | 'city'>('az')
 const hiddenIds           = ref<Set<string>>((() => {
@@ -344,12 +353,28 @@ const activeDropdownCount = computed(() =>
     </Transition>
 
     <div v-if="showFilters" id="tag-filter-panel" class="tag-filter-panel">
-      <p class="tag-filter-hint">
-        <strong>Click once</strong> to include (green), <strong>click again</strong> to exclude (red), <strong>third click</strong> to clear.
-      </p>
+      <div class="tag-filter-header">
+        <p class="tag-filter-hint">
+          <strong>Click once</strong> to include (green), <strong>click again</strong> to exclude (red), <strong>third click</strong> to clear.
+        </p>
+        <div class="tag-search-wrap">
+          <svg class="tag-search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+          </svg>
+          <input
+            v-model="tagSearch"
+            placeholder="Search tags…"
+            class="tag-search-input"
+            aria-label="Search tags"
+          />
+          <span class="tag-search-count">
+            {{ visibleTags.length }} of {{ store.allTagsByUsage.length }}
+          </span>
+        </div>
+      </div>
       <div class="tag-filter-grid">
         <button
-          v-for="tag in store.allTags"
+          v-for="tag in visibleTags"
           :key="tag"
           :class="['tag-toggle', `tag-toggle--${tagState(tag)}`]"
           @click="tagState(tag) === 'none' ? toggleIncludeTag(tag) : tagState(tag) === 'include' ? toggleExcludeTag(tag) : (includeTags = includeTags.filter(t => t !== tag), excludeTags = excludeTags.filter(t => t !== tag))"
@@ -360,6 +385,9 @@ const activeDropdownCount = computed(() =>
           {{ tag }}
         </button>
       </div>
+      <p v-if="!tagSearch && store.allTagsByUsage.length > TAG_LIMIT" class="tag-overflow-note">
+        Showing top {{ TAG_LIMIT }} most-used tags. Search to find others.
+      </p>
     </div>
 
     <div class="main-split">
@@ -580,8 +608,26 @@ const activeDropdownCount = computed(() =>
   border-bottom: 1px solid var(--col-border);
   padding: .75rem 1.5rem 1rem;
 }
-.tag-filter-hint { font-size: .75rem; color: var(--col-muted); margin: 0 0 .625rem; }
+.tag-filter-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; margin-bottom: .625rem; flex-wrap: wrap;
+}
+.tag-filter-hint { font-size: .75rem; color: var(--col-muted); margin: 0; flex: 1; min-width: 180px; }
+.tag-search-wrap {
+  display: flex; align-items: center; gap: .375rem;
+  background: var(--col-bg); border: 1px solid var(--col-border);
+  border-radius: .375rem; padding: .3rem .6rem;
+  min-width: 180px; flex-shrink: 0;
+}
+.tag-search-icon { width: .875rem; height: .875rem; color: var(--col-subtle); flex-shrink: 0; }
+.tag-search-input {
+  background: none; border: none; outline: none;
+  font-size: .8rem; color: var(--col-text); width: 120px;
+}
+.tag-search-input::placeholder { color: var(--col-subtle); }
+.tag-search-count { font-size: .7rem; color: var(--col-subtle); white-space: nowrap; }
 .tag-filter-grid { display: flex; flex-wrap: wrap; gap: .375rem; }
+.tag-overflow-note { font-size: .72rem; color: var(--col-subtle); margin: .5rem 0 0; }
 
 .tag-toggle {
   padding: .2rem .65rem; border-radius: 9999px; font-size: .75rem; font-weight: 500;

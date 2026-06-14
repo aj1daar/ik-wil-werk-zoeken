@@ -35,6 +35,18 @@ export const useCompaniesStore = defineStore('companies', {
       return [...set].sort((a, b) => a.localeCompare(b))
     },
 
+    allTagsByUsage(state): string[] {
+      const counts = new Map<string, number>()
+      for (const c of state.companies) {
+        if (c.coreIndustry) counts.set(c.coreIndustry, (counts.get(c.coreIndustry) ?? 0) + 1)
+        c.techStackTags?.forEach(t => counts.set(t, (counts.get(t) ?? 0) + 1))
+        c.functionalTags?.forEach(t => counts.set(t, (counts.get(t) ?? 0) + 1))
+      }
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([tag]) => tag)
+    },
+
     allWorkingLanguages(state): string[] {
       const set = new Set<string>()
       for (const c of state.companies) {
