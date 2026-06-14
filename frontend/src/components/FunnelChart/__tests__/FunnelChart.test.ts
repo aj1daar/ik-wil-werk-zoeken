@@ -63,7 +63,7 @@ describe('FunnelChart – bar segments', () => {
   it('segment flex-grow reflects count', () => {
     const w = mountChart({ Applied: 10, Rejected: 5 })
     const segs = w.findAll('.sb-seg')
-    const grows = segs.map(s => s.element.style.flexGrow)
+    const grows = segs.map(s => (s.element as HTMLElement).style.flexGrow)
     expect(grows).toContain('10')
     expect(grows).toContain('5')
   })
