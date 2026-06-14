@@ -1,189 +1,146 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
-import type { VueWrapper } from '@vue/test-utils'
-
-// Mock echarts internals so JSDOM doesn't throw on canvas operations
-vi.mock('echarts/core', () => ({ use: vi.fn() }))
-vi.mock('echarts/renderers', () => ({ CanvasRenderer: {} }))
-vi.mock('echarts/charts', () => ({ FunnelChart: {} }))
-vi.mock('echarts/components', () => ({ TooltipComponent: {} }))
-vi.mock('vue-echarts', () => ({
-  default: defineComponent({
-    name: 'VChart',
-    props: ['option', 'autoresize'],
-    template: '<div class="mock-chart" />',
-  }),
-}))
-
+import { describe, expect, it } from 'vitest'
 import FunnelChart from '../FunnelChart.vue'
 
-function mountFunnel(byStatus: Record<string, number> = {}) {
+function mountChart(byStatus: Record<string, number> = {}) {
   return mount(FunnelChart, { props: { byStatus } })
 }
 
 // ── rendering ─────────────────────────────────────────────────────────────────
 
 describe('FunnelChart – rendering', () => {
-  it('renders the component without throwing', () => {
-    expect(() => mountFunnel()).not.toThrow()
+  it('renders without throwing', () => {
+    expect(() => mountChart()).not.toThrow()
   })
 
-  it('renders the "Application funnel" title', () => {
-    const w = mountFunnel({ Applied: 5 })
-    expect(w.find('.funnel-title').text()).toBe('Application funnel')
+  it('renders the "Application Status" title', () => {
+    const w = mountChart({ Applied: 5 })
+    expect(w.find('.sb-title').text()).toBe('Application Status')
   })
 
-  it('renders the mock VChart when there is data', () => {
-    const w = mountFunnel({ Applied: 3 })
-    expect(w.find('.mock-chart').exists()).toBe(true)
+  it('shows empty state when byStatus is empty', () => {
+    const w = mountChart({})
+    expect(w.find('.sb-empty').exists()).toBe(true)
+    expect(w.find('.sb-bar').exists()).toBe(false)
   })
 
-  it('shows empty state when all stage counts are zero', () => {
-    const w = mountFunnel({})
-    expect(w.find('.funnel-empty').exists()).toBe(true)
-    expect(w.find('.mock-chart').exists()).toBe(false)
+  it('shows empty state when all counts are zero', () => {
+    const w = mountChart({ Applied: 0, Rejected: 0 })
+    expect(w.find('.sb-empty').exists()).toBe(true)
   })
 
-  it('shows empty state when byStatus has only non-funnel keys', () => {
-    const w = mountFunnel({ Rejected: 3, Withdrawn: 2 })
-    expect(w.find('.funnel-empty').exists()).toBe(true)
+  it('shows the bar when at least one status has count > 0', () => {
+    const w = mountChart({ Applied: 5 })
+    expect(w.find('.sb-empty').exists()).toBe(false)
+    expect(w.find('.sb-bar').exists()).toBe(true)
   })
 
-  it('hides empty state when at least one stage has count > 0', () => {
-    const w = mountFunnel({ Applied: 1 })
-    expect(w.find('.funnel-empty').exists()).toBe(false)
-  })
-})
-
-// ── did not proceed ───────────────────────────────────────────────────────────
-
-describe('FunnelChart – did not proceed', () => {
-  it('does not show the aside when no Rejected/Withdrawn/OnHold', () => {
-    const w = mountFunnel({ Applied: 10 })
-    expect(w.find('.funnel-aside').exists()).toBe(false)
+  it('shows total count in the header', () => {
+    const w = mountChart({ Applied: 10, Rejected: 3 })
+    expect(w.find('.sb-total').text()).toContain('13')
   })
 
-  it('shows the aside when there are Rejected applications', () => {
-    const w = mountFunnel({ Applied: 10, Rejected: 3 })
-    expect(w.find('.funnel-aside').exists()).toBe(true)
-  })
-
-  it('shows the aside when there are Withdrawn applications', () => {
-    const w = mountFunnel({ Applied: 10, Withdrawn: 2 })
-    expect(w.find('.funnel-aside').exists()).toBe(true)
-  })
-
-  it('shows the aside when there are OnHold applications', () => {
-    const w = mountFunnel({ Applied: 10, OnHold: 1 })
-    expect(w.find('.funnel-aside').exists()).toBe(true)
-  })
-
-  it('sums Rejected + Withdrawn + OnHold correctly', () => {
-    const w = mountFunnel({ Applied: 10, Rejected: 3, Withdrawn: 2, OnHold: 1 })
-    expect(w.find('.funnel-aside-count').text()).toBe('6')
-  })
-
-  it('shows correct count for only Rejected', () => {
-    const w = mountFunnel({ Applied: 10, Rejected: 5 })
-    expect(w.find('.funnel-aside-count').text()).toBe('5')
-  })
-
-  it('shows correct count for only Withdrawn', () => {
-    const w = mountFunnel({ Applied: 8, Withdrawn: 4 })
-    expect(w.find('.funnel-aside-count').text()).toBe('4')
-  })
-
-  it('shows correct count for only OnHold', () => {
-    const w = mountFunnel({ Applied: 8, OnHold: 2 })
-    expect(w.find('.funnel-aside-count').text()).toBe('2')
-  })
-
-  it('aside label mentions "did not proceed"', () => {
-    const w = mountFunnel({ Applied: 5, Rejected: 1 })
-    expect(w.find('.funnel-aside-label').text()).toContain('did not proceed')
+  it('shows empty state — not total — when byStatus has only non-zero terminal statuses', () => {
+    const w = mountChart({ Rejected: 3 })
+    expect(w.find('.sb-bar').exists()).toBe(true)
+    expect(w.find('.sb-total').text()).toContain('3')
   })
 })
 
-// ── chart option ──────────────────────────────────────────────────────────────
+// ── bar segments ──────────────────────────────────────────────────────────────
 
-describe('FunnelChart – chart option prop', () => {
-  function getOption(w: VueWrapper<any>) {
-    return w.findComponent({ name: 'VChart' }).props('option') as any
-  }
-
-  it('passes option prop to VChart', () => {
-    const w = mountFunnel({ Applied: 5 })
-    expect(getOption(w)).toBeTruthy()
+describe('FunnelChart – bar segments', () => {
+  it('renders one segment per status with count > 0', () => {
+    const w = mountChart({ Applied: 10, Rejected: 3 })
+    expect(w.findAll('.sb-seg')).toHaveLength(2)
   })
 
-  it('option includes a funnel series', () => {
-    const w = mountFunnel({ Applied: 5 })
-    const series = getOption(w).series
-    expect(Array.isArray(series)).toBe(true)
-    expect(series[0].type).toBe('funnel')
+  it('renders no segments for zero-count statuses', () => {
+    const w = mountChart({ Applied: 10 })
+    expect(w.findAll('.sb-seg')).toHaveLength(1)
   })
 
-  it('funnel data contains all four pipeline stages', () => {
-    const w = mountFunnel({ Applied: 10, InterviewScheduled: 4, OfferReceived: 2, Accepted: 1 })
-    const data: { name: string; value: number }[] = getOption(w).series[0].data
-    const names = data.map(d => d.name)
-    expect(names).toContain('Applied')
-    expect(names).toContain('Interviewing')
-    expect(names).toContain('Offer Received')
-    expect(names).toContain('Accepted')
+  it('segment flex-grow reflects count', () => {
+    const w = mountChart({ Applied: 10, Rejected: 5 })
+    const segs = w.findAll('.sb-seg')
+    const grows = segs.map(s => s.element.style.flexGrow)
+    expect(grows).toContain('10')
+    expect(grows).toContain('5')
   })
 
-  it('funnel data values match byStatus counts', () => {
-    const w = mountFunnel({ Applied: 10, InterviewScheduled: 4, OfferReceived: 2, Accepted: 1 })
-    const data: { name: string; value: number }[] = getOption(w).series[0].data
-    expect(data.find(d => d.name === 'Applied')?.value).toBe(10)
-    expect(data.find(d => d.name === 'Interviewing')?.value).toBe(4)
-    expect(data.find(d => d.name === 'Offer Received')?.value).toBe(2)
-    expect(data.find(d => d.name === 'Accepted')?.value).toBe(1)
+  it('renders all 7 segments when all statuses have counts', () => {
+    const w = mountChart({
+      Applied: 10, InterviewScheduled: 4, OfferReceived: 2, Accepted: 1,
+      OnHold: 1, Rejected: 3, Withdrawn: 2,
+    })
+    expect(w.findAll('.sb-seg')).toHaveLength(7)
+  })
+})
+
+// ── legend ────────────────────────────────────────────────────────────────────
+
+describe('FunnelChart – legend', () => {
+  it('renders 7 legend rows always', () => {
+    const w = mountChart({ Applied: 10 })
+    expect(w.findAll('.sb-leg-row')).toHaveLength(7)
   })
 
-  it('missing stages default to 0 in the funnel data', () => {
-    const w = mountFunnel({ Applied: 5 })
-    const data: { name: string; value: number }[] = getOption(w).series[0].data
-    expect(data.find(d => d.name === 'Interviewing')?.value).toBe(0)
-    expect(data.find(d => d.name === 'Offer Received')?.value).toBe(0)
-    expect(data.find(d => d.name === 'Accepted')?.value).toBe(0)
+  it('zero-count rows have the dim class', () => {
+    const w = mountChart({ Applied: 10 })
+    const zeroRows = w.findAll('.sb-leg-row--zero')
+    expect(zeroRows.length).toBe(6)
   })
 
-  it('funnel series sort is "none" to preserve stage order', () => {
-    const w = mountFunnel({ Applied: 5 })
-    expect(getOption(w).series[0].sort).toBe('none')
+  it('non-zero rows do not have the dim class', () => {
+    const w = mountChart({ Applied: 10 })
+    const activeRows = w.findAll('.sb-leg-row:not(.sb-leg-row--zero)')
+    expect(activeRows).toHaveLength(1)
   })
 
-  it('option includes a tooltip', () => {
-    const w = mountFunnel({ Applied: 5 })
-    expect(getOption(w).tooltip).toBeTruthy()
+  it('legend shows correct count for Applied', () => {
+    const w = mountChart({ Applied: 10, Rejected: 3 })
+    const rows = w.findAll('.sb-leg-row')
+    const appliedRow = rows.find(r => r.text().includes('Applied'))
+    expect(appliedRow?.find('.sb-leg-count').text()).toBe('10')
   })
 
-  it('Rejected is not included in the funnel series data', () => {
-    const w = mountFunnel({ Applied: 10, Rejected: 5 })
-    const data: { name: string; value: number }[] = getOption(w).series[0].data
-    expect(data.find(d => d.name === 'Rejected')).toBeUndefined()
+  it('legend shows — for percentage when count is 0', () => {
+    const w = mountChart({ Applied: 5 })
+    const rows = w.findAll('.sb-leg-row')
+    const rejectedRow = rows.find(r => r.text().includes('Rejected'))
+    expect(rejectedRow?.find('.sb-leg-pct').text()).toBe('—')
+  })
+
+  it('legend shows percentage for non-zero statuses', () => {
+    const w = mountChart({ Applied: 1, Rejected: 1 })
+    const rows = w.findAll('.sb-leg-row')
+    const appliedRow = rows.find(r => r.text().includes('Applied'))
+    expect(appliedRow?.find('.sb-leg-pct').text()).toBe('50%')
   })
 })
 
 // ── reactivity ────────────────────────────────────────────────────────────────
 
 describe('FunnelChart – reactivity', () => {
-  it('updates chart data when byStatus prop changes', async () => {
-    const w = mountFunnel({ Applied: 5 })
-    await w.setProps({ byStatus: { Applied: 20, InterviewScheduled: 8 } })
-    const data = w.findComponent({ name: 'VChart' }).props('option').series[0].data
-    expect(data.find((d: any) => d.name === 'Applied').value).toBe(20)
-    expect(data.find((d: any) => d.name === 'Interviewing').value).toBe(8)
+  it('updates segment count when prop changes', async () => {
+    const w = mountChart({ Applied: 5 })
+    expect(w.findAll('.sb-seg')).toHaveLength(1)
+    await w.setProps({ byStatus: { Applied: 5, Rejected: 3 } })
+    expect(w.findAll('.sb-seg')).toHaveLength(2)
   })
 
-  it('switches from empty to showing chart when data arrives', async () => {
-    const w = mountFunnel({})
-    expect(w.find('.funnel-empty').exists()).toBe(true)
+  it('switches from empty to bar when data arrives', async () => {
+    const w = mountChart({})
+    expect(w.find('.sb-empty').exists()).toBe(true)
     await w.setProps({ byStatus: { Applied: 3 } })
-    expect(w.find('.funnel-empty').exists()).toBe(false)
-    expect(w.find('.mock-chart').exists()).toBe(true)
+    expect(w.find('.sb-empty').exists()).toBe(false)
+    expect(w.find('.sb-bar').exists()).toBe(true)
+  })
+
+  it('updates total when prop changes', async () => {
+    const w = mountChart({ Applied: 5 })
+    expect(w.find('.sb-total').text()).toContain('5')
+    await w.setProps({ byStatus: { Applied: 5, Rejected: 3 } })
+    expect(w.find('.sb-total').text()).toContain('8')
   })
 })
