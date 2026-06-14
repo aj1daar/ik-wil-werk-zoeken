@@ -615,9 +615,7 @@ const activeDropdownCount = computed(() =>
 .tag-filter-hint { font-size: .75rem; color: var(--col-muted); margin: 0; flex: 1; min-width: 180px; }
 .tag-search-wrap {
   display: flex; align-items: center; gap: .375rem;
-  background: var(--col-bg); border: 1px solid var(--col-border);
-  border-radius: .375rem; padding: .3rem .6rem;
-  min-width: 180px; flex-shrink: 0;
+  flex-shrink: 0;
 }
 .tag-search-icon { width: .875rem; height: .875rem; color: var(--col-subtle); flex-shrink: 0; }
 .tag-search-input {
