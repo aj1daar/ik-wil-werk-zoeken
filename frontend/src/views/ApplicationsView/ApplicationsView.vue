@@ -44,11 +44,17 @@ const boardColumns = computed(() =>
     .filter(col => showEmptyColumns.value || col.cards.length > 0)
 )
 
-const search       = ref('')
-const filterStatus = ref<ApplicationStatus | ''>('')
-const sortBy       = ref<SortKey>('newest')
-const selectedId   = ref<string | null>(null)
-const modalOpen    = ref(false)
+const search            = ref('')
+const filterStatus      = ref<ApplicationStatus | ''>('')
+const sortBy            = ref<SortKey>('newest')
+const selectedId        = ref<string | null>(null)
+const modalOpen         = ref(false)
+const showFiltersPanel  = ref(false)
+
+const activeFilterCount = computed(() =>
+  (filterStatus.value !== '' ? 1 : 0) +
+  (sortBy.value !== 'newest' ? 1 : 0)
+)
 
 // Bulk selection
 const checkedIds   = ref<Set<string>>(new Set())
@@ -210,80 +216,101 @@ function printPage() {
         <input v-model="search" placeholder="Search by company or position…" class="filter-input pl-9" aria-label="Search applications" />
       </div>
 
-      <select v-model="filterStatus" class="filter-input filter-select" aria-label="Filter by status">
-        <option value="">All statuses</option>
-        <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
-      </select>
-
-      <select v-model="sortBy" class="filter-input filter-select" aria-label="Sort order">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="updated">Recently updated</option>
-        <option value="company">Company A→Z</option>
-        <option value="followup">Follow-up date ↑</option>
-      </select>
-
-      <button
-        v-if="store.applications.length > 0"
-        @click="exportCsv"
-        class="btn-export"
-        title="Export all applications as CSV"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        Export CSV
-      </button>
-
-      <button
-        v-if="store.applications.length > 0"
-        @click="printPage"
-        class="btn-export"
-        title="Print / Save as PDF"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-        </svg>
-        Print
-      </button>
-
-      <div class="view-toggle-group" role="group" aria-label="View mode">
-        <button :class="['view-toggle-btn', viewMode === 'list' && 'view-toggle-btn--active']" @click="setViewMode('list')" title="List view">
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+      <div class="filter-controls-row">
+        <button
+          :class="['btn-filter-toggle', (showFiltersPanel || activeFilterCount > 0) && 'btn-filter-toggle--active']"
+          @click="showFiltersPanel = !showFiltersPanel"
+          :aria-expanded="showFiltersPanel"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
+          </svg>
+          Filters
+          <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
-        <button :class="['view-toggle-btn', viewMode === 'board' && 'view-toggle-btn--active']" @click="setViewMode('board')" title="Board view">
+
+        <div class="view-toggle-group" role="group" aria-label="View mode">
+          <button :class="['view-toggle-btn', viewMode === 'list' && 'view-toggle-btn--active']" @click="setViewMode('list')" title="List view">
+            <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+            </svg>
+          </button>
+          <button :class="['view-toggle-btn', viewMode === 'board' && 'view-toggle-btn--active']" @click="setViewMode('board')" title="Board view">
+            <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+          </button>
+        </div>
+
+        <label v-if="viewMode === 'board'" class="show-empty-label">
+          <input type="checkbox" v-model="showEmptyColumns" class="show-empty-check" />
+          Show empty
+        </label>
+
+        <button
+          v-if="viewMode === 'list'"
+          @click="toggleSplitMode"
+          :class="['btn-split-toggle', splitMode && 'btn-split-toggle--active']"
+          title="Toggle split view"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M9 3v18" />
           </svg>
+          Split
+        </button>
+
+        <button @click="modalOpen = true" class="btn-new" title="New application (N)">
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          New Application
         </button>
       </div>
-
-      <label v-if="viewMode === 'board'" class="show-empty-label">
-        <input type="checkbox" v-model="showEmptyColumns" class="show-empty-check" />
-        Show empty
-      </label>
-
-      <button
-        v-if="viewMode === 'list'"
-        @click="toggleSplitMode"
-        :class="['btn-split-toggle', splitMode && 'btn-split-toggle--active']"
-        title="Toggle split view"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M9 3v18" />
-        </svg>
-        Split
-      </button>
-
-      <button @click="modalOpen = true" class="btn-new" title="New application (N)">
-        <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        New Application
-      </button>
     </div>
+
+    <Transition name="filter-drop">
+      <div v-if="showFiltersPanel" class="dropdown-filters-panel">
+        <select v-model="filterStatus" class="filter-input filter-select" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
+        </select>
+
+        <select v-model="sortBy" class="filter-input filter-select" aria-label="Sort order">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="updated">Recently updated</option>
+          <option value="company">Company A→Z</option>
+          <option value="followup">Follow-up date ↑</option>
+        </select>
+
+        <button
+          v-if="store.applications.length > 0"
+          @click="exportCsv"
+          class="btn-export"
+          title="Export all applications as CSV"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export CSV
+        </button>
+
+        <button
+          v-if="store.applications.length > 0"
+          @click="printPage"
+          class="btn-export"
+          title="Print / Save as PDF"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          Print
+        </button>
+      </div>
+    </Transition>
 
     <!-- List + optional split panel -->
     <div v-if="viewMode === 'list'" class="list-area" :class="{ 'main-split': splitMode }">
@@ -576,6 +603,23 @@ function printPage() {
 .row-date { font-size: .7rem; color: var(--col-subtle); }
 .chip { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
 .add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
+.btn-filter-toggle {
+  display: inline-flex; align-items: center; gap: .375rem;
+  background: var(--col-surface); color: var(--col-muted);
+  border: 1px solid var(--col-border); border-radius: .375rem;
+  padding: .45rem .75rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
+}
+.btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
+.btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
+.btn-icon-sm { width: .9rem; height: .9rem; }
+.btn-chevron { transition: transform .2s ease; }
+.btn-chevron--open { transform: rotate(180deg); }
+.filter-count {
+  background: var(--col-accent); color: #fff;
+  border-radius: 9999px; font-size: .7rem; font-weight: 700;
+  padding: .05rem .45rem; line-height: 1.4;
+}
+
 .btn-export {
   display: inline-flex; align-items: center; gap: .375rem;
   background: var(--col-surface); color: var(--col-muted); border: 1px solid var(--col-border);
@@ -648,7 +692,7 @@ function printPage() {
 
 /* print styles */
 @media print {
-  .filter-bar, .select-bar, .bulk-bar, .btn-export, .btn-new { display: none !important; }
+  .filter-bar, .dropdown-filters-panel, .select-bar, .bulk-bar, .btn-export, .btn-new { display: none !important; }
   .app-list-wrapper { overflow: visible; }
   .modal-backdrop { display: none !important; }
   .company-row { break-inside: avoid; }
