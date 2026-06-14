@@ -99,7 +99,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 │                            UserStore, StageStore, SponsorStore,
 │                            IndSponsorScraper, CompanyEnricher, RateLimiterService
 │
-├── backend.Tests/           xUnit tests (276 tests)
+├── backend.Tests/           xUnit tests (288 tests)
 │
 ├── frontend/                Vue 3 SPA
 │   └── src/
@@ -122,7 +122,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 │       ├── composables/     useSessionExpiry, useTokenRefresh, useTheme
 │       └── router/          index.ts — auth-guard + admin-guard navigation
 │
-├── frontend/src/**/__tests__/  Vitest tests (555 tests)
+├── frontend/src/**/__tests__/  Vitest tests (565 tests)
 │
 └── infra/                   Azure Bicep (subscription-scope)
     ├── main.bicep            Resource group + module wiring
@@ -242,7 +242,7 @@ pnpm dev
 
 ## Testing
 
-### Backend (xUnit · 276 tests)
+### Backend (xUnit · 288 tests)
 
 ```bash
 dotnet test backend.Tests
@@ -250,7 +250,7 @@ dotnet test backend.Tests
 
 Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`/`GetUserId`/`GetRole`, reset and email-change token creation and validation), `StageStore` (EF Core CRUD, user isolation, not-found handling, follow-up dates, job URL, bulk status update, activity log), `UserStore` (CRUD, email uniqueness, role promotion), `SponsorStore` (upsert, soft-delete, sync logs), `CompanyEnricher` (batch enrichment, tag enum filtering, city population, low-confidence skipping, refinement pass, URL validation), seed data integrity.
 
-### Frontend (Vitest · 555 tests)
+### Frontend (Vitest · 565 tests)
 
 ```bash
 cd frontend
