@@ -93,7 +93,6 @@ watch(fromTo, fetchStats)
   <div class="page">
     <div class="page-header">
       <h1 class="page-title">Dashboard</h1>
-      <p class="page-subtitle">Overview of your job search activity.</p>
     </div>
 
     <div v-if="showBanner" class="onboarding-banner" role="status" aria-label="Welcome tip">
@@ -171,7 +170,6 @@ watch(fromTo, fetchStats)
 .page { max-width: 860px; margin: 0 auto; padding: 2rem 1rem; }
 .page-header { margin-bottom: 1.5rem; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--col-text); }
-.page-subtitle { color: var(--col-muted); margin-top: .25rem; }
 
 .range-bar { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
 .range-btn {
