@@ -2,9 +2,10 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, REJECTION_REASON_LABELS } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
-import type { Application, ActivityLog, RejectionReason, SponsorCompany } from '../../api'
+import type { Application, ActivityLog, RejectionReason, SponsorCompany, StatusHistory } from '../../api'
 import { api } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
+import DatePicker from '../DatePicker/DatePicker.vue'
 
 const props = defineProps<{ application: Application }>()
 const emit  = defineEmits<{ close: [] }>()
@@ -32,6 +33,12 @@ const chipFlash        = ref(false)
 const showDiscardConfirm = ref(false)
 const showDeleteConfirm  = ref(false)
 
+// Status date — shown when user changes status; defaults to today
+const todayYmd = new Date().toISOString().slice(0, 10)
+const statusDate = ref(todayYmd)
+const statusChanged = computed(() => status.value !== props.application.status)
+watch(status, () => { statusDate.value = todayYmd })
+
 // Typeahead
 const suggestions      = ref<SponsorCompany[]>([])
 const highlightedIndex = ref(-1)
@@ -42,6 +49,21 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 const activityLogs     = ref<ActivityLog[]>([])
 const activityLoading  = ref(false)
 const showHistory      = ref(false)
+
+// Status history
+const statusHistory    = ref<StatusHistory[]>([])
+const historyLoading   = ref(false)
+const showStatusHistory = ref(false)
+const editingEntryId   = ref<string | null>(null)
+const editStatus       = ref('')
+const editDate         = ref('')
+const historyError     = ref('')
+const showDeleteHistoryConfirm = ref(false)
+const pendingDeleteId  = ref<string | null>(null)
+const addingEntry      = ref(false)
+const newEntryStatus   = ref(ALL_STATUSES[0])
+const newEntryDate     = ref(todayYmd)
+const addError         = ref('')
 
 watch(() => props.application, (a) => {
   companyName.value     = a.companyName
@@ -58,7 +80,9 @@ watch(() => props.application, (a) => {
   jobUrl.value          = a.jobUrl ?? ''
   saveError.value       = ''
   activityLogs.value    = []
+  statusHistory.value   = []
   showHistory.value     = false
+  showStatusHistory.value = false
 })
 
 const isRejected = computed(() => status.value === 'Rejected')
@@ -155,6 +179,7 @@ async function save() {
       position:           position.value.trim(),
       appliedAt:          new Date(appliedAt.value).toISOString(),
       status:             status.value,
+      statusDate:         statusChanged.value ? statusDate.value : undefined,
       rejectionReason:    isRejected.value && rejectionReason.value ? rejectionReason.value : undefined,
       rejectionNote:      isRejected.value && rejectionNote.value ? rejectionNote.value : undefined,
       notes:              notes.value || undefined,
@@ -164,8 +189,8 @@ async function save() {
       followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
       jobUrl:             jobUrl.value || undefined,
     })
-    // Refresh activity log after save
     if (showHistory.value) await loadHistory()
+    if (showStatusHistory.value) await loadStatusHistory()
     chipFlash.value = true
     setTimeout(() => { chipFlash.value = false }, 600)
   } catch {
@@ -204,6 +229,103 @@ async function toggleHistory() {
   }
 }
 
+// ── status history ────────────────────────────────────────────────────────────
+
+async function loadStatusHistory() {
+  historyLoading.value = true
+  try {
+    statusHistory.value = await api.getStatusHistory(props.application.id)
+  } catch {
+    // silently ignore
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function toggleStatusHistory() {
+  showStatusHistory.value = !showStatusHistory.value
+  if (showStatusHistory.value && statusHistory.value.length === 0) {
+    await loadStatusHistory()
+  }
+}
+
+function startEdit(entry: StatusHistory) {
+  editingEntryId.value = entry.id
+  editStatus.value     = entry.status
+  editDate.value       = entry.statusDate
+  historyError.value   = ''
+}
+
+function cancelEdit() {
+  editingEntryId.value = null
+  historyError.value   = ''
+}
+
+async function saveEdit(entry: StatusHistory) {
+  historyError.value = ''
+  try {
+    const updated = await api.updateStatusHistory(entry.id, {
+      status:     editStatus.value,
+      statusDate: editDate.value,
+    })
+    const idx = statusHistory.value.findIndex(h => h.id === entry.id)
+    if (idx !== -1) statusHistory.value[idx] = updated
+    statusHistory.value = [...statusHistory.value].sort((a, b) =>
+      b.statusDate.localeCompare(a.statusDate) || b.createdAt.localeCompare(a.createdAt)
+    )
+    editingEntryId.value = null
+  } catch {
+    historyError.value = 'Save failed. Please try again.'
+  }
+}
+
+function confirmDeleteEntry(id: string) {
+  pendingDeleteId.value = id
+  showDeleteHistoryConfirm.value = true
+}
+
+async function deleteEntry() {
+  if (!pendingDeleteId.value) return
+  historyError.value = ''
+  try {
+    await api.deleteStatusHistory(pendingDeleteId.value)
+    statusHistory.value = statusHistory.value.filter(h => h.id !== pendingDeleteId.value)
+  } catch {
+    historyError.value = 'Delete failed. Please try again.'
+  } finally {
+    pendingDeleteId.value = null
+    showDeleteHistoryConfirm.value = false
+  }
+}
+
+function startAdd() {
+  addingEntry.value    = true
+  newEntryStatus.value = ALL_STATUSES[0]
+  newEntryDate.value   = todayYmd
+  addError.value       = ''
+}
+
+function cancelAdd() {
+  addingEntry.value = false
+  addError.value    = ''
+}
+
+async function saveAdd() {
+  addError.value = ''
+  try {
+    const entry = await api.addStatusHistory(props.application.id, {
+      status:     newEntryStatus.value,
+      statusDate: newEntryDate.value,
+    })
+    statusHistory.value = [entry, ...statusHistory.value].sort((a, b) =>
+      b.statusDate.localeCompare(a.statusDate) || b.createdAt.localeCompare(a.createdAt)
+    )
+    addingEntry.value = false
+  } catch {
+    addError.value = 'Failed to add entry. Please try again.'
+  }
+}
+
 const FIELD_LABELS: Record<string, string> = {
   Status:             'Status',
   CompanyName:        'Company',
@@ -221,6 +343,12 @@ const FIELD_LABELS: Record<string, string> = {
 function formatLogDate(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function formatStatusDate(ymd: string) {
+  return new Date(ymd + 'T00:00:00').toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric'
   })
 }
 
@@ -294,6 +422,14 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         <select id="ap-status" v-model="status" class="field-input">
           <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
         </select>
+      </div>
+
+      <div v-if="statusChanged" class="field status-date-field">
+        <label class="field-label" for="ap-status-date">
+          Status date
+          <span class="optional">(when did this happen?)</span>
+        </label>
+        <DatePicker v-model="statusDate" id="ap-status-date" placeholder="Pick a date" />
       </div>
 
       <template v-if="isRejected">
@@ -392,7 +528,84 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         >{{ application.contactPersonEmail }}</a>
       </div>
 
-      <!-- Activity history -->
+      <!-- Status history -->
+      <div class="history-section">
+        <button class="history-toggle" @click="toggleStatusHistory" :aria-expanded="showStatusHistory">
+          <svg xmlns="http://www.w3.org/2000/svg" class="history-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Status history
+          <svg xmlns="http://www.w3.org/2000/svg" :class="['chevron', { 'chevron--open': showStatusHistory }]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div v-if="showStatusHistory" class="history-body">
+          <div v-if="historyLoading" class="history-empty">Loading…</div>
+          <template v-else>
+            <p v-if="historyError" class="sh-error">{{ historyError }}</p>
+
+            <ul v-if="statusHistory.length > 0" class="sh-list">
+              <li v-for="entry in statusHistory" :key="entry.id" class="sh-item">
+                <template v-if="editingEntryId === entry.id">
+                  <div class="sh-edit-row">
+                    <select v-model="editStatus" class="field-input sh-edit-select">
+                      <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
+                    </select>
+                    <DatePicker v-model="editDate" placeholder="Date" />
+                  </div>
+                  <div class="sh-edit-actions">
+                    <button class="btn-primary sh-save-btn" @click="saveEdit(entry)">Save</button>
+                    <button class="btn-ghost sh-cancel-btn" @click="cancelEdit">Cancel</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <span :class="['chip', STATUS_COLOR[entry.status]]">{{ STATUS_LABELS[entry.status] }}</span>
+                  <span class="sh-date">{{ formatStatusDate(entry.statusDate) }}</span>
+                  <div class="sh-actions">
+                    <button class="sh-btn" @click="startEdit(entry)" title="Edit">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button class="sh-btn sh-btn--danger" @click="confirmDeleteEntry(entry.id)" title="Delete">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </template>
+              </li>
+            </ul>
+            <div v-else class="history-empty">No status history yet.</div>
+
+            <!-- Add entry form -->
+            <template v-if="addingEntry">
+              <div class="sh-add-form">
+                <div class="sh-edit-row">
+                  <select v-model="newEntryStatus" class="field-input sh-edit-select">
+                    <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
+                  </select>
+                  <DatePicker v-model="newEntryDate" placeholder="Date" />
+                </div>
+                <p v-if="addError" class="sh-error">{{ addError }}</p>
+                <div class="sh-edit-actions">
+                  <button class="btn-primary sh-save-btn" @click="saveAdd">Add</button>
+                  <button class="btn-ghost sh-cancel-btn" @click="cancelAdd">Cancel</button>
+                </div>
+              </div>
+            </template>
+            <button v-else class="sh-add-btn" @click="startAdd">
+              <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add entry
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <!-- Change history (activity log) -->
       <div class="history-section">
         <button class="history-toggle" @click="toggleHistory" :aria-expanded="showHistory">
           <svg xmlns="http://www.w3.org/2000/svg" class="history-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -459,6 +672,16 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
     @confirm="() => { showDeleteConfirm = false; remove() }"
     @cancel="showDeleteConfirm = false"
   />
+
+  <ConfirmDialog
+    v-if="showDeleteHistoryConfirm"
+    title="Delete history entry?"
+    message="This cannot be undone."
+    confirm-label="Delete"
+    confirm-class="btn-danger"
+    @confirm="deleteEntry"
+    @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteId = null }"
+  />
 </template>
 
 <style scoped>
@@ -486,6 +709,9 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .mailto-link { font-size: .8rem; color: var(--col-accent); text-decoration: none; margin-top: .125rem; }
 .mailto-link:hover { text-decoration: underline; }
 
+/* status date */
+.status-date-field { background: color-mix(in srgb, var(--col-accent-lt) 60%, transparent); border: 1px solid var(--col-border-lt); border-radius: .5rem; padding: .625rem .75rem; }
+
 /* follow-up date */
 .overdue-badge { display: inline-block; background: var(--col-error); color: #fff; font-size: .65rem; font-weight: 700; border-radius: 9999px; padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }
 .input-overdue { border-color: var(--col-error) !important; }
@@ -495,7 +721,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .joburl-open-btn { flex-shrink: 0; color: var(--col-accent); }
 .clear-date-btn:hover { text-decoration: underline; }
 
-/* history */
+/* shared history section */
 .history-section { border-top: 1px solid var(--col-border); margin-top: .25rem; padding-top: .75rem; }
 .history-toggle { display: flex; align-items: center; gap: .4rem; background: none; border: none; cursor: pointer; color: var(--col-muted); font-size: .875rem; font-weight: 500; padding: 0; }
 .history-toggle:hover { color: var(--col-text); }
@@ -504,6 +730,30 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .chevron--open { transform: rotate(180deg); }
 .history-body { margin-top: .75rem; }
 .history-empty { font-size: .8rem; color: var(--col-subtle); padding: .25rem 0; }
+
+/* status history list */
+.sh-list { list-style: none; padding: 0; margin: 0 0 .5rem; display: flex; flex-direction: column; gap: .375rem; }
+.sh-item { display: flex; align-items: center; gap: .5rem; padding: .375rem .5rem; border-radius: .375rem; }
+.sh-item:hover { background: var(--col-raised); }
+.sh-date { font-size: .8rem; color: var(--col-muted); flex: 1; }
+.sh-actions { display: flex; gap: .25rem; flex-shrink: 0; }
+.sh-btn { background: none; border: none; cursor: pointer; padding: .25rem; border-radius: .25rem; color: var(--col-subtle); display: flex; align-items: center; }
+.sh-btn:hover { color: var(--col-text); background: var(--col-surface); }
+.sh-btn--danger:hover { color: var(--col-error); }
+.sh-icon { width: .875rem; height: .875rem; }
+
+.sh-edit-row { display: flex; gap: .5rem; align-items: center; }
+.sh-edit-select { flex: 1; }
+.sh-edit-actions { display: flex; gap: .5rem; margin-top: .375rem; }
+.sh-save-btn { font-size: .8rem; padding: .3rem .75rem; }
+.sh-cancel-btn { font-size: .8rem; padding: .3rem .75rem; }
+
+.sh-add-form { border: 1px dashed var(--col-border); border-radius: .375rem; padding: .625rem; margin-top: .5rem; }
+.sh-add-btn { display: flex; align-items: center; gap: .35rem; background: none; border: none; cursor: pointer; color: var(--col-accent); font-size: .8rem; font-weight: 500; padding: .25rem 0; margin-top: .25rem; }
+.sh-add-btn:hover { text-decoration: underline; }
+.sh-error { font-size: .8rem; color: var(--col-error); margin: .25rem 0; }
+
+/* activity timeline */
 .timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .625rem; }
 .timeline-item { display: flex; gap: .625rem; align-items: flex-start; }
 .timeline-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--col-accent); flex-shrink: 0; margin-top: .3rem; }

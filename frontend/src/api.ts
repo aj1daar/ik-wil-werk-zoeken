@@ -93,7 +93,7 @@ export const api = {
   createApplication: (data: Omit<Application, 'id' | 'userId' | 'status' | 'updatedAt'>) =>
     request<Application>('POST', '/api/dashboard/applications', data),
 
-  updateApplication: (id: string, data: Partial<Application>) =>
+  updateApplication: (id: string, data: Partial<Application> & { statusDate?: string }) =>
     request<Application>('PUT', `/api/dashboard/applications/${id}`, data),
 
   deleteApplication: (id: string) =>
@@ -112,6 +112,18 @@ export const api = {
 
   bulkUpdateStatus: (ids: string[], status: string) =>
     request<Application[]>('PATCH', '/api/dashboard/applications', { ids, status }),
+
+  getStatusHistory: (applicationId: string) =>
+    request<StatusHistory[]>('GET', `/api/dashboard/status-history/${applicationId}`),
+
+  addStatusHistory: (applicationId: string, data: { status: string; statusDate: string }) =>
+    request<StatusHistory>('POST', `/api/dashboard/status-history/${applicationId}`, data),
+
+  updateStatusHistory: (historyId: string, data: { status?: string; statusDate?: string }) =>
+    request<StatusHistory>('PUT', `/api/dashboard/status-history-item/${historyId}`, data),
+
+  deleteStatusHistory: (historyId: string) =>
+    request<void>('DELETE', `/api/dashboard/status-history-item/${historyId}`),
 }
 
 export interface SponsorCompany {
@@ -162,9 +174,18 @@ export interface ActivityLog {
   changedAt: string
 }
 
+export interface StatusHistory {
+  id: string
+  applicationId: string
+  status: ApplicationStatus
+  statusDate: string  // "YYYY-MM-DD"
+  createdAt: string
+}
+
 export type ApplicationStatus =
   | 'Applied'
   | 'InterviewScheduled'
+  | 'Assessment'
   | 'OfferReceived'
   | 'OnHold'
   | 'Rejected'
@@ -177,6 +198,7 @@ export type RejectionReason =
   | 'incompatible_profile'
   | 'salary_mismatch'
   | 'internal_hire'
+  | 'failed_assessment'
   | 'other'
 
 export interface Stats {

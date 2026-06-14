@@ -271,7 +271,46 @@ namespace backend.Data.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("backend.Models.StatusHistory", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApplicationId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("StatusDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId");
+
+                    b.ToTable("StatusHistories");
+                });
+
             modelBuilder.Entity("backend.Models.ActivityLog", b =>
+                {
+                    b.HasOne("backend.Models.ApplicationStage", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.StatusHistory", b =>
                 {
                     b.HasOne("backend.Models.ApplicationStage", null)
                         .WithMany()

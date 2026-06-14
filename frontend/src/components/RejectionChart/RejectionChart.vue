@@ -42,6 +42,7 @@ const REASON_META = [
   { key: 'dutch_language',       label: 'Dutch language requirement',  color: '#f97316' },
   { key: 'salary_mismatch',      label: 'Salary mismatch',             color: '#eab308' },
   { key: 'internal_hire',        label: 'Filled internally',           color: '#8b5cf6' },
+  { key: 'failed_assessment',    label: 'Did not pass assessment',     color: '#fb923c' },
   { key: 'other',                label: 'Other',                       color: '#6b7280' },
   { key: 'unknown',              label: 'No reason given',             color: '#94a3b8' },
 ] as const

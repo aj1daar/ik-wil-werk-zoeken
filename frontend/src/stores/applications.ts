@@ -4,6 +4,7 @@ import { api, type Application, type ApplicationStatus, type Stats } from '../ap
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   Applied:             'Applied',
   InterviewScheduled:  'Interviewing',
+  Assessment:          'Assessment',
   OfferReceived:       'Offer Received',
   OnHold:              'On Hold',
   Rejected:            'Rejected',
@@ -14,6 +15,7 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
 export const STATUS_COLOR: Record<ApplicationStatus, string> = {
   Applied:             'chip-applied',
   InterviewScheduled:  'chip-interview',
+  Assessment:          'chip-assessment',
   OfferReceived:       'chip-offer',
   OnHold:              'chip-hold',
   Rejected:            'chip-rejected',
@@ -27,6 +29,7 @@ export const REJECTION_REASON_LABELS: Record<string, string> = {
   incompatible_profile: 'Incompatible profile',
   salary_mismatch:      'Salary expectations mismatch',
   internal_hire:        'Position filled internally',
+  failed_assessment:    'Did not pass the assessment',
   other:                'Other',
 }
 

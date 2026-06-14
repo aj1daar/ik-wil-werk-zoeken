@@ -11,6 +11,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<ApplicationStage> Stages => Set<ApplicationStage>();
     public DbSet<SponsorCompany> Sponsors => Set<SponsorCompany>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<StatusHistory> StatusHistories => Set<StatusHistory>();
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -45,6 +46,16 @@ public sealed class AppDbContext : DbContext
             e.HasOne<ApplicationStage>()
              .WithMany()
              .HasForeignKey(a => a.ApplicationId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<StatusHistory>(e =>
+        {
+            e.HasKey(h => h.Id);
+            e.HasIndex(h => h.ApplicationId);
+            e.HasOne<ApplicationStage>()
+             .WithMany()
+             .HasForeignKey(h => h.ApplicationId)
              .OnDelete(DeleteBehavior.Cascade);
         });
 

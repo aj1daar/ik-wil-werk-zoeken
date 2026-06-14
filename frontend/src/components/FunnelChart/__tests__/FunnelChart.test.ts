@@ -80,15 +80,15 @@ describe('FunnelChart – bar segments', () => {
 // ── legend ────────────────────────────────────────────────────────────────────
 
 describe('FunnelChart – legend', () => {
-  it('renders 7 legend rows always', () => {
+  it('renders 8 legend rows always', () => {
     const w = mountChart({ Applied: 10 })
-    expect(w.findAll('.sb-leg-row')).toHaveLength(7)
+    expect(w.findAll('.sb-leg-row')).toHaveLength(8)
   })
 
   it('zero-count rows have the dim class', () => {
     const w = mountChart({ Applied: 10 })
     const zeroRows = w.findAll('.sb-leg-row--zero')
-    expect(zeroRows.length).toBe(6)
+    expect(zeroRows.length).toBe(7)
   })
 
   it('non-zero rows do not have the dim class', () => {

@@ -43,10 +43,10 @@ function makeStats(overrides: Partial<Stats> = {}): Stats {
 // ── exported constants ────────────────────────────────────────────────────────
 
 describe('STATUS_LABELS', () => {
-  it('covers all seven statuses', () => {
-    const expected = ['Applied','InterviewScheduled','OfferReceived','OnHold','Rejected','Withdrawn','Accepted']
+  it('covers all eight statuses', () => {
+    const expected = ['Applied','InterviewScheduled','Assessment','OfferReceived','OnHold','Rejected','Withdrawn','Accepted']
     expect(Object.keys(STATUS_LABELS)).toEqual(expect.arrayContaining(expected))
-    expect(Object.keys(STATUS_LABELS)).toHaveLength(7)
+    expect(Object.keys(STATUS_LABELS)).toHaveLength(8)
   })
 
   it('has non-empty string for every status', () => {
@@ -57,8 +57,8 @@ describe('STATUS_LABELS', () => {
 })
 
 describe('STATUS_COLOR', () => {
-  it('covers all seven statuses', () => {
-    expect(Object.keys(STATUS_COLOR)).toHaveLength(7)
+  it('covers all eight statuses', () => {
+    expect(Object.keys(STATUS_COLOR)).toHaveLength(8)
   })
 
   it('every status has a chip CSS class name', () => {
@@ -69,16 +69,16 @@ describe('STATUS_COLOR', () => {
 })
 
 describe('REJECTION_REASON_LABELS', () => {
-  it('covers all six reasons', () => {
-    const expected = ['dutch_language','another_candidate','incompatible_profile','salary_mismatch','internal_hire','other']
+  it('covers all seven reasons', () => {
+    const expected = ['dutch_language','another_candidate','incompatible_profile','salary_mismatch','internal_hire','failed_assessment','other']
     expect(Object.keys(REJECTION_REASON_LABELS)).toEqual(expect.arrayContaining(expected))
-    expect(Object.keys(REJECTION_REASON_LABELS)).toHaveLength(6)
+    expect(Object.keys(REJECTION_REASON_LABELS)).toHaveLength(7)
   })
 })
 
 describe('ALL_STATUSES', () => {
-  it('is an array of all seven status keys', () => {
-    expect(ALL_STATUSES).toHaveLength(7)
+  it('is an array of all eight status keys', () => {
+    expect(ALL_STATUSES).toHaveLength(8)
     expect(ALL_STATUSES).toContain('Applied')
     expect(ALL_STATUSES).toContain('Accepted')
     expect(ALL_STATUSES).toContain('Rejected')

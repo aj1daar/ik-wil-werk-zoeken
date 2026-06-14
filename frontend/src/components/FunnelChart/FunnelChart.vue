@@ -6,6 +6,7 @@ const props = defineProps<{ byStatus: Record<string, number> }>()
 const STATUSES = [
   { key: 'Applied',            label: 'Applied',        color: '#60A5FA' },
   { key: 'InterviewScheduled', label: 'Interviewing',   color: '#A78BFA' },
+  { key: 'Assessment',         label: 'Assessment',     color: '#FB923C' },
   { key: 'OfferReceived',      label: 'Offer Received', color: '#34D399' },
   { key: 'Accepted',           label: 'Accepted',       color: '#10B981' },
   { key: 'OnHold',             label: 'On Hold',        color: '#FBBF24' },

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using backend.Data;
 using backend.Models;
 using backend.Services;
@@ -54,6 +55,10 @@ public sealed class DashboardCrudFunction
             ("applications", "DELETE") => await DeleteApplication(req, userId, id),
             ("activity", "GET") => await GetActivity(req, userId, id),
             ("stats", "GET") => await GetStats(req, userId),
+            ("status-history", "GET") => await GetStatusHistory(req, userId, id),
+            ("status-history", "POST") => await AddStatusHistoryEntry(req, userId, id),
+            ("status-history-item", "PUT") => await UpdateStatusHistoryItem(req, userId, id),
+            ("status-history-item", "DELETE") => await DeleteStatusHistoryItem(req, userId, id),
             _ => await ErrorResponse(req, HttpStatusCode.BadRequest, "Unsupported route or method")
         };
 
@@ -124,6 +129,15 @@ public sealed class DashboardCrudFunction
         item.UpdatedAt = DateTimeOffset.UtcNow;
         await _stages.UpsertAsync(item);
 
+        _db.StatusHistories.Add(new StatusHistory
+        {
+            ApplicationId = item.Id,
+            UserId = userId,
+            Status = "Applied",
+            StatusDate = DateOnly.FromDateTime(item.AppliedAt.UtcDateTime),
+        });
+        await _db.SaveChangesAsync();
+
         var response = req.CreateResponse(HttpStatusCode.Created);
         await WriteJson(response, JsonSerializer.Serialize(item, AppJsonSerializerContext.Default.ApplicationStage));
         return response;
@@ -138,12 +152,24 @@ public sealed class DashboardCrudFunction
         if (existing is null)
             return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
 
-        var item = await DeserializeStage(req.Body);
+        // Read body as string to allow extracting statusDate alongside the stage fields
+        var bodyStr = await new StreamReader(req.Body).ReadToEndAsync();
+        var item = JsonSerializer.Deserialize(bodyStr, AppJsonSerializerContext.Default.ApplicationStage);
         if (item is null)
             return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
 
         if (!ValidateStage(item, out var err))
             return await ErrorResponse(req, HttpStatusCode.BadRequest, err);
+
+        // Extract optional statusDate field (not part of ApplicationStage model)
+        DateOnly? statusDate = null;
+        try
+        {
+            var node = JsonNode.Parse(bodyStr);
+            if (node?["statusDate"]?.GetValue<string>() is { } sdStr && DateOnly.TryParse(sdStr, out var sd))
+                statusDate = sd;
+        }
+        catch { /* ignore parse errors */ }
 
         var updated = new ApplicationStage
         {
@@ -168,11 +194,22 @@ public sealed class DashboardCrudFunction
         var logs = BuildActivityLogs(existing, updated, userId);
         await _stages.UpsertAsync(updated);
 
-        if (logs.Count > 0)
+        if (existing.Status != updated.Status)
         {
-            _db.ActivityLogs.AddRange(logs);
-            await _db.SaveChangesAsync();
+            _db.StatusHistories.Add(new StatusHistory
+            {
+                ApplicationId = id,
+                UserId = userId,
+                Status = updated.Status,
+                StatusDate = statusDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+            });
         }
+
+        if (logs.Count > 0)
+            _db.ActivityLogs.AddRange(logs);
+
+        if (logs.Count > 0 || existing.Status != updated.Status)
+            await _db.SaveChangesAsync();
 
         var response = req.CreateResponse(HttpStatusCode.OK);
         await WriteJson(response, JsonSerializer.Serialize(updated, AppJsonSerializerContext.Default.ApplicationStage));
@@ -201,7 +238,9 @@ public sealed class DashboardCrudFunction
             return await ErrorResponse(req, HttpStatusCode.NotFound, "No matching applications found");
 
         var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var logs = new List<ActivityLog>();
+        var historyEntries = new List<StatusHistory>();
         foreach (var stage in stages)
         {
             if (stage.Status == body.Status) continue;
@@ -214,6 +253,13 @@ public sealed class DashboardCrudFunction
                 NewValue = body.Status,
                 ChangedAt = now,
             });
+            historyEntries.Add(new StatusHistory
+            {
+                ApplicationId = stage.Id,
+                UserId = userId,
+                Status = body.Status,
+                StatusDate = today,
+            });
             stage.Status = body.Status;
             stage.UpdatedAt = now;
             if (body.Status != "Rejected")
@@ -225,6 +271,8 @@ public sealed class DashboardCrudFunction
 
         if (logs.Count > 0)
             _db.ActivityLogs.AddRange(logs);
+        if (historyEntries.Count > 0)
+            _db.StatusHistories.AddRange(historyEntries);
 
         await _db.SaveChangesAsync();
 
@@ -322,18 +370,133 @@ public sealed class DashboardCrudFunction
         return logs;
     }
 
+    // ── status history ────────────────────────────────────────────────────────
+
+    private async Task<HttpResponseData> GetStatusHistory(HttpRequestData req, string userId, string? applicationId)
+    {
+        if (string.IsNullOrWhiteSpace(applicationId))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "application id is required");
+
+        var stage = await _stages.GetAsync(userId, applicationId);
+        if (stage is null)
+            return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
+
+        var history = await _db.StatusHistories
+            .Where(h => h.ApplicationId == applicationId)
+            .OrderByDescending(h => h.StatusDate)
+            .ThenByDescending(h => h.CreatedAt)
+            .ToListAsync();
+
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await WriteJson(response, JsonSerializer.Serialize(
+            history.ToArray(), AppJsonSerializerContext.Default.StatusHistoryArray));
+        return response;
+    }
+
+    private async Task<HttpResponseData> AddStatusHistoryEntry(HttpRequestData req, string userId, string? applicationId)
+    {
+        if (string.IsNullOrWhiteSpace(applicationId))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "application id is required");
+
+        var stage = await _stages.GetAsync(userId, applicationId);
+        if (stage is null)
+            return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
+
+        var body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.AddStatusHistoryRequest);
+        if (body is null || string.IsNullOrWhiteSpace(body.Status) || string.IsNullOrWhiteSpace(body.StatusDate))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "status and statusDate are required");
+
+        if (!ValidStatuses.Contains(body.Status))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, $"Invalid status '{body.Status}'");
+
+        if (!DateOnly.TryParse(body.StatusDate, out var date))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid statusDate format (expected YYYY-MM-DD)");
+
+        var entry = new StatusHistory
+        {
+            ApplicationId = applicationId,
+            UserId = userId,
+            Status = body.Status,
+            StatusDate = date,
+        };
+
+        _db.StatusHistories.Add(entry);
+        await _db.SaveChangesAsync();
+
+        var response = req.CreateResponse(HttpStatusCode.Created);
+        await WriteJson(response, JsonSerializer.Serialize(entry, AppJsonSerializerContext.Default.StatusHistory));
+        return response;
+    }
+
+    private async Task<HttpResponseData> UpdateStatusHistoryItem(HttpRequestData req, string userId, string? historyId)
+    {
+        if (string.IsNullOrWhiteSpace(historyId))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required");
+
+        var entry = await _db.StatusHistories.FirstOrDefaultAsync(h => h.Id == historyId);
+        if (entry is null)
+            return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
+
+        var stage = await _stages.GetAsync(userId, entry.ApplicationId);
+        if (stage is null)
+            return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
+
+        var body = await JsonSerializer.DeserializeAsync(req.Body, AppJsonSerializerContext.Default.UpdateStatusHistoryRequest);
+        if (body is null)
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid payload");
+
+        if (body.Status is not null)
+        {
+            if (!ValidStatuses.Contains(body.Status))
+                return await ErrorResponse(req, HttpStatusCode.BadRequest, $"Invalid status '{body.Status}'");
+            entry.Status = body.Status;
+        }
+
+        if (body.StatusDate is not null)
+        {
+            if (!DateOnly.TryParse(body.StatusDate, out var date))
+                return await ErrorResponse(req, HttpStatusCode.BadRequest, "Invalid statusDate format (expected YYYY-MM-DD)");
+            entry.StatusDate = date;
+        }
+
+        await _db.SaveChangesAsync();
+
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        await WriteJson(response, JsonSerializer.Serialize(entry, AppJsonSerializerContext.Default.StatusHistory));
+        return response;
+    }
+
+    private async Task<HttpResponseData> DeleteStatusHistoryItem(HttpRequestData req, string userId, string? historyId)
+    {
+        if (string.IsNullOrWhiteSpace(historyId))
+            return await ErrorResponse(req, HttpStatusCode.BadRequest, "id is required");
+
+        var entry = await _db.StatusHistories.FirstOrDefaultAsync(h => h.Id == historyId);
+        if (entry is null)
+            return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
+
+        var stage = await _stages.GetAsync(userId, entry.ApplicationId);
+        if (stage is null)
+            return await ErrorResponse(req, HttpStatusCode.NotFound, "Not found");
+
+        _db.StatusHistories.Remove(entry);
+        await _db.SaveChangesAsync();
+
+        return WithCors(req.CreateResponse(HttpStatusCode.NoContent));
+    }
+
     // ── validation ────────────────────────────────────────────────────────────
 
     private static readonly string[] ValidStatuses =
     [
-        "Applied", "InterviewScheduled", "OfferReceived",
+        "Applied", "InterviewScheduled", "Assessment", "OfferReceived",
         "OnHold", "Rejected", "Withdrawn", "Accepted"
     ];
 
     private static readonly string[] ValidRejectionReasons =
     [
         "dutch_language", "another_candidate", "incompatible_profile",
-        "salary_mismatch", "internal_hire", "other"
+        "salary_mismatch", "internal_hire", "failed_assessment", "other"
     ];
 
     internal static bool ValidateStage(ApplicationStage s, out string error)
