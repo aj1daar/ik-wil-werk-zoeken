@@ -242,6 +242,7 @@ async function loadStatusHistory() {
   historyLoading.value = true
   try {
     statusHistory.value = await api.getStatusHistory(props.application.id)
+    updateStatusFromHistory()
   } catch {
     // silently ignore
   } finally {
