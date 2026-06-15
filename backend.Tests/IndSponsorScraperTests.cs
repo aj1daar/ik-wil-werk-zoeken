@@ -289,6 +289,52 @@ public sealed class IndSponsorScraperTests
         var results = InvokeParse("<html><body></body></html>");
         Assert.Empty(results);
     }
+
+    // ── New IND markup: <th scope="row"> for name column ─────────────────────
+
+    [Fact]
+    public void ParseHtml_ThScopeRow_NameParsed()
+    {
+        // IND changed the name column from <td> to <th scope="row"> in 2026
+        var html = @"<table>
+<thead><tr><th scope=""col"">Organisation</th><th scope=""col"">KvK number</th></tr></thead>
+<tbody>
+<tr><th scope=""row"">ASML N.V.</th><td>12345678</td></tr>
+</tbody></table>";
+        var results = InvokeParse(html);
+        Assert.Single(results);
+        Assert.Equal("ASML", results[0].Name);
+        Assert.Equal("12345678", results[0].KvKNumber);
+    }
+
+    [Fact]
+    public void ParseHtml_ThScopeRow_HeaderRowSkipped()
+    {
+        // Header row has <th scope="col"> for both columns — must not be captured
+        var html = @"<table>
+<thead><tr><th scope=""col"">Organisation</th><th scope=""col"">KvK number</th></tr></thead>
+<tbody>
+<tr><th scope=""row"">Booking.com B.V.</th><td>22222222</td></tr>
+</tbody></table>";
+        var results = InvokeParse(html);
+        Assert.Single(results);
+        Assert.Equal("Booking.com", results[0].Name);
+    }
+
+    [Fact]
+    public void ParseHtml_ThScopeRow_MultipleRows_AllParsed()
+    {
+        var html = @"<table>
+<thead><tr><th scope=""col"">Organisation</th><th scope=""col"">KvK number</th></tr></thead>
+<tbody>
+<tr><th scope=""row"">ASML N.V.</th><td>11111111</td></tr>
+<tr><th scope=""row"">Adyen NV</th><td>22222222</td></tr>
+</tbody></table>";
+        var results = InvokeParse(html);
+        Assert.Equal(2, results.Count);
+        Assert.Equal("ASML", results[0].Name);
+        Assert.Equal("Adyen", results[1].Name);
+    }
 }
 
 // ── Minimal IHttpClientFactory stub ──────────────────────────────────────────

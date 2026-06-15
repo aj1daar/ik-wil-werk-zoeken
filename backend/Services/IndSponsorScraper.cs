@@ -118,10 +118,12 @@ public sealed partial class IndSponsorScraper
     }
 
     // Captures: (1) company name cell content, (2) KvK 8-digit, (3) city/place cell (optional).
-    // KvK anchor skips header rows. Cells may contain nested tags (<span>, <a>, etc.).
+    // IND now uses <th scope="row"> for data rows; header rows use <th scope="col"> for BOTH
+    // columns. By requiring scope="row" (or falling back to <td> for the old format) the header
+    // row never matches — no need to rely on KvK-in-td to skip it.
     // (?<!\d)(\d{8})(?!\d) ensures exactly 8 digits (won't match inside a 9+-digit number).
     [GeneratedRegex(
-        @"<tr[^>]*>\s*<td[^>]*>([\s\S]*?)</td>\s*<td[^>]*>[\s\S]*?(?<!\d)(\d{8})(?!\d)[\s\S]*?</td>(?:\s*<td[^>]*>([\s\S]*?)</td>)?",
+        @"<tr[^>]*>\s*(?:<th[^>]*scope=""row""[^>]*>|<td[^>]*>)([\s\S]*?)</(?:th|td)>\s*<td[^>]*>[\s\S]*?(?<!\d)(\d{8})(?!\d)[\s\S]*?</td>(?:\s*<(?:th|td)[^>]*>([\s\S]*?)</(?:th|td)>)?",
         RegexOptions.Singleline | RegexOptions.IgnoreCase)]
     private static partial Regex TableRowRegex();
 
