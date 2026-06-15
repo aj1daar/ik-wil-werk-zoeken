@@ -124,9 +124,11 @@ const sortedJourney = computed(() =>
 )
 
 function updateStatusFromJourney() {
-  const active = journeyEntries.value.filter(e => !deletedIds.value.includes(e.id ?? e.tempId))
-  if (active.length === 0) return
-  const latest = active.reduce((a, b) => {
+  // Only derive status from non-Applied entries; if there are none, keep whatever
+  // status was set from the application prop (e.g. a Rejected app with no history).
+  const hasNonApplied = journeyEntries.value.some(e => !e.isApplied)
+  if (!hasNonApplied) return
+  const latest = journeyEntries.value.reduce((a, b) => {
     if (b.statusDate > a.statusDate) return b
     if (a.statusDate > b.statusDate) return a
     return a.isApplied ? b : a
