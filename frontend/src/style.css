@@ -5,6 +5,10 @@
 /* ─── Warm Neutral Palette ─────────────────────────────────────── */
 :root {
   --col-desktop:    #D4C9B8;
+  --island-shadow:
+    0 0 0 1px color-mix(in srgb, var(--col-text) 6%, transparent),
+    0 2px 8px  color-mix(in srgb, var(--col-text) 4%, transparent),
+    0 8px 32px color-mix(in srgb, var(--col-text) 7%, transparent);
   --col-bg:         #FAF7F2;
   --col-surface:    #F0EAE0;
   --col-raised:     #E5D9CC;
