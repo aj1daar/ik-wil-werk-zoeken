@@ -33,6 +33,7 @@ pgdata/
 publish-manual/
 deploy-manual.zip
 deploy.zip
+tmp-publish/
 
 # Local debug/test artifacts
 iwwz-logs/
