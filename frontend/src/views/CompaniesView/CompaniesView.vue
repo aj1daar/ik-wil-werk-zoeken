@@ -564,6 +564,8 @@ const activeDropdownCount = computed(() =>
 
 <style src="../../assets/split-panel.css" scoped></style>
 <style scoped>
+.dashboard { max-width: 1280px; margin: 0 auto; }
+
 .sync-badge { font-size: .75rem; color: var(--col-subtle); white-space: nowrap; padding-left: .25rem; }
 
 .btn-filter-toggle {
