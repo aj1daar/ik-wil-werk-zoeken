@@ -73,16 +73,16 @@ export const api = {
     request<{ token: string }>('GET', `/api/auth/confirm-email-change?token=${encodeURIComponent(token)}`),
 
   adminListUsers: () =>
-    request<AdminUserSummary[]>('GET', '/api/admin/users'),
+    request<AdminUserSummary[]>('GET', '/api/mgmt/users'),
 
   adminPromote: (email: string) =>
-    request<AdminUserSummary>('POST', '/api/admin/promote', { email }),
+    request<AdminUserSummary>('POST', '/api/mgmt/promote', { email }),
 
   adminReloadSponsors: () =>
-    request<{ message: string }>('POST', '/api/admin/reload-sponsors'),
+    request<{ message: string }>('POST', '/api/mgmt/reload-sponsors'),
 
   adminGetSyncLogs: () =>
-    request<SyncLog[]>('GET', '/api/admin/sync-logs'),
+    request<SyncLog[]>('GET', '/api/mgmt/sync-logs'),
 
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),

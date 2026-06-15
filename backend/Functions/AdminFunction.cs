@@ -36,7 +36,7 @@ public sealed class AdminFunction
     // GET /api/admin/users
     [Function("AdminListUsers")]
     public async Task<HttpResponseData> ListUsers(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "options", Route = "admin/users")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "options", Route = "mgmt/users")]
         HttpRequestData req)
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
@@ -69,7 +69,7 @@ public sealed class AdminFunction
     // POST /api/admin/promote
     [Function("AdminPromote")]
     public async Task<HttpResponseData> Promote(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "admin/promote")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "mgmt/promote")]
         HttpRequestData req)
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
@@ -115,7 +115,7 @@ public sealed class AdminFunction
     // POST /api/admin/reload-sponsors
     [Function("AdminReloadSponsors")]
     public async Task<HttpResponseData> ReloadSponsors(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "admin/reload-sponsors")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "mgmt/reload-sponsors")]
         HttpRequestData req)
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
@@ -232,7 +232,7 @@ public sealed class AdminFunction
     // GET /api/admin/sync-logs
     [Function("AdminSyncLogs")]
     public async Task<HttpResponseData> GetSyncLogs(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "options", Route = "admin/sync-logs")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", "options", Route = "mgmt/sync-logs")]
         HttpRequestData req)
     {
         if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
