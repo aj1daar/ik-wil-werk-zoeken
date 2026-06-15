@@ -252,6 +252,43 @@ public sealed class IndSponsorScraperTests
         Assert.Equal("12345678", results[0].KvKNumber);
         Assert.Equal("Eindhoven", results[0].City);
     }
+
+    [Fact]
+    public void ParseHtml_NameWrappedInSpan_TagsStripped()
+    {
+        var html = @"<tr><td><span class=""field-content"">ASML N.V.</span></td><td><span class=""field-content"">12345678</span></td></tr>";
+        var results = InvokeParse(html);
+        Assert.Single(results);
+        Assert.Equal("ASML", results[0].Name);
+        Assert.Equal("12345678", results[0].KvKNumber);
+    }
+
+    [Fact]
+    public void ParseHtml_NameWrappedInAnchor_TagsStripped()
+    {
+        var html = @"<tr><td><a href=""/company/12345678"">Booking.com B.V.</a></td><td>12345678</td></tr>";
+        var results = InvokeParse(html);
+        Assert.Single(results);
+        Assert.Equal("Booking.com", results[0].Name);
+        Assert.Equal("12345678", results[0].KvKNumber);
+    }
+
+    [Fact]
+    public void ParseHtml_KvKWrappedInSpan_Parsed()
+    {
+        var html = @"<tr><td>Acme B.V.</td><td><span>12345678</span></td></tr>";
+        var results = InvokeParse(html);
+        Assert.Single(results);
+        Assert.Equal("Acme", results[0].Name);
+        Assert.Equal("12345678", results[0].KvKNumber);
+    }
+
+    [Fact]
+    public void ParseHtml_ZeroResults_ReturnedAsEmpty()
+    {
+        var results = InvokeParse("<html><body></body></html>");
+        Assert.Empty(results);
+    }
 }
 
 // ── Minimal IHttpClientFactory stub ──────────────────────────────────────────

@@ -45,7 +45,11 @@ public sealed partial class IndSponsorScraper
     {
         using var client = _http.CreateClient("ind");
         var html = await client.GetStringAsync(RegisterUrl, ct);
-        return ParseHtml(html);
+        var results = ParseHtml(html);
+        if (results.Count == 0)
+            throw new InvalidOperationException(
+                "IND page returned 0 sponsors — the page structure may have changed.");
+        return results;
     }
 
     private List<SponsorCompany> ParseHtml(string html)
@@ -62,9 +66,12 @@ public sealed partial class IndSponsorScraper
 
         foreach (Match m in matches)
         {
-            var rawName = WebUtility.HtmlDecode(m.Groups[1].Value.Trim());
-            var kvk = m.Groups[2].Value.Trim();
-            var rawCity = WebUtility.HtmlDecode(m.Groups[3].Value.Trim());
+            // Strip real HTML tags first (e.g. <span>, <a> wrapping cell content),
+            // then decode entities — this order ensures encoded text like &lt;script&gt;
+            // survives as literal text rather than being tag-stripped after decode.
+            var rawName = WebUtility.HtmlDecode(StripTags(m.Groups[1].Value));
+            var kvk     = m.Groups[2].Value.Trim();
+            var rawCity = WebUtility.HtmlDecode(StripTags(m.Groups[3].Value));
 
             var cleanName = StripLegalSuffix(rawName);
             var city = string.IsNullOrWhiteSpace(rawCity) ? null : rawCity;
@@ -83,6 +90,9 @@ public sealed partial class IndSponsorScraper
         _logger.LogInformation("Parsed {Count} sponsors from IND register", results.Count);
         return results;
     }
+
+    private static string StripTags(string html) =>
+        MultiSpaceRegex().Replace(HtmlTagRegex().Replace(html, " "), " ").Trim();
 
     public static string StripLegalSuffix(string name)
     {
@@ -107,10 +117,17 @@ public sealed partial class IndSponsorScraper
         return span.ToString();
     }
 
-    // Captures: (1) company name, (2) KvK 8-digit, (3) city/place (optional 3rd column).
-    // KvK is always 8 digits — used as anchor to skip header rows.
+    // Captures: (1) company name cell content, (2) KvK 8-digit, (3) city/place cell (optional).
+    // KvK anchor skips header rows. Cells may contain nested tags (<span>, <a>, etc.).
+    // (?<!\d)(\d{8})(?!\d) ensures exactly 8 digits (won't match inside a 9+-digit number).
     [GeneratedRegex(
-        @"<tr[^>]*>\s*<td[^>]*>\s*(.*?)\s*</td>\s*<td[^>]*>\s*(\d{8})\s*</td>\s*(?:<td[^>]*>\s*(.*?)\s*</td>)?",
+        @"<tr[^>]*>\s*<td[^>]*>([\s\S]*?)</td>\s*<td[^>]*>[\s\S]*?(?<!\d)(\d{8})(?!\d)[\s\S]*?</td>(?:\s*<td[^>]*>([\s\S]*?)</td>)?",
         RegexOptions.Singleline | RegexOptions.IgnoreCase)]
     private static partial Regex TableRowRegex();
+
+    [GeneratedRegex(@"<[^>]+>")]
+    private static partial Regex HtmlTagRegex();
+
+    [GeneratedRegex(@"\s{2,}")]
+    private static partial Regex MultiSpaceRegex();
 }
