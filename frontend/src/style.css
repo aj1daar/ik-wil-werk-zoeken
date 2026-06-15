@@ -385,6 +385,17 @@ textarea::placeholder { color: var(--col-subtle); }
 
   /* ── Page layout ──────────────────────────────────── */
   .page        { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* ── Split-panel island (Applications / Companies) ── */
+  .dashboard {
+    margin: 10px auto 16px;
+    max-width: 1280px;
+    border-radius: 16px;
+    box-shadow: var(--island-shadow);
+  }
+  @media (max-width: 767px) {
+    .dashboard { margin: 0; border-radius: 0; box-shadow: none; }
+  }
   .page-header { margin-bottom: 2rem; }
   .page-title  { font-size: 1.5rem; font-weight: 700; color: var(--col-text); margin: 0 0 0.25rem; }
   .page-subtitle { font-size: 0.875rem; color: var(--col-muted); margin: 0; }
