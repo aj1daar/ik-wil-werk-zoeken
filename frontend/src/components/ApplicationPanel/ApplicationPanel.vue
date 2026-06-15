@@ -187,24 +187,29 @@ function onLocationKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addLocation() }
 }
 
+function buildPayload(overrides: Partial<Application> & { statusDate?: string } = {}) {
+  return {
+    companyName:        companyName.value.trim(),
+    position:           position.value.trim(),
+    appliedAt:          new Date(appliedAt.value).toISOString(),
+    status:             status.value,
+    rejectionReason:    status.value === 'Rejected' && rejectionReason.value ? rejectionReason.value : undefined,
+    rejectionNote:      status.value === 'Rejected' && rejectionNote.value   ? rejectionNote.value   : undefined,
+    notes:              notes.value || undefined,
+    contactPersonName:  contactName.value || undefined,
+    contactPersonEmail: contactEmail.value || undefined,
+    locations:          locations.value,
+    followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
+    jobUrl:             jobUrl.value || undefined,
+    ...overrides,
+  }
+}
+
 async function save() {
   saving.value = true
   saveError.value = ''
   try {
-    await store.update(props.application.id, {
-      companyName:        companyName.value.trim(),
-      position:           position.value.trim(),
-      appliedAt:          new Date(appliedAt.value).toISOString(),
-      status:             status.value,
-      rejectionReason:    isRejected.value && rejectionReason.value ? rejectionReason.value : undefined,
-      rejectionNote:      isRejected.value && rejectionNote.value ? rejectionNote.value : undefined,
-      notes:              notes.value || undefined,
-      contactPersonName:  contactName.value || undefined,
-      contactPersonEmail: contactEmail.value || undefined,
-      locations:          locations.value,
-      followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
-      jobUrl:             jobUrl.value || undefined,
-    })
+    await store.update(props.application.id, buildPayload())
     if (showHistory.value) await loadHistory()
     chipFlash.value = true
     setTimeout(() => { chipFlash.value = false }, 600)
@@ -284,7 +289,7 @@ async function saveEdit(entry: StatusHistory) {
     )
     editingEntryId.value = null
     updateStatusFromHistory()
-    await store.update(props.application.id, { status: status.value })
+    await store.update(props.application.id, buildPayload())
   } catch {
     historyError.value = 'Save failed. Please try again.'
   }
@@ -302,7 +307,7 @@ async function deleteEntry() {
     await api.deleteStatusHistory(pendingDeleteId.value)
     statusHistory.value = statusHistory.value.filter(h => h.id !== pendingDeleteId.value)
     updateStatusFromHistory()
-    await store.update(props.application.id, { status: status.value })
+    await store.update(props.application.id, buildPayload())
   } catch {
     historyError.value = 'Delete failed. Please try again.'
   } finally {
@@ -341,11 +346,7 @@ async function saveAdd() {
       rejectionReason.value = newEntryRejectionReason.value
       rejectionNote.value   = newEntryRejectionNote.value
     }
-    await store.update(props.application.id, {
-      status:          status.value,
-      rejectionReason: isNewRejected && newEntryRejectionReason.value ? newEntryRejectionReason.value : undefined,
-      rejectionNote:   isNewRejected && newEntryRejectionNote.value   ? newEntryRejectionNote.value   : undefined,
-    })
+    await store.update(props.application.id, buildPayload({ statusDate: newEntryDate.value }))
     addingEntry.value = false
   } catch {
     addError.value = 'Failed to add entry. Please try again.'
