@@ -55,10 +55,12 @@ const editDate         = ref('')
 const historyError     = ref('')
 const showDeleteHistoryConfirm = ref(false)
 const pendingDeleteId  = ref<string | null>(null)
-const addingEntry      = ref(false)
-const newEntryStatus   = ref(ALL_STATUSES[0])
-const newEntryDate     = ref(todayYmd)
-const addError         = ref('')
+const addingEntry             = ref(false)
+const newEntryStatus          = ref(ALL_STATUSES[0])
+const newEntryDate            = ref(todayYmd)
+const newEntryRejectionReason = ref<RejectionReason | ''>('')
+const newEntryRejectionNote   = ref('')
+const addError                = ref('')
 
 watch(() => props.application, (a) => {
   companyName.value     = a.companyName
@@ -304,15 +306,19 @@ async function deleteEntry() {
 }
 
 function startAdd() {
-  addingEntry.value    = true
-  newEntryStatus.value = ALL_STATUSES[0]
-  newEntryDate.value   = todayYmd
-  addError.value       = ''
+  addingEntry.value             = true
+  newEntryStatus.value          = ALL_STATUSES[0]
+  newEntryDate.value            = todayYmd
+  newEntryRejectionReason.value = ''
+  newEntryRejectionNote.value   = ''
+  addError.value                = ''
 }
 
 function cancelAdd() {
-  addingEntry.value = false
-  addError.value    = ''
+  addingEntry.value             = false
+  newEntryRejectionReason.value = ''
+  newEntryRejectionNote.value   = ''
+  addError.value                = ''
 }
 
 async function saveAdd() {
@@ -324,7 +330,16 @@ async function saveAdd() {
     })
     statusHistory.value = [entry, ...statusHistory.value]
     updateStatusFromHistory()
-    await store.update(props.application.id, { status: status.value })
+    const isNewRejected = status.value === 'Rejected'
+    if (isNewRejected) {
+      rejectionReason.value = newEntryRejectionReason.value
+      rejectionNote.value   = newEntryRejectionNote.value
+    }
+    await store.update(props.application.id, {
+      status:          status.value,
+      rejectionReason: isNewRejected && newEntryRejectionReason.value ? newEntryRejectionReason.value : undefined,
+      rejectionNote:   isNewRejected && newEntryRejectionNote.value   ? newEntryRejectionNote.value   : undefined,
+    })
     addingEntry.value = false
   } catch {
     addError.value = 'Failed to add entry. Please try again.'
@@ -480,6 +495,18 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
                 </select>
                 <DatePicker v-model="newEntryDate" placeholder="Date" />
               </div>
+              <template v-if="newEntryStatus === 'Rejected'">
+                <select v-model="newEntryRejectionReason" class="field-input sh-rejection-select">
+                  <option value="">— Rejection reason (optional) —</option>
+                  <option v-for="[val, label] in REJECTION_REASONS" :key="val" :value="val">{{ label }}</option>
+                </select>
+                <textarea
+                  v-model="newEntryRejectionNote"
+                  class="field-input sh-rejection-note"
+                  rows="2"
+                  placeholder="Additional note (optional)…"
+                />
+              </template>
               <p v-if="addError" class="sh-error">{{ addError }}</p>
               <div class="sh-edit-actions">
                 <button class="btn-primary sh-save-btn" @click="saveAdd">Add</button>
@@ -746,7 +773,9 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .sh-save-btn { font-size: .8rem; padding: .3rem .75rem; }
 .sh-cancel-btn { font-size: .8rem; padding: .3rem .75rem; }
 
-.sh-add-form { border: 1px dashed var(--col-border); border-radius: .375rem; padding: .625rem; margin-top: .5rem; }
+.sh-add-form { border: 1px dashed var(--col-border); border-radius: .375rem; padding: .625rem; margin-top: .5rem; display: flex; flex-direction: column; gap: .375rem; }
+.sh-rejection-select { width: 100%; }
+.sh-rejection-note { resize: vertical; width: 100%; }
 .sh-add-btn { display: flex; align-items: center; gap: .35rem; background: none; border: none; cursor: pointer; color: var(--col-accent); font-size: .8rem; font-weight: 500; padding: .25rem 0; margin-top: .25rem; }
 .sh-add-btn:hover { text-decoration: underline; }
 .sh-error { font-size: .8rem; color: var(--col-error); margin: .25rem 0; }
