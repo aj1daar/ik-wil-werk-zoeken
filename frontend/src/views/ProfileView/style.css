@@ -1,4 +1,13 @@
-.profile-page    { max-width: 700px; }
+.profile-page {
+  max-width: 700px;
+  margin: 10px auto 16px;
+  border-radius: 16px;
+  box-shadow: var(--island-shadow);
+  background: var(--col-bg);
+}
+@media (max-width: 640px) {
+  .profile-page { margin: 0; border-radius: 0; box-shadow: none; }
+}
 
 .profile-notice {
   display: flex;

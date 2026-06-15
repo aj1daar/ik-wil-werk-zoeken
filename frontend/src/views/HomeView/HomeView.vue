@@ -167,7 +167,17 @@ watch(fromTo, fetchStats)
 </template>
 
 <style scoped>
-.page { max-width: 860px; margin: 0 auto; padding: 2rem 1rem; }
+.page {
+  max-width: 860px;
+  margin: 10px auto 16px;
+  padding: 2rem 1rem;
+  border-radius: 16px;
+  box-shadow: var(--island-shadow);
+  background: var(--col-bg);
+}
+@media (max-width: 640px) {
+  .page { margin: 0; border-radius: 0; box-shadow: none; }
+}
 .page-header { margin-bottom: 1.5rem; }
 .page-title { font-size: 1.5rem; font-weight: 700; color: var(--col-text); }
 

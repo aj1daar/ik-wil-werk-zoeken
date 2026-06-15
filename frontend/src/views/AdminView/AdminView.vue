@@ -205,8 +205,11 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 <style scoped>
 .admin-page {
   max-width: 900px;
-  margin: 0 auto;
+  margin: 10px auto 16px;
   padding: 2rem 1.5rem 4rem;
+  border-radius: 16px;
+  box-shadow: var(--island-shadow);
+  background: var(--col-bg);
 }
 
 .admin-title {
@@ -337,6 +340,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .removed-cell { color: var(--col-error); }
 
 @media (max-width: 600px) {
+  .admin-page { margin: 0; border-radius: 0; box-shadow: none; }
   .promote-row { flex-direction: column; align-items: stretch; }
 }
 </style>
