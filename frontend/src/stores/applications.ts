@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 import { api, type Application, type ApplicationStatus, type Stats } from '../api'
 
+export interface HistoryChanges {
+  toDelete: string[]
+  toAdd:    { status: string; statusDate: string }[]
+  toUpdate: { id: string; status: string; statusDate: string }[]
+}
+
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   Applied:             'Applied',
   InterviewScheduled:  'Interviewing',
@@ -43,6 +49,8 @@ export const useApplicationsStore = defineStore('applications', {
     statsLoading: false,
     error: null as string | null,
     statsError: null as string | null,
+    savingIds: [] as string[],
+    toastError: null as string | null,
   }),
 
   getters: {
@@ -104,6 +112,28 @@ export const useApplicationsStore = defineStore('applications', {
         if (idx !== -1) this.applications[idx] = u
       }
       return updated
-    }
+    },
+
+    dismissToast() {
+      this.toastError = null
+    },
+
+    backgroundSave(id: string, appPayload: Partial<Application>, changes: HistoryChanges) {
+      this.savingIds.push(id)
+      const deletes  = changes.toDelete.map(hid => api.deleteStatusHistory(hid))
+      const adds     = changes.toAdd.map(h => api.addStatusHistory(id, h))
+      const updates  = changes.toUpdate.map(h => api.updateStatusHistory(h.id, { status: h.status, statusDate: h.statusDate }))
+      Promise.all([api.updateApplication(id, appPayload), ...deletes, ...adds, ...updates])
+        .then(([updated]) => {
+          const idx = this.applications.findIndex(a => a.id === id)
+          if (idx !== -1) this.applications[idx] = updated as Application
+        })
+        .catch(() => {
+          this.toastError = 'Save failed — reopen the application and try again.'
+        })
+        .finally(() => {
+          this.savingIds = this.savingIds.filter(x => x !== id)
+        })
+    },
   }
 })

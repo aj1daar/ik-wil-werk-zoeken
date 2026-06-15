@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, REJECTION_REASON_LABELS } from '../../stores/applications'
+import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, REJECTION_REASON_LABELS, type HistoryChanges } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
 import type { Application, ActivityLog, RejectionReason, SponsorCompany, StatusHistory } from '../../api'
 import { api } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 import DatePicker from '../DatePicker/DatePicker.vue'
+
+interface JourneyEntry {
+  id:         string | null
+  tempId:     string
+  status:     string
+  statusDate: string
+  isApplied:  boolean
+}
 
 const props = defineProps<{ application: Application }>()
 const emit  = defineEmits<{ close: [] }>()
@@ -26,7 +34,6 @@ const locationInput    = ref('')
 const locations        = ref<string[]>([...props.application.locations])
 const followUpDate     = ref(props.application.followUpDate?.slice(0, 10) ?? '')
 const jobUrl           = ref(props.application.jobUrl ?? '')
-const saving           = ref(false)
 const deleting         = ref(false)
 const saveError        = ref('')
 const chipFlash        = ref(false)
@@ -42,31 +49,113 @@ const showDropdown     = computed(() => suggestions.value.length > 0)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // Activity log
-const activityLogs     = ref<ActivityLog[]>([])
-const activityLoading  = ref(false)
-const showHistory      = ref(false)
+const activityLogs    = ref<ActivityLog[]>([])
+const activityLoading = ref(false)
+const showHistory     = ref(false)
 
-// Status history
-const statusHistory    = ref<StatusHistory[]>([])
-const historyLoading   = ref(false)
-const editingEntryId   = ref<string | null>(null)
-const editStatus       = ref('')
-const editDate         = ref('')
-const historyError     = ref('')
-const showDeleteHistoryConfirm = ref(false)
-const pendingDeleteId  = ref<string | null>(null)
+// Local journey state
+const originalEntries = ref<StatusHistory[]>([])
+const journeyEntries  = ref<JourneyEntry[]>([])
+const deletedIds      = ref<string[]>([])
+const historyLoading  = ref(false)
+const historyError    = ref('')
+
+// Edit-in-journey state
+const editingTempId = ref<string | null>(null)
+const editStatus    = ref('')
+const editDate      = ref('')
+
+// Add-entry state
 const addingEntry             = ref(false)
 const newEntryStatus          = ref(ALL_STATUSES[0])
 const newEntryDate            = ref(todayYmd)
 const newEntryRejectionReason = ref<RejectionReason | ''>('')
 const newEntryRejectionNote   = ref('')
-const addError                = ref('')
 
-const addDateWarning = computed(() =>
-  newEntryDate.value && newEntryDate.value < appliedAt.value
-    ? 'This date is before the application date.'
+// Delete-entry confirm
+const showDeleteHistoryConfirm = ref(false)
+const pendingDeleteTempId      = ref<string | null>(null)
+
+const addDateWarning = computed(() => {
+  const appliedEntry = journeyEntries.value.find(e => e.isApplied)
+  const appliedDate  = appliedEntry ? appliedEntry.statusDate : appliedAt.value
+  return newEntryDate.value && newEntryDate.value < appliedDate
+    ? 'This date is before the Applied date.'
     : ''
+})
+
+const isRejected = computed(() => status.value === 'Rejected')
+
+const isDirty = computed(() => {
+  const formDirty =
+    companyName.value     !== props.application.companyName ||
+    position.value        !== props.application.position ||
+    status.value          !== props.application.status ||
+    rejectionReason.value !== (props.application.rejectionReason ?? '') ||
+    rejectionNote.value   !== (props.application.rejectionNote ?? '') ||
+    notes.value           !== (props.application.notes ?? '') ||
+    contactName.value     !== (props.application.contactPersonName ?? '') ||
+    contactEmail.value    !== (props.application.contactPersonEmail ?? '') ||
+    followUpDate.value    !== (props.application.followUpDate?.slice(0, 10) ?? '') ||
+    jobUrl.value          !== (props.application.jobUrl ?? '') ||
+    JSON.stringify(locations.value) !== JSON.stringify([...props.application.locations])
+
+  const appliedEntry  = journeyEntries.value.find(e => e.isApplied)
+  const appliedDirty  = !!appliedEntry && appliedEntry.statusDate !== props.application.appliedAt.slice(0, 10)
+  const journeyDirty  =
+    deletedIds.value.length > 0 ||
+    appliedDirty ||
+    journeyEntries.value.some(e => !e.isApplied && !e.id) ||
+    journeyEntries.value.some(e => {
+      if (!e.id || e.isApplied) return false
+      const orig = originalEntries.value.find(h => h.id === e.id)
+      return !!orig && (orig.status !== e.status || orig.statusDate !== e.statusDate)
+    })
+
+  return formDirty || journeyDirty
+})
+
+const sortedJourney = computed(() =>
+  [...journeyEntries.value].sort((a, b) => {
+    const d = a.statusDate.localeCompare(b.statusDate)
+    if (d !== 0) return d
+    return a.isApplied ? -1 : 1
+  })
 )
+
+function updateStatusFromJourney() {
+  const active = journeyEntries.value.filter(e => !deletedIds.value.includes(e.id ?? e.tempId))
+  if (active.length === 0) return
+  const latest = active.reduce((a, b) => {
+    if (b.statusDate > a.statusDate) return b
+    if (a.statusDate > b.statusDate) return a
+    return a.isApplied ? b : a
+  })
+  status.value = latest.status as typeof status.value
+}
+
+function initJourney(history: StatusHistory[]) {
+  originalEntries.value = history
+  deletedIds.value = []
+
+  const appliedDb = history.find(h => h.status === 'Applied')
+  const entries: JourneyEntry[] = []
+
+  entries.push({
+    id:         appliedDb?.id ?? null,
+    tempId:     appliedDb?.id ?? '__applied__',
+    status:     'Applied',
+    statusDate: appliedAt.value,
+    isApplied:  true,
+  })
+
+  for (const h of history.filter(e => e.status !== 'Applied')) {
+    entries.push({ id: h.id, tempId: h.id, status: h.status, statusDate: h.statusDate, isApplied: false })
+  }
+
+  journeyEntries.value = entries
+  updateStatusFromJourney()
+}
 
 watch(() => props.application, (a) => {
   companyName.value     = a.companyName
@@ -83,41 +172,12 @@ watch(() => props.application, (a) => {
   jobUrl.value          = a.jobUrl ?? ''
   saveError.value       = ''
   activityLogs.value    = []
-  statusHistory.value   = []
+  journeyEntries.value  = []
+  originalEntries.value = []
+  deletedIds.value      = []
   showHistory.value     = false
   loadStatusHistory()
 })
-
-const isRejected = computed(() => status.value === 'Rejected')
-
-const isDirty = computed(() =>
-  companyName.value     !== props.application.companyName ||
-  position.value        !== props.application.position ||
-  appliedAt.value       !== props.application.appliedAt.slice(0, 10) ||
-  status.value          !== props.application.status ||
-  rejectionReason.value !== (props.application.rejectionReason ?? '') ||
-  rejectionNote.value   !== (props.application.rejectionNote ?? '') ||
-  notes.value           !== (props.application.notes ?? '') ||
-  contactName.value     !== (props.application.contactPersonName ?? '') ||
-  contactEmail.value    !== (props.application.contactPersonEmail ?? '') ||
-  followUpDate.value    !== (props.application.followUpDate?.slice(0, 10) ?? '') ||
-  jobUrl.value          !== (props.application.jobUrl ?? '') ||
-  JSON.stringify(locations.value) !== JSON.stringify([...props.application.locations])
-)
-
-const sortedHistory = computed(() =>
-  [...statusHistory.value].sort((a, b) =>
-    a.statusDate.localeCompare(b.statusDate) || a.createdAt.localeCompare(b.createdAt)
-  )
-)
-
-function updateStatusFromHistory() {
-  if (statusHistory.value.length === 0) return
-  const latest = [...statusHistory.value].sort((a, b) =>
-    b.statusDate.localeCompare(a.statusDate) || b.createdAt.localeCompare(a.createdAt)
-  )[0]
-  status.value = latest.status as typeof status.value
-}
 
 onMounted(() => { companiesStore.load(); loadStatusHistory() })
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
@@ -132,8 +192,8 @@ function onCompanyInput() {
 }
 
 function selectCompany(company: SponsorCompany) {
-  companyName.value     = company.name
-  suggestions.value     = []
+  companyName.value      = company.name
+  suggestions.value      = []
   highlightedIndex.value = -1
   if (company.city && !locations.value.includes(company.city)) {
     locations.value = [company.city, ...locations.value]
@@ -149,13 +209,9 @@ function onCompanyKeydown(e: KeyboardEvent) {
     e.preventDefault()
     highlightedIndex.value = Math.max(highlightedIndex.value - 1, 0)
   } else if (e.key === 'Enter') {
-    if (highlightedIndex.value >= 0) {
-      e.preventDefault()
-      selectCompany(suggestions.value[highlightedIndex.value])
-    }
+    if (highlightedIndex.value >= 0) { e.preventDefault(); selectCompany(suggestions.value[highlightedIndex.value]) }
   } else if (e.key === 'Escape') {
-    suggestions.value      = []
-    highlightedIndex.value = -1
+    suggestions.value = []; highlightedIndex.value = -1
   }
 }
 
@@ -187,7 +243,7 @@ function onLocationKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addLocation() }
 }
 
-function buildPayload(overrides: Partial<Application> & { statusDate?: string } = {}) {
+function buildPayload() {
   return {
     companyName:        companyName.value.trim(),
     position:           position.value.trim(),
@@ -201,23 +257,43 @@ function buildPayload(overrides: Partial<Application> & { statusDate?: string } 
     locations:          locations.value,
     followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
     jobUrl:             jobUrl.value || undefined,
-    ...overrides,
   }
 }
 
-async function save() {
-  saving.value = true
-  saveError.value = ''
-  try {
-    await store.update(props.application.id, buildPayload())
-    if (showHistory.value) await loadHistory()
-    chipFlash.value = true
-    setTimeout(() => { chipFlash.value = false }, 600)
-  } catch {
-    saveError.value = 'Save failed. Please try again.'
-  } finally {
-    saving.value = false
+function buildHistoryChanges(): HistoryChanges {
+  const originalApplied    = originalEntries.value.find(h => h.status === 'Applied')
+  const originalNonApplied = originalEntries.value.filter(h => h.status !== 'Applied')
+
+  const toDelete: string[] = [...deletedIds.value]
+  const toAdd:    HistoryChanges['toAdd']    = []
+  const toUpdate: HistoryChanges['toUpdate'] = []
+
+  for (const entry of journeyEntries.value) {
+    if (entry.isApplied) {
+      if (entry.id && originalApplied && originalApplied.statusDate !== entry.statusDate) {
+        toUpdate.push({ id: entry.id, status: 'Applied', statusDate: entry.statusDate })
+      }
+      continue
+    }
+    if (!entry.id) {
+      toAdd.push({ status: entry.status, statusDate: entry.statusDate })
+    } else {
+      const orig = originalNonApplied.find(h => h.id === entry.id)
+      if (orig && (orig.status !== entry.status || orig.statusDate !== entry.statusDate)) {
+        toUpdate.push({ id: entry.id, status: entry.status, statusDate: entry.statusDate })
+      }
+    }
   }
+
+  return { toDelete, toAdd, toUpdate }
+}
+
+function save() {
+  saveError.value = ''
+  if (!companyName.value.trim()) { saveError.value = 'Company name is required.'; return }
+  if (!position.value.trim())    { saveError.value = 'Position is required.'; return }
+  emit('close')
+  store.backgroundSave(props.application.id, buildPayload(), buildHistoryChanges())
 }
 
 async function remove() {
@@ -231,12 +307,25 @@ async function remove() {
   }
 }
 
+async function loadStatusHistory() {
+  historyLoading.value = true
+  historyError.value   = ''
+  try {
+    const history = await api.getStatusHistory(props.application.id)
+    initJourney(history)
+  } catch {
+    historyError.value = 'Failed to load status journey.'
+  } finally {
+    historyLoading.value = false
+  }
+}
+
 async function loadHistory() {
   activityLoading.value = true
   try {
     activityLogs.value = await api.getActivityLog(props.application.id)
   } catch {
-    // silently ignore; history is non-critical
+    // silently ignore
   } finally {
     activityLoading.value = false
   }
@@ -244,76 +333,45 @@ async function loadHistory() {
 
 async function toggleHistory() {
   showHistory.value = !showHistory.value
-  if (showHistory.value && activityLogs.value.length === 0) {
-    await loadHistory()
-  }
+  if (showHistory.value && activityLogs.value.length === 0) await loadHistory()
 }
 
-// ── status history ────────────────────────────────────────────────────────────
+// ── local journey operations ──────────────────────────────────────────────────
 
-async function loadStatusHistory() {
-  historyLoading.value = true
-  try {
-    statusHistory.value = await api.getStatusHistory(props.application.id)
-    updateStatusFromHistory()
-  } catch {
-    // silently ignore
-  } finally {
-    historyLoading.value = false
-  }
-}
-
-function startEdit(entry: StatusHistory) {
-  editingEntryId.value = entry.id
-  editStatus.value     = entry.status
-  editDate.value       = entry.statusDate
-  historyError.value   = ''
+function startEdit(entry: JourneyEntry) {
+  editingTempId.value = entry.tempId
+  editStatus.value    = entry.status
+  editDate.value      = entry.statusDate
 }
 
 function cancelEdit() {
-  editingEntryId.value = null
-  historyError.value   = ''
+  editingTempId.value = null
 }
 
-async function saveEdit(entry: StatusHistory) {
-  historyError.value = ''
-  try {
-    const updated = await api.updateStatusHistory(entry.id, {
-      status:     editStatus.value,
-      statusDate: editDate.value,
-    })
-    const idx = statusHistory.value.findIndex(h => h.id === entry.id)
-    if (idx !== -1) statusHistory.value[idx] = updated
-    statusHistory.value = [...statusHistory.value].sort((a, b) =>
-      b.statusDate.localeCompare(a.statusDate) || b.createdAt.localeCompare(a.createdAt)
-    )
-    editingEntryId.value = null
-    updateStatusFromHistory()
-    await store.update(props.application.id, buildPayload())
-  } catch {
-    historyError.value = 'Save failed. Please try again.'
-  }
+function confirmEdit() {
+  const idx = journeyEntries.value.findIndex(e => e.tempId === editingTempId.value)
+  if (idx === -1) return
+  const entry = journeyEntries.value[idx]
+  if (entry.isApplied) appliedAt.value = editDate.value
+  journeyEntries.value[idx] = { ...entry, status: entry.isApplied ? 'Applied' : editStatus.value, statusDate: editDate.value }
+  updateStatusFromJourney()
+  editingTempId.value = null
 }
 
-function confirmDeleteEntry(id: string) {
-  pendingDeleteId.value = id
+function confirmDeleteEntry(tempId: string) {
+  pendingDeleteTempId.value = tempId
   showDeleteHistoryConfirm.value = true
 }
 
-async function deleteEntry() {
-  if (!pendingDeleteId.value) return
-  historyError.value = ''
-  try {
-    await api.deleteStatusHistory(pendingDeleteId.value)
-    statusHistory.value = statusHistory.value.filter(h => h.id !== pendingDeleteId.value)
-    updateStatusFromHistory()
-    await store.update(props.application.id, buildPayload())
-  } catch {
-    historyError.value = 'Delete failed. Please try again.'
-  } finally {
-    pendingDeleteId.value = null
-    showDeleteHistoryConfirm.value = false
-  }
+function deleteEntry() {
+  const tempId = pendingDeleteTempId.value
+  if (!tempId) return
+  const entry = journeyEntries.value.find(e => e.tempId === tempId)
+  if (entry?.id) deletedIds.value.push(entry.id)
+  journeyEntries.value = journeyEntries.value.filter(e => e.tempId !== tempId)
+  updateStatusFromJourney()
+  pendingDeleteTempId.value = null
+  showDeleteHistoryConfirm.value = false
 }
 
 function startAdd() {
@@ -322,35 +380,26 @@ function startAdd() {
   newEntryDate.value            = todayYmd
   newEntryRejectionReason.value = ''
   newEntryRejectionNote.value   = ''
-  addError.value                = ''
 }
 
 function cancelAdd() {
-  addingEntry.value             = false
-  newEntryRejectionReason.value = ''
-  newEntryRejectionNote.value   = ''
-  addError.value                = ''
+  addingEntry.value = false
 }
 
-async function saveAdd() {
-  addError.value = ''
-  try {
-    const entry = await api.addStatusHistory(props.application.id, {
-      status:     newEntryStatus.value,
-      statusDate: newEntryDate.value,
-    })
-    statusHistory.value = [entry, ...statusHistory.value]
-    updateStatusFromHistory()
-    const isNewRejected = status.value === 'Rejected'
-    if (isNewRejected) {
-      rejectionReason.value = newEntryRejectionReason.value
-      rejectionNote.value   = newEntryRejectionNote.value
-    }
-    await store.update(props.application.id, buildPayload({ statusDate: newEntryDate.value }))
-    addingEntry.value = false
-  } catch {
-    addError.value = 'Failed to add entry. Please try again.'
+function confirmAdd() {
+  journeyEntries.value.push({
+    id:         null,
+    tempId:     `new-${Date.now()}-${Math.random()}`,
+    status:     newEntryStatus.value,
+    statusDate: newEntryDate.value,
+    isApplied:  false,
+  })
+  if (newEntryStatus.value === 'Rejected') {
+    rejectionReason.value = newEntryRejectionReason.value
+    rejectionNote.value   = newEntryRejectionNote.value
   }
+  updateStatusFromJourney()
+  addingEntry.value = false
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -439,49 +488,58 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         <input id="ap-position" v-model="position" class="field-input" />
       </div>
 
-      <div class="field">
-        <label class="field-label" for="ap-date">Application date</label>
-        <input id="ap-date" v-model="appliedAt" type="date" class="field-input" />
-      </div>
-
-      <!-- Status journey (inline timeline) -->
+      <!-- Status journey (local-state timeline) -->
       <div class="sj-section">
         <div class="sj-header">
           <span class="field-label">Status journey</span>
+          <span class="sj-hint">Changes save when you click Save changes</span>
         </div>
         <div v-if="historyLoading" class="sj-empty">Loading…</div>
         <template v-else>
           <p v-if="historyError" class="sh-error">{{ historyError }}</p>
-          <ul v-if="sortedHistory.length > 0" class="sj-list">
-            <li v-for="entry in sortedHistory" :key="entry.id" class="sj-item">
+          <ul v-if="sortedJourney.length > 0" class="sj-list">
+            <li v-for="entry in sortedJourney" :key="entry.tempId" class="sj-item">
               <div class="sj-line-col">
-                <span class="sj-dot"></span>
+                <span class="sj-dot" :class="{ 'sj-dot--new': !entry.id }"></span>
                 <span class="sj-line"></span>
               </div>
               <div class="sj-content">
-                <template v-if="editingEntryId === entry.id">
+                <template v-if="editingTempId === entry.tempId">
                   <div class="sh-edit-row">
-                    <select v-model="editStatus" class="field-input sh-edit-select">
+                    <select
+                      v-if="!entry.isApplied"
+                      v-model="editStatus"
+                      class="field-input sh-edit-select"
+                    >
                       <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
                     </select>
+                    <span v-else :class="['chip', STATUS_COLOR['Applied'], 'sh-edit-applied-chip']">Applied</span>
                     <DatePicker v-model="editDate" placeholder="Date" />
                   </div>
                   <div class="sh-edit-actions">
-                    <button class="btn-primary sh-save-btn" @click="saveEdit(entry)">Save</button>
+                    <button class="btn-primary sh-save-btn" @click="confirmEdit">Save</button>
                     <button class="btn-ghost sh-cancel-btn" @click="cancelEdit">Cancel</button>
                   </div>
                 </template>
                 <template v-else>
                   <div class="sj-row">
-                    <span :class="['chip', STATUS_COLOR[entry.status]]">{{ STATUS_LABELS[entry.status] }}</span>
+                    <span :class="['chip', STATUS_COLOR[entry.status as keyof typeof STATUS_COLOR]]">
+                      {{ STATUS_LABELS[entry.status as keyof typeof STATUS_LABELS] }}
+                    </span>
                     <span class="sj-date">{{ formatStatusDate(entry.statusDate) }}</span>
+                    <span v-if="!entry.id" class="sj-unsaved">unsaved</span>
                     <div class="sh-actions">
                       <button class="sh-btn" @click="startEdit(entry)" title="Edit">
                         <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      <button class="sh-btn sh-btn--danger" @click="confirmDeleteEntry(entry.id)" title="Delete">
+                      <button
+                        v-if="!entry.isApplied"
+                        class="sh-btn sh-btn--danger"
+                        @click="confirmDeleteEntry(entry.tempId)"
+                        title="Delete"
+                      >
                         <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -492,7 +550,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
               </div>
             </li>
           </ul>
-          <div v-else class="sj-empty">No status changes yet.</div>
+          <div v-else class="sj-empty">No status entries yet.</div>
 
           <template v-if="addingEntry">
             <div class="sh-add-form">
@@ -515,9 +573,8 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
                   placeholder="Additional note (optional)…"
                 />
               </template>
-              <p v-if="addError" class="sh-error">{{ addError }}</p>
               <div class="sh-edit-actions">
-                <button class="btn-primary sh-save-btn" @click="saveAdd">Add</button>
+                <button class="btn-primary sh-save-btn" @click="confirmAdd">Add</button>
                 <button class="btn-ghost sh-cancel-btn" @click="cancelAdd">Cancel</button>
               </div>
             </div>
@@ -557,12 +614,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           type="date"
           :class="['field-input', { 'input-overdue': isFollowUpOverdue }]"
         />
-        <button
-          v-if="followUpDate"
-          type="button"
-          class="clear-date-btn"
-          @click="followUpDate = ''"
-        >Clear</button>
+        <button v-if="followUpDate" type="button" class="clear-date-btn" @click="followUpDate = ''">Clear</button>
       </div>
 
       <div class="field">
@@ -571,13 +623,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           <span class="optional">(optional)</span>
         </label>
         <div class="joburl-row">
-          <input
-            id="ap-joburl"
-            v-model="jobUrl"
-            type="url"
-            class="field-input"
-            placeholder="https://…"
-          />
+          <input id="ap-joburl" v-model="jobUrl" type="url" class="field-input" placeholder="https://…" />
           <a
             v-if="jobUrl && (jobUrl.startsWith('https://') || jobUrl.startsWith('http://'))"
             :href="jobUrl"
@@ -665,10 +711,10 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
     <div class="panel-footer">
       <p v-if="saveError" id="ap-save-error" class="save-error" role="alert">{{ saveError }}</p>
       <div class="footer-actions">
-        <button @click="save" :disabled="saving || deleting" class="btn-primary footer-primary" aria-describedby="ap-save-error">
-          {{ saving ? 'Saving…' : 'Save changes' }}
+        <button @click="save" :disabled="deleting" class="btn-primary footer-primary" aria-describedby="ap-save-error">
+          Save changes
         </button>
-        <button @click="showDeleteConfirm = true" :disabled="saving || deleting" class="btn-danger">
+        <button @click="showDeleteConfirm = true" :disabled="deleting" class="btn-danger">
           {{ deleting ? 'Deleting…' : 'Delete' }}
         </button>
       </div>
@@ -697,12 +743,12 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 
   <ConfirmDialog
     v-if="showDeleteHistoryConfirm"
-    title="Delete history entry?"
-    message="This cannot be undone."
-    confirm-label="Delete"
+    title="Delete status entry?"
+    message="This change will be applied when you save."
+    confirm-label="Remove"
     confirm-class="btn-danger"
     @confirm="deleteEntry"
-    @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteId = null }"
+    @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
   />
 </template>
 
@@ -734,16 +780,20 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 /* status journey */
 .sj-section { display: flex; flex-direction: column; gap: .5rem; }
 .sj-header { display: flex; align-items: center; justify-content: space-between; }
+.sj-hint { font-size: .7rem; color: var(--col-subtle); }
 .sj-empty { font-size: .8rem; color: var(--col-subtle); padding: .125rem 0; }
 .sj-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
 .sj-item { display: flex; gap: .625rem; align-items: flex-start; }
 .sj-line-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: .75rem; }
 .sj-dot { width: .625rem; height: .625rem; border-radius: 50%; background: var(--col-accent); flex-shrink: 0; margin-top: .35rem; }
+.sj-dot--new { background: var(--col-warning, #b45309); }
 .sj-line { flex: 1; width: 2px; background: var(--col-border); min-height: .75rem; }
 .sj-item:last-child .sj-line { display: none; }
 .sj-content { flex: 1; padding-bottom: .625rem; }
 .sj-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .sj-date { font-size: .8rem; color: var(--col-muted); flex: 1; }
+.sj-unsaved { font-size: .7rem; color: var(--col-warning, #b45309); font-style: italic; }
+.sh-edit-applied-chip { flex-shrink: 0; }
 
 /* follow-up date */
 .overdue-badge { display: inline-block; background: var(--col-error); color: #fff; font-size: .65rem; font-weight: 700; border-radius: 9999px; padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }

@@ -346,7 +346,8 @@ function printPage() {
                 <p class="row-industry">{{ app.position }}</p>
               </div>
               <div class="row-meta">
-                <span :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
+                <span v-if="store.savingIds.includes(app.id)" class="row-saving">Saving…</span>
+                <span v-else :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
                 <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
                 <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠ Follow up</span>
                 <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Follow-up due today">📅 Today</span>
@@ -386,6 +387,7 @@ function printPage() {
               <p class="board-card-company">{{ app.companyName }}</p>
               <p class="board-card-position">{{ app.position }}</p>
               <div class="board-card-meta">
+                <span v-if="store.savingIds.includes(app.id)" class="board-card-saving">Saving…</span>
                 <span class="board-card-date">{{ formatDate(app.appliedAt) }}</span>
                 <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠</span>
                 <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Today">📅</span>
@@ -428,6 +430,16 @@ function printPage() {
     <Transition name="modal">
       <NewApplicationModal v-if="modalOpen" @close="onModalClose" />
     </Transition>
+
+    <!-- Background-save error toast -->
+    <teleport to="body">
+      <Transition name="toast">
+        <div v-if="store.toastError" class="toast-error" role="alert">
+          <span>{{ store.toastError }}</span>
+          <button @click="store.dismissToast()" class="toast-close" aria-label="Dismiss">×</button>
+        </div>
+      </Transition>
+    </teleport>
   </div>
 </template>
 
@@ -645,6 +657,26 @@ function printPage() {
   .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
 }
+
+/* saving indicators */
+.row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
+.board-card-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* background-save error toast */
+.toast-error {
+  position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+  background: var(--col-error); color: #fff;
+  padding: .75rem 1rem; border-radius: .5rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  display: flex; align-items: center; gap: .75rem;
+  font-size: .875rem; font-weight: 500; z-index: 200;
+  max-width: 480px; min-width: 280px;
+}
+.toast-close { background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+.toast-close:hover { opacity: .75; }
+.toast-enter-active, .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
 
 /* print styles */
 @media print {
