@@ -92,23 +92,31 @@ public sealed class MonthlyIndSponsorSyncFunction
         {
             logger.LogInformation("Enriching {Count} companies via LLM (batch mode)", toEnrich.Count);
 
-            var batches = toEnrich
-                .Select((c, i) => (c, i))
-                .GroupBy(x => x.i / 20)
-                .Select(g => g.Select(x => x.c).ToList())
-                .ToList();
+            var saveLock = new SemaphoreSlim(1, 1);
 
             await Parallel.ForEachAsync(
-                batches,
+                toEnrich.Chunk(20),
                 new ParallelOptions { MaxDegreeOfParallelism = 5 },
                 async (batch, ct) =>
                 {
-                    var count = await _enricher.EnrichBatchAsync(batch, ct);
-                    Interlocked.Add(ref enriched, count);
-                });
+                    var batchList = batch.ToList();
+                    await _enricher.EnrichBatchAsync(batchList, ct);
 
-            foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
-                await _store.UpsertAsync(company);
+                    await saveLock.WaitAsync(ct);
+                    try
+                    {
+                        var done = batchList.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion).ToList();
+                        if (done.Count > 0)
+                        {
+                            await _store.SaveEnrichmentBatchAsync(done);
+                            Interlocked.Add(ref enriched, done.Count);
+                        }
+                    }
+                    finally
+                    {
+                        saveLock.Release();
+                    }
+                });
         }
 
         await _store.LogSyncAsync(new SyncLog

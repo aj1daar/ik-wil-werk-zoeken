@@ -49,6 +49,42 @@ public sealed class SponsorStore(AppDbContext db)
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.RemovedAt, now));
     }
 
+    public async Task<IReadOnlyList<SponsorCompany>> GetUnEnrichedAsync(int limit, int belowVersion) =>
+        await db.Sponsors
+            .Where(c => c.RemovedAt == null && c.EnrichmentVersion < belowVersion)
+            .OrderBy(c => c.Name)
+            .Take(limit)
+            .ToListAsync();
+
+    public async Task<int> CountUnEnrichedAsync(int belowVersion) =>
+        await db.Sponsors
+            .CountAsync(c => c.RemovedAt == null && c.EnrichmentVersion < belowVersion);
+
+    // Persists enrichment fields for each company via direct UPDATE — no change-tracker overhead.
+    public async Task SaveEnrichmentBatchAsync(IReadOnlyList<SponsorCompany> companies)
+    {
+        foreach (var c in companies)
+        {
+            await db.Sponsors
+                .Where(s => s.Id == c.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.Summary,           c.Summary)
+                    .SetProperty(p => p.CoreIndustry,      c.CoreIndustry)
+                    .SetProperty(p => p.TechStackTags,     c.TechStackTags)
+                    .SetProperty(p => p.FunctionalTags,    c.FunctionalTags)
+                    .SetProperty(p => p.WorkingLanguage,   c.WorkingLanguage)
+                    .SetProperty(p => p.CompanySize,       c.CompanySize)
+                    .SetProperty(p => p.RemotePolicy,      c.RemotePolicy)
+                    .SetProperty(p => p.ParentCompanyName, c.ParentCompanyName)
+                    .SetProperty(p => p.WebsiteUrl,        c.WebsiteUrl)
+                    .SetProperty(p => p.TargetMarket,      c.TargetMarket)
+                    .SetProperty(p => p.City,              c.City)
+                    .SetProperty(p => p.EnrichedAt,        c.EnrichedAt)
+                    .SetProperty(p => p.EnrichmentVersion, c.EnrichmentVersion)
+                );
+        }
+    }
+
     public async Task LogSyncAsync(SyncLog log)
     {
         db.SyncLogs.Add(log);

@@ -81,6 +81,9 @@ export const api = {
   adminReloadSponsors: () =>
     request<{ message: string }>('POST', '/api/mgmt/reload-sponsors'),
 
+  adminEnrichSponsors: () =>
+    request<{ message: string }>('POST', '/api/mgmt/enrich-sponsors'),
+
   adminGetSyncLogs: () =>
     request<SyncLog[]>('GET', '/api/mgmt/sync-logs'),
 

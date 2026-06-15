@@ -177,46 +177,21 @@ public sealed class AdminFunction
                 "Admin reload complete — added: {Added}, updated: {Updated}, removed: {Removed}, total: {Total}",
                 added, updated, removed, freshCompanies.Count);
 
-            var toEnrich = freshCompanies
-                .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
-                .ToList();
-            var enriched = 0;
-
-            if (toEnrich.Count > 0)
-            {
-                var batches = toEnrich
-                    .Select((c, i) => (c, i))
-                    .GroupBy(x => x.i / 20)
-                    .Select(g => g.Select(x => x.c).ToList())
-                    .ToList();
-
-                var cts = new CancellationTokenSource();
-                await Parallel.ForEachAsync(
-                    batches,
-                    new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cts.Token },
-                    async (batch, ct) =>
-                    {
-                        var count = await _enricher.EnrichBatchAsync(batch, ct);
-                        Interlocked.Add(ref enriched, count);
-                    });
-
-                foreach (var company in toEnrich.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion))
-                    await _sponsorStore.UpsertAsync(company);
-            }
-
             await _sponsorStore.LogSyncAsync(new SyncLog
             {
                 TriggerSource = "admin",
                 Added = added,
                 Updated = updated,
                 Removed = removed,
-                Enriched = enriched,
+                Enriched = 0,
                 TotalAfterSync = freshCompanies.Count,
             });
 
+            var unenriched = await _sponsorStore.CountUnEnrichedAsync(CompanyEnricher.CurrentVersion);
+
             var result = new MessageResponse
             {
-                Message = $"Sync complete — added: {added}, updated: {updated}, removed: {removed}, total: {freshCompanies.Count}, enriched: {enriched}"
+                Message = $"Sync complete — added: {added}, updated: {updated}, removed: {removed}, total: {freshCompanies.Count}. {unenriched} companies pending enrichment — use Enrich button."
             };
 
             return await JsonOk(req, result, AppJsonSerializerContext.Default.MessageResponse);
@@ -246,6 +221,71 @@ public sealed class AdminFunction
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception in AdminSyncLogs");
+            return await ErrorResponse(req, HttpStatusCode.InternalServerError,
+                $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    // POST /api/mgmt/enrich-sponsors
+    // Enriches the next batch of un-enriched companies and saves progress after every
+    // 20-company Gemini batch. Safe to call repeatedly until all companies are enriched.
+    [Function("AdminEnrichSponsors")]
+    public async Task<HttpResponseData> EnrichSponsors(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", "options", Route = "mgmt/enrich-sponsors")]
+        HttpRequestData req)
+    {
+        if (IsOptions(req)) return Cors(req, HttpStatusCode.OK);
+        if (!IsAdmin(req, out var forbidden)) return forbidden!;
+
+        try
+        {
+            const int PageSize = 500;
+            var toEnrich = await _sponsorStore.GetUnEnrichedAsync(PageSize, CompanyEnricher.CurrentVersion);
+
+            if (toEnrich.Count == 0)
+            {
+                return await JsonOk(req,
+                    new MessageResponse { Message = "All companies are already enriched." },
+                    AppJsonSerializerContext.Default.MessageResponse);
+            }
+
+            var enriched = 0;
+            var saveLock = new SemaphoreSlim(1, 1);
+
+            await Parallel.ForEachAsync(
+                toEnrich.Chunk(20),
+                new ParallelOptions { MaxDegreeOfParallelism = 5 },
+                async (batch, ct) =>
+                {
+                    var batchList = batch.ToList();
+                    await _enricher.EnrichBatchAsync(batchList, ct);
+
+                    // Serialize DB saves — ExecuteUpdateAsync bypasses change tracker
+                    await saveLock.WaitAsync(ct);
+                    try
+                    {
+                        var done = batchList.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion).ToList();
+                        if (done.Count > 0)
+                        {
+                            await _sponsorStore.SaveEnrichmentBatchAsync(done);
+                            Interlocked.Add(ref enriched, done.Count);
+                        }
+                    }
+                    finally
+                    {
+                        saveLock.Release();
+                    }
+                });
+
+            var remaining = await _sponsorStore.CountUnEnrichedAsync(CompanyEnricher.CurrentVersion);
+
+            return await JsonOk(req,
+                new MessageResponse { Message = $"Enriched {enriched}/{toEnrich.Count} companies. {remaining} remaining." },
+                AppJsonSerializerContext.Default.MessageResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in AdminEnrichSponsors");
             return await ErrorResponse(req, HttpStatusCode.InternalServerError,
                 $"Internal error: {ex.GetType().Name}: {ex.Message}");
         }

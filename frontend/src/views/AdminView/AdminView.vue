@@ -15,6 +15,11 @@ const reloading     = ref(false)
 const reloadError   = ref('')
 const reloadSuccess = ref('')
 
+const enriching     = ref(false)
+const enrichError   = ref('')
+const enrichStatus  = ref('')
+const enrichRunning = ref(false)
+
 const syncLogs      = ref<SyncLog[]>([])
 const loadingLogs   = ref(false)
 const logsError     = ref('')
@@ -61,6 +66,31 @@ async function reloadSponsors() {
     reloadError.value = e instanceof Error ? e.message : 'Reload failed'
   } finally {
     reloading.value = false
+  }
+}
+
+async function runEnrichBatch(): Promise<boolean> {
+  const res = await api.adminEnrichSponsors()
+  enrichStatus.value = res.message
+  // "0 remaining" or "already enriched" means done
+  return res.message.includes('0 remaining') || res.message.includes('already enriched')
+}
+
+async function enrichSponsors() {
+  enriching.value    = true
+  enrichRunning.value = true
+  enrichError.value  = ''
+  enrichStatus.value = 'Starting enrichment…'
+  try {
+    let done = false
+    while (!done) {
+      done = await runEnrichBatch()
+    }
+  } catch (e) {
+    enrichError.value = e instanceof Error ? e.message : 'Enrichment failed'
+  } finally {
+    enriching.value    = false
+    enrichRunning.value = false
   }
 }
 
@@ -117,7 +147,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Reload sponsors section -->
     <section class="admin-card" aria-labelledby="reload-heading">
       <h2 id="reload-heading" class="card-title">Reload IND Sponsor List</h2>
-      <p class="card-desc">Fetches the latest IND register, upserts all companies, and enriches new entries via LLM. This can take a few minutes.</p>
+      <p class="card-desc">Fetches the latest IND register and upserts all companies. Fast (~15s). Run Enrich separately after this.</p>
       <button
         class="btn-primary"
         :disabled="reloading"
@@ -127,6 +157,21 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
       </button>
       <p v-if="reloadError"   class="form-error"  role="alert">{{ reloadError }}</p>
       <p v-if="reloadSuccess" class="form-success" role="status">{{ reloadSuccess }}</p>
+    </section>
+
+    <!-- Enrich sponsors section -->
+    <section class="admin-card" aria-labelledby="enrich-heading">
+      <h2 id="enrich-heading" class="card-title">Enrich Companies via AI</h2>
+      <p class="card-desc">Runs AI enrichment in batches of 500. Progress is saved after every 20 companies — safe to stop and restart. Click once and it runs until all companies are done.</p>
+      <button
+        class="btn-primary"
+        :disabled="enriching"
+        @click="enrichSponsors"
+      >
+        {{ enriching ? 'Enriching…' : 'Enrich Companies' }}
+      </button>
+      <p v-if="enrichStatus && !enrichError" class="form-success" role="status">{{ enrichStatus }}</p>
+      <p v-if="enrichError" class="form-error" role="alert">{{ enrichError }}</p>
     </section>
 
     <!-- Sync log table -->
