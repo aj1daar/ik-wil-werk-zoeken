@@ -38,31 +38,39 @@ namespace backend.Data.Migrations
                 table: "StatusHistories",
                 column: "ApplicationId");
 
-            // Seed: create Applied entry for every existing application
+            // Seed: create Applied entry for every existing application (best-effort, non-fatal)
             migrationBuilder.Sql(@"
-                INSERT INTO ""StatusHistories"" (""Id"", ""ApplicationId"", ""UserId"", ""Status"", ""StatusDate"", ""CreatedAt"")
-                SELECT
-                    replace(gen_random_uuid()::text, '-', ''),
-                    ""Id"",
-                    ""UserId"",
-                    'Applied',
-                    ""AppliedAt""::date,
-                    now()
-                FROM ""Stages"";
+                DO $$
+                BEGIN
+                    INSERT INTO ""StatusHistories"" (""Id"", ""ApplicationId"", ""UserId"", ""Status"", ""StatusDate"", ""CreatedAt"")
+                    SELECT
+                        replace(gen_random_uuid()::text, '-', ''),
+                        ""Id"",
+                        ""UserId"",
+                        'Applied',
+                        ""AppliedAt""::date,
+                        now()
+                    FROM ""Stages"";
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END$$;
             ");
 
-            // Seed: create current-status entry for applications that moved past Applied
+            // Seed: create current-status entry for applications that moved past Applied (best-effort, non-fatal)
             migrationBuilder.Sql(@"
-                INSERT INTO ""StatusHistories"" (""Id"", ""ApplicationId"", ""UserId"", ""Status"", ""StatusDate"", ""CreatedAt"")
-                SELECT
-                    replace(gen_random_uuid()::text, '-', ''),
-                    ""Id"",
-                    ""UserId"",
-                    ""Status"",
-                    ""UpdatedAt""::date,
-                    now()
-                FROM ""Stages""
-                WHERE ""Status"" <> 'Applied';
+                DO $$
+                BEGIN
+                    INSERT INTO ""StatusHistories"" (""Id"", ""ApplicationId"", ""UserId"", ""Status"", ""StatusDate"", ""CreatedAt"")
+                    SELECT
+                        replace(gen_random_uuid()::text, '-', ''),
+                        ""Id"",
+                        ""UserId"",
+                        ""Status"",
+                        ""UpdatedAt""::date,
+                        now()
+                    FROM ""Stages""
+                    WHERE ""Status"" <> 'Applied';
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END$$;
             ");
         }
 
