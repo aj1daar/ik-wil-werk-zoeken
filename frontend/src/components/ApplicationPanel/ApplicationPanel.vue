@@ -62,6 +62,12 @@ const newEntryRejectionReason = ref<RejectionReason | ''>('')
 const newEntryRejectionNote   = ref('')
 const addError                = ref('')
 
+const addDateWarning = computed(() =>
+  newEntryDate.value && newEntryDate.value < appliedAt.value
+    ? 'This date is before the application date.'
+    : ''
+)
+
 watch(() => props.application, (a) => {
   companyName.value     = a.companyName
   position.value        = a.position
@@ -495,6 +501,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
                 </select>
                 <DatePicker v-model="newEntryDate" placeholder="Date" />
               </div>
+              <p v-if="addDateWarning" class="sh-warning">{{ addDateWarning }}</p>
               <template v-if="newEntryStatus === 'Rejected'">
                 <select v-model="newEntryRejectionReason" class="field-input sh-rejection-select">
                   <option value="">— Rejection reason (optional) —</option>
@@ -779,6 +786,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .sh-add-btn { display: flex; align-items: center; gap: .35rem; background: none; border: none; cursor: pointer; color: var(--col-accent); font-size: .8rem; font-weight: 500; padding: .25rem 0; margin-top: .25rem; }
 .sh-add-btn:hover { text-decoration: underline; }
 .sh-error { font-size: .8rem; color: var(--col-error); margin: .25rem 0; }
+.sh-warning { font-size: .8rem; color: var(--col-warning, #b45309); margin: .25rem 0; }
 
 /* activity timeline */
 .timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .625rem; }
