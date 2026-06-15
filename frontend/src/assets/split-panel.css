@@ -1,7 +1,7 @@
 .dashboard {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  height: calc(100vh - 86px); /* 60px nav + 10px island top margin + 16px island bottom margin */
   background: var(--col-bg);
 }
 
@@ -15,7 +15,9 @@
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--col-text) 6%, transparent);
+  box-shadow:
+    0 1px 0   color-mix(in srgb, var(--col-text) 4%, transparent),
+    0 2px 12px color-mix(in srgb, var(--col-text) 8%, transparent);
 }
 
 .filter-search {
@@ -122,7 +124,7 @@
 /* ── mobile overrides ──────────────────────────────────────────────────────── */
 
 @media (max-width: 767px) {
-  .dashboard { height: auto; min-height: calc(100vh - 60px); }
+  .dashboard { height: auto; min-height: calc(100vh - 60px); } /* no island margins on mobile */
 
   .filter-bar { padding: 0.5rem 1rem; }
   .filter-controls-row { gap: 0.375rem; }

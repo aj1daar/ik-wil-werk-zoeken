@@ -97,7 +97,9 @@ const option = computed(() => ({
   border: 1px solid var(--col-border);
   border-radius: .75rem;
   padding: 1.25rem 1rem 1rem;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 4%, transparent);
+  box-shadow:
+    0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
+    0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
   display: flex;
   flex-direction: column;
 }

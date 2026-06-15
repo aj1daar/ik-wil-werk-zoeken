@@ -222,6 +222,9 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
   border-radius: 10px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  box-shadow:
+    0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
+    0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
 }
 
 .card-title {

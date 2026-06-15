@@ -35,7 +35,18 @@ const expiryDismissed = ref(false)
     <span v-if="refreshError" class="expiry-error" role="alert">{{ refreshError }}</span>
     <button @click="expiryDismissed = true" aria-label="Dismiss">✕</button>
   </div>
-  <RouterView v-slot="{ Component }">
+
+  <!-- Authenticated views float as a card above the desktop background -->
+  <div v-if="showNav" class="main-island">
+    <RouterView v-slot="{ Component }">
+      <Transition name="page" mode="out-in">
+        <component :is="Component" :key="route.path" />
+      </Transition>
+    </RouterView>
+  </div>
+
+  <!-- Auth/public views (login, register) render directly — no island -->
+  <RouterView v-else v-slot="{ Component }">
     <Transition name="page" mode="out-in">
       <component :is="Component" :key="route.path" />
     </Transition>
@@ -43,6 +54,27 @@ const expiryDismissed = ref(false)
 </template>
 
 <style>
+/* ── Main content island ─────────────────────────────────────────── */
+.main-island {
+  background: var(--col-bg);
+  margin: 10px 10px 16px;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--col-text) 6%, transparent),
+    0 2px 8px  color-mix(in srgb, var(--col-text) 4%, transparent),
+    0 8px 32px color-mix(in srgb, var(--col-text) 7%, transparent);
+  min-height: calc(100vh - 60px - 26px); /* 60px nav + 10px top + 16px bottom margin */
+}
+
+@media (max-width: 640px) {
+  .main-island {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: calc(100vh - 60px);
+  }
+}
+
 .page-enter-active,
 .page-leave-active {
   transition: opacity 200ms ease, transform 200ms ease;
