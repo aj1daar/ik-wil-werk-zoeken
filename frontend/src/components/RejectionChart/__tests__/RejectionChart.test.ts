@@ -127,14 +127,11 @@ describe('RejectionChart – rejection counting', () => {
     expect(items[0].find('.donut-legend-count').text()).toBe('1')
   })
 
-  it('collapses to top 2 + Other when more than 2 reasons exist', () => {
+  it('legend shows only top 2 when more than 2 reasons exist', () => {
     const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'other'] as const
     const apps = reasons.map(r => makeApp({ rejectionReason: r }))
     const w = mountChart(apps)
-    const items = w.findAll('.donut-legend-item')
-    expect(items).toHaveLength(3)
-    expect(items[2].find('.donut-legend-label').text()).toBe('Other')
-    expect(items[2].find('.donut-legend-count').text()).toBe('5')
+    expect(w.findAll('.donut-legend-item')).toHaveLength(2)
   })
 
   it('failed_assessment is recognised as a distinct rejection reason', () => {
@@ -197,12 +194,17 @@ describe('RejectionChart – chart option', () => {
     expect(radius[0]).toBeTruthy()
   })
 
-  it('chart data only contains non-zero buckets', () => {
-    const apps = [makeApp({ rejectionReason: 'other' }), makeApp({ rejectionReason: 'other' })]
+  it('chart data contains all non-zero buckets', () => {
+    const apps = [
+      makeApp({ rejectionReason: 'other' }),
+      makeApp({ rejectionReason: 'other' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+    ]
     const data = getOption(mountChart(apps)).series[0].data
-    expect(data).toHaveLength(1)
-    expect(data[0].name).toBe('Other')
-    expect(data[0].value).toBe(2)
+    expect(data).toHaveLength(2)
+    const names = data.map((d: any) => d.name)
+    expect(names).toContain('Other')
+    expect(names).toContain('Salary mismatch')
   })
 
   it('each data entry has an itemStyle color', () => {

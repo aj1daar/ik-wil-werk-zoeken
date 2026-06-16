@@ -5,7 +5,7 @@
     <template v-else>
       <v-chart class="donut-chart" :option="option" autoresize />
       <ul class="donut-legend">
-        <li v-for="b in visibleBuckets" :key="b.key" class="donut-legend-item">
+        <li v-for="b in legendBuckets" :key="b.key" class="donut-legend-item">
           <span class="donut-legend-dot" :style="{ background: b.color }" />
           <span class="donut-legend-label">{{ b.label }}</span>
           <span class="donut-legend-count">{{ b.value }}</span>
@@ -68,14 +68,11 @@ const buckets = computed(() => {
 
 const TOP_N = 2
 
-const visibleBuckets = computed(() => {
-  const nonZero = buckets.value.filter(b => b.value > 0).sort((a, b) => b.value - a.value)
-  if (nonZero.length <= TOP_N) return nonZero
-  const top  = nonZero.slice(0, TOP_N)
-  const rest = nonZero.slice(TOP_N)
-  const otherCount = rest.reduce((sum, b) => sum + b.value, 0)
-  return [...top, { key: '__other__', label: 'Other', color: '#94a3b8', value: otherCount }]
-})
+const nonZeroBuckets = computed(() =>
+  buckets.value.filter(b => b.value > 0).sort((a, b) => b.value - a.value)
+)
+
+const legendBuckets = computed(() => nonZeroBuckets.value.slice(0, TOP_N))
 
 const isEmpty = computed(() => rejected.value.length === 0)
 
@@ -91,7 +88,7 @@ const option = computed(() => ({
     avoidLabelOverlap: false,
     label: { show: false },
     emphasis: { label: { show: false } },
-    data: visibleBuckets.value.map(b => ({
+    data: nonZeroBuckets.value.map(b => ({
       name:      b.label,
       value:     b.value,
       itemStyle: { color: b.color, borderWidth: 3, borderColor: surfaceColor.value },
