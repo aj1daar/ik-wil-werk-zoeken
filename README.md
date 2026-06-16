@@ -78,6 +78,8 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 | AI enrichment | Google Gemini 2.0 Flash (batch company enrichment, 20 companies per call) |
 | Hosting | Cloudflare Pages (frontend) · Hetzner CX23 behind Nginx (backend) |
 
+**Request flow:** `Browser → Cloudflare (HTTPS) → Nginx :80 → ASP.NET Core :5000 → PostgreSQL 18`
+
 ---
 
 ## Monorepo Layout
@@ -213,7 +215,7 @@ Environment variables are set via `backend/Properties/launchSettings.json` for l
 | `DATABASE_URL` | ✅ | Npgsql connection string — `Host=localhost;Database=iwwz;Username=postgres;Password=postgres` locally |
 | `JWT_SECRET` | ✅ | Random string ≥ 32 chars — signs and verifies JWTs and HMAC tokens |
 | `GEMINI_API_KEY` | ✅ | Google Gemini API key for AI company enrichment |
-| `ALLOWED_ORIGIN` | ✅ | CORS origin — `http://localhost:5173` locally, `https://ik-wil-werk-zoeken-frontend.pages.dev` in prod |
+| `ALLOWED_ORIGIN` | ✅ | CORS origin — `http://localhost:5173` locally, `https://iwwz.nogoibay.org` in prod |
 | `ADMIN_EMAIL` | ✅ | Email address seeded as admin on first startup (idempotent) |
 | `RESEND_API_KEY` | — | Resend API key — if absent, emails are silently skipped (fine for local dev) |
 | `RESEND_FROM` | — | From address for transactional emails (default: `noreply@nogoibay.org`) |
@@ -316,7 +318,7 @@ The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test �
 
 | Name | Example value |
 |------|--------------|
-| `ALLOWED_ORIGIN` | `https://ik-wil-werk-zoeken-frontend.pages.dev` |
+| `ALLOWED_ORIGIN` | `https://iwwz.nogoibay.org` |
 | `VITE_API_BASE_URL` | `https://api.nogoibay.org` |
 | `CLOUDFLARE_PAGES_PROJECT` | `ik-wil-werk-zoeken-frontend` |
 
