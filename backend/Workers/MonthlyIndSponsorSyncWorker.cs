@@ -61,31 +61,12 @@ public sealed class MonthlyIndSponsorSyncWorker : BackgroundService
 
         var existing = (await store.GetAllAsync()).ToDictionary(c => c.Id);
         var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
-        var added = 0; var updated = 0;
 
-        foreach (var company in freshCompanies)
-        {
-            if (existing.TryGetValue(company.Id, out var prev))
-            {
-                company.Summary          = prev.Summary;
-                company.CoreIndustry     = prev.CoreIndustry;
-                company.TechStackTags    = prev.TechStackTags;
-                company.FunctionalTags   = prev.FunctionalTags;
-                company.WorkingLanguage  = prev.WorkingLanguage;
-                company.CompanySize      = prev.CompanySize;
-                company.RemotePolicy     = prev.RemotePolicy;
-                company.ParentCompanyName = prev.ParentCompanyName;
-                company.WebsiteUrl       = prev.WebsiteUrl;
-                company.TargetMarket     = prev.TargetMarket;
-                company.EnrichedAt       = prev.EnrichedAt;
-                company.EnrichmentVersion = prev.EnrichmentVersion;
-                company.RemovedAt        = null;
-                updated++;
-            }
-            else added++;
-        }
+        var newCompanies = freshCompanies.Where(c => !existing.ContainsKey(c.Id)).ToList();
+        var added = newCompanies.Count;
 
-        await store.UpsertAllAsync(freshCompanies);
+        if (newCompanies.Count > 0)
+            await store.AddAllAsync(newCompanies);
 
         var removedIds = existing.Keys
             .Where(id => !freshIds.Contains(id) && existing[id].RemovedAt == null)
@@ -94,10 +75,10 @@ public sealed class MonthlyIndSponsorSyncWorker : BackgroundService
         var removed = removedIds.Count;
 
         _logger.LogInformation(
-            "Sync complete — added: {Added}, updated: {Updated}, removed: {Removed}, total: {Total}",
-            added, updated, removed, freshCompanies.Count);
+            "Sync complete — added: {Added}, removed: {Removed}, total: {Total}",
+            added, removed, freshCompanies.Count);
 
-        var toEnrich = freshCompanies
+        var toEnrich = newCompanies
             .Where(c => c.EnrichmentVersion < CompanyEnricher.CurrentVersion)
             .ToList();
 
@@ -132,7 +113,7 @@ public sealed class MonthlyIndSponsorSyncWorker : BackgroundService
         {
             TriggerSource  = "monthly",
             Added          = added,
-            Updated        = updated,
+            Updated        = 0,
             Removed        = removed,
             Enriched       = enriched,
             TotalAfterSync = freshCompanies.Count,

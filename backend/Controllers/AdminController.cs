@@ -109,40 +109,12 @@ public sealed class AdminController : ApiControllerBase
 
             var existing = (await _sponsorStore.GetAllAsync()).ToDictionary(c => c.Id);
             var freshIds = freshCompanies.Select(c => c.Id).ToHashSet();
-            var added = 0; var updated = 0;
-            var toUpsert = new List<SponsorCompany>();
 
-            foreach (var company in freshCompanies)
-            {
-                if (existing.TryGetValue(company.Id, out var prev))
-                {
-                    company.Summary = prev.Summary;
-                    company.CoreIndustry = prev.CoreIndustry;
-                    company.TechStackTags = prev.TechStackTags;
-                    company.FunctionalTags = prev.FunctionalTags;
-                    company.WorkingLanguage = prev.WorkingLanguage;
-                    company.CompanySize = prev.CompanySize;
-                    company.RemotePolicy = prev.RemotePolicy;
-                    company.ParentCompanyName = prev.ParentCompanyName;
-                    company.WebsiteUrl = prev.WebsiteUrl;
-                    company.TargetMarket = prev.TargetMarket;
-                    company.EnrichedAt = prev.EnrichedAt;
-                    company.EnrichmentVersion = prev.EnrichmentVersion;
-                    company.RemovedAt = null;
+            var newCompanies = freshCompanies.Where(c => !existing.ContainsKey(c.Id)).ToList();
+            var added = newCompanies.Count;
 
-                    var indChanged =
-                        company.Name != prev.Name ||
-                        company.KvKNumber != prev.KvKNumber ||
-                        company.City != prev.City ||
-                        company.IsIndRecognizedSponsor != prev.IsIndRecognizedSponsor ||
-                        prev.RemovedAt != null;
-
-                    if (indChanged) { toUpsert.Add(company); updated++; }
-                }
-                else { toUpsert.Add(company); added++; }
-            }
-
-            await _sponsorStore.UpsertAllAsync(toUpsert);
+            if (newCompanies.Count > 0)
+                await _sponsorStore.AddAllAsync(newCompanies);
 
             var removedIds = existing.Keys
                 .Where(id => !freshIds.Contains(id) && existing[id].RemovedAt == null)
@@ -151,14 +123,14 @@ public sealed class AdminController : ApiControllerBase
             var removed = removedIds.Count;
 
             _logger.LogInformation(
-                "Admin reload complete — added: {Added}, updated: {Updated}, removed: {Removed}, total: {Total}",
-                added, updated, removed, freshCompanies.Count);
+                "Admin reload complete — added: {Added}, removed: {Removed}, total: {Total}",
+                added, removed, freshCompanies.Count);
 
             await _sponsorStore.LogSyncAsync(new SyncLog
             {
                 TriggerSource = "admin",
                 Added = added,
-                Updated = updated,
+                Updated = 0,
                 Removed = removed,
                 Enriched = 0,
                 TotalAfterSync = freshCompanies.Count,
@@ -167,7 +139,7 @@ public sealed class AdminController : ApiControllerBase
             var unenriched = await _sponsorStore.CountUnEnrichedAsync(CompanyEnricher.CurrentVersion);
             return Ok(new MessageResponse
             {
-                Message = $"Sync complete — added: {added}, updated: {updated}, removed: {removed}, total: {freshCompanies.Count}. {unenriched} companies pending enrichment — use Enrich button."
+                Message = $"Sync complete — added: {added}, removed: {removed}, total: {freshCompanies.Count}. {unenriched} companies pending enrichment — use Enrich button."
             });
         }
         catch (Exception ex)

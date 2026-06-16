@@ -38,6 +38,12 @@ public sealed class SponsorStore(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
+    public async Task AddAllAsync(IEnumerable<SponsorCompany> companies)
+    {
+        db.Sponsors.AddRange(companies);
+        await db.SaveChangesAsync();
+    }
+
     public async Task SoftDeleteRemovedAsync(IEnumerable<string> ids)
     {
         var idSet = ids.ToHashSet();
