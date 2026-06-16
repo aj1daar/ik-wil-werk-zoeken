@@ -15,10 +15,12 @@ const reloading     = ref(false)
 const reloadError   = ref('')
 const reloadSuccess = ref('')
 
-const enriching     = ref(false)
-const enrichError   = ref('')
-const enrichStatus  = ref('')
-const enrichRunning = ref(false)
+const enriching          = ref(false)
+const enrichError        = ref('')
+const enrichCancelled    = ref(false)
+const showEnrichModal    = ref(false)
+const enrichedThisSession = ref(0)
+const enrichRemaining    = ref(0)
 
 const syncLogs      = ref<SyncLog[]>([])
 const loadingLogs   = ref(false)
@@ -69,29 +71,29 @@ async function reloadSponsors() {
   }
 }
 
-async function runEnrichBatch(): Promise<boolean> {
-  const res = await api.adminEnrichSponsors()
-  enrichStatus.value = res.message
-  // "0 remaining" or "already enriched" means done
-  return res.message.includes('0 remaining') || res.message.includes('already enriched')
-}
-
 async function enrichSponsors() {
-  enriching.value    = true
-  enrichRunning.value = true
-  enrichError.value  = ''
-  enrichStatus.value = 'Starting enrichment…'
+  enriching.value          = true
+  enrichCancelled.value    = false
+  enrichError.value        = ''
+  enrichedThisSession.value = 0
+  enrichRemaining.value    = 0
+  showEnrichModal.value    = true
   try {
-    let done = false
-    while (!done) {
-      done = await runEnrichBatch()
+    while (!enrichCancelled.value) {
+      const res = await api.adminEnrichSponsors()
+      enrichedThisSession.value += res.enriched
+      enrichRemaining.value = res.remaining
+      if (res.remaining === 0) break
     }
   } catch (e) {
     enrichError.value = e instanceof Error ? e.message : 'Enrichment failed'
   } finally {
-    enriching.value    = false
-    enrichRunning.value = false
+    enriching.value = false
   }
+}
+
+function stopEnrich() {
+  enrichCancelled.value = true
 }
 
 async function loadSyncLogs() {
@@ -162,17 +164,40 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Enrich sponsors section -->
     <section class="admin-card" aria-labelledby="enrich-heading">
       <h2 id="enrich-heading" class="card-title">Enrich Companies via AI</h2>
-      <p class="card-desc">Runs AI enrichment in batches of 100. Progress is saved after every 20 companies — safe to stop and restart. Click once and it runs until all companies are done.</p>
-      <button
-        class="btn-primary"
-        :disabled="enriching"
-        @click="enrichSponsors"
-      >
-        {{ enriching ? 'Enriching…' : 'Enrich Companies' }}
+      <p class="card-desc">Enriches 20 companies per request sequentially. Progress is saved after each batch — safe to stop and restart.</p>
+      <button class="btn-primary" :disabled="enriching" @click="enrichSponsors">
+        Enrich Companies
       </button>
-      <p v-if="enrichStatus && !enrichError" class="form-success" role="status">{{ enrichStatus }}</p>
-      <p v-if="enrichError" class="form-error" role="alert">{{ enrichError }}</p>
     </section>
+
+    <!-- Enrichment progress modal -->
+    <Teleport to="body">
+      <div v-if="showEnrichModal" class="enrich-backdrop" role="dialog" aria-modal="true" aria-labelledby="enrich-modal-title">
+        <div class="enrich-modal">
+          <h3 id="enrich-modal-title" class="enrich-modal-title">Enriching Companies</h3>
+
+          <div v-if="enriching" class="enrich-body">
+            <div class="enrich-spinner" aria-hidden="true"></div>
+            <p class="enrich-stat">
+              <strong>{{ enrichedThisSession }}</strong> enriched this session<br>
+              <strong>{{ enrichRemaining }}</strong> still remaining
+            </p>
+            <button class="btn-danger" @click="stopEnrich">Stop</button>
+          </div>
+
+          <div v-else class="enrich-body">
+            <p class="enrich-stat">
+              <template v-if="enrichError">Failed: {{ enrichError }}<br></template>
+              <template v-else-if="enrichCancelled">Stopped early.<br></template>
+              <template v-else>All done!<br></template>
+              <strong>{{ enrichedThisSession }}</strong> enriched this session ·
+              <strong>{{ enrichRemaining }}</strong> still remaining
+            </p>
+            <button class="btn-primary" @click="showEnrichModal = false">Close</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Sync log table -->
     <section class="admin-card" aria-labelledby="sync-logs-heading">
@@ -385,6 +410,29 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
 .num-cell { text-align: right; font-variant-numeric: tabular-nums; }
 .removed-cell { color: var(--col-error); }
+
+/* Enrichment modal */
+.enrich-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
+.enrich-modal {
+  background: var(--col-bg); border-radius: 14px; padding: 2rem 2.25rem;
+  min-width: 320px; max-width: 420px; width: 90%;
+  box-shadow: 0 8px 40px rgba(0,0,0,.25);
+  display: flex; flex-direction: column; gap: 1.5rem;
+}
+.enrich-modal-title { font-size: 1.15rem; font-weight: 700; color: var(--col-text); margin: 0; }
+.enrich-body { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
+.enrich-stat { text-align: center; font-size: .9rem; color: var(--col-muted); line-height: 1.7; margin: 0; }
+.enrich-stat strong { color: var(--col-text); }
+.enrich-spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--col-border);
+  border-top-color: var(--col-accent);
+  animation: spin .75s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 600px) {
   .admin-page { margin: 0; border-radius: 0; box-shadow: none; }
