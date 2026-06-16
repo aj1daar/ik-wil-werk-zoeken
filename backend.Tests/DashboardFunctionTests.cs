@@ -1,10 +1,10 @@
-using backend.Functions;
+using backend.Controllers;
 using backend.Models;
 using Xunit;
 
 namespace backend.Tests;
 
-// Unit tests for DashboardCrudFunction helpers exposed as internal.
+// Unit tests for DashboardController helpers exposed as internal.
 // These validate pure business logic without network or DB calls.
 
 public sealed class DashboardFunctionTests
@@ -27,7 +27,7 @@ public sealed class DashboardFunctionTests
     public void BuildActivityLogs_NoChanges_ReturnsEmpty()
     {
         var stage = MakeStage();
-        var logs = DashboardCrudFunction.BuildActivityLogs(stage, stage, "u1");
+        var logs = DashboardController.BuildActivityLogs(stage, stage, "u1");
         Assert.Empty(logs);
     }
 
@@ -36,7 +36,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage();
         var after  = MakeStage(); after.Status = "Rejected";
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         Assert.Single(logs);
         Assert.Equal("Status",   logs[0].Field);
         Assert.Equal("Applied",  logs[0].OldValue);
@@ -51,7 +51,7 @@ public sealed class DashboardFunctionTests
         after.Status      = "InterviewScheduled";
         after.CompanyName = "NewCo";
         after.Position    = "Senior Engineer";
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var fields = logs.Select(l => l.Field).ToHashSet();
         Assert.Contains("Status",      fields);
         Assert.Contains("CompanyName", fields);
@@ -63,7 +63,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage(); before.Notes = null;
         var after  = MakeStage(); after.Notes  = "Follow up on Friday";
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var noteLog = Assert.Single(logs, l => l.Field == "Notes");
         Assert.Null(noteLog.OldValue);
         Assert.Equal("Follow up on Friday", noteLog.NewValue);
@@ -74,7 +74,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage(); before.Notes = "Some note";
         var after  = MakeStage(); after.Notes  = null;
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var noteLog = Assert.Single(logs, l => l.Field == "Notes");
         Assert.Equal("Some note", noteLog.OldValue);
         Assert.Null(noteLog.NewValue);
@@ -85,7 +85,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage();
         var after  = MakeStage(); after.Locations = ["Amsterdam", "Utrecht"];
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var locLog = Assert.Single(logs, l => l.Field == "Locations");
         Assert.Null(locLog.OldValue);
         Assert.Contains("Amsterdam", locLog.NewValue ?? "");
@@ -97,7 +97,7 @@ public sealed class DashboardFunctionTests
         var before = MakeStage(); before.Locations = ["Utrecht", "Amsterdam"];
         var after  = MakeStage(); after.Locations  = ["Amsterdam", "Utrecht"];
         // Sorted join: both produce "Amsterdam, Utrecht" — no change
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         Assert.Empty(logs);
     }
 
@@ -106,7 +106,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage();
         var after  = MakeStage(); after.FollowUpDate = new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var fud = Assert.Single(logs, l => l.Field == "FollowUpDate");
         Assert.Null(fud.OldValue);
         Assert.Equal("2026-07-01", fud.NewValue);
@@ -117,7 +117,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage(); before.FollowUpDate = new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
         var after  = MakeStage(); after.FollowUpDate  = null;
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var fud = Assert.Single(logs, l => l.Field == "FollowUpDate");
         Assert.Equal("2026-07-01", fud.OldValue);
         Assert.Null(fud.NewValue);
@@ -128,7 +128,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage();
         var after  = MakeStage(); after.AppliedAt = new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero);
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var dateLog = Assert.Single(logs, l => l.Field == "AppliedAt");
         Assert.Equal("2026-01-15", dateLog.OldValue);
         Assert.Equal("2026-03-01", dateLog.NewValue);
@@ -139,7 +139,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage("app-123");
         var after  = MakeStage("app-123"); after.Status = "Rejected";
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         Assert.All(logs, l => Assert.Equal("app-123", l.ApplicationId));
     }
 
@@ -148,7 +148,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage("s1", "user-xyz");
         var after  = MakeStage("s1", "user-xyz"); after.Status = "Accepted";
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "user-xyz");
+        var logs = DashboardController.BuildActivityLogs(before, after, "user-xyz");
         Assert.All(logs, l => Assert.Equal("user-xyz", l.UserId));
     }
 
@@ -157,7 +157,7 @@ public sealed class DashboardFunctionTests
     {
         var before = MakeStage(); before.RejectionReason = "dutch_language";
         var after  = MakeStage(); after.RejectionReason  = "another_candidate";
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         var rr = Assert.Single(logs, l => l.Field == "RejectionReason");
         Assert.Equal("dutch_language",   rr.OldValue);
         Assert.Equal("another_candidate", rr.NewValue);
@@ -176,14 +176,14 @@ public sealed class DashboardFunctionTests
     [Fact]
     public void ValidateStage_ValidStage_ReturnsTrue()
     {
-        Assert.True(DashboardCrudFunction.ValidateStage(ValidStage(), out _));
+        Assert.True(DashboardController.ValidateStage(ValidStage(), out _));
     }
 
     [Fact]
     public void ValidateStage_EmptyCompanyName_ReturnsFalse()
     {
         var s = ValidStage(); s.CompanyName = "   ";
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("companyName", err);
     }
 
@@ -191,7 +191,7 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_CompanyNameTooLong_ReturnsFalse()
     {
         var s = ValidStage(); s.CompanyName = new string('A', 201);
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("200", err);
     }
 
@@ -199,14 +199,14 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_EmptyPosition_ReturnsFalse()
     {
         var s = ValidStage(); s.Position = "";
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.False(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_InvalidStatus_ReturnsFalse()
     {
         var s = ValidStage(); s.Status = "HACKED";
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("HACKED", err);
     }
 
@@ -222,21 +222,21 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_AllValidStatuses_ReturnsTrue(string status)
     {
         var s = ValidStage(); s.Status = status;
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_AssessmentStatus_ReturnsTrue()
     {
         var s = ValidStage(); s.Status = "Assessment";
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_InvalidRejectionReason_ReturnsFalse()
     {
         var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "evil_payload";
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("evil_payload", err);
     }
 
@@ -251,21 +251,21 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_AllValidRejectionReasons_ReturnsTrue(string reason)
     {
         var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = reason;
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_FailedAssessmentRejectionReason_ReturnsTrue()
     {
         var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "failed_assessment";
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_ValidRejectionReason_ReturnsTrue()
     {
         var s = ValidStage(); s.Status = "Rejected"; s.RejectionReason = "dutch_language";
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
@@ -274,21 +274,21 @@ public sealed class DashboardFunctionTests
         // Backend clears rejection fields for non-Rejected statuses at the handler level,
         // but ValidateStage itself does not enforce this — it only checks the value is known.
         var s = ValidStage(); s.Status = "Assessment"; s.RejectionReason = null;
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_AssessmentWithRejectionReasonNull_ReturnsTrue()
     {
         var s = ValidStage(); s.Status = "Assessment"; s.RejectionReason = null;
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_RejectionNoteOver500Chars_ReturnsFalse()
     {
         var s = ValidStage(); s.Status = "Rejected"; s.RejectionNote = new string('x', 501);
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("500", err);
     }
 
@@ -296,7 +296,7 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_NotesOver5000Chars_ReturnsFalse()
     {
         var s = ValidStage(); s.Notes = new string('n', 5001);
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("5000", err);
     }
 
@@ -304,7 +304,7 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_TooManyLocations_ReturnsFalse()
     {
         var s = ValidStage(); s.Locations = Enumerable.Range(0, 21).Select(i => $"City{i}").ToArray();
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("20", err);
     }
 
@@ -312,7 +312,7 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_LocationTooLong_ReturnsFalse()
     {
         var s = ValidStage(); s.Locations = [new string('A', 101)];
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("100", err);
     }
 
@@ -320,7 +320,7 @@ public sealed class DashboardFunctionTests
     public void ValidateStage_ContactEmailTooLong_ReturnsFalse()
     {
         var s = ValidStage(); s.ContactPersonEmail = new string('a', 254) + "@b.c";
-        Assert.False(DashboardCrudFunction.ValidateStage(s, out var err));
+        Assert.False(DashboardController.ValidateStage(s, out var err));
         Assert.Contains("254", err);
     }
 
@@ -330,28 +330,28 @@ public sealed class DashboardFunctionTests
         // SQL injection in a field value: EF Core parameterises all values,
         // so the string is stored literally. Validation should not reject it.
         var s = ValidStage(); s.CompanyName = "'; DROP TABLE Stages; --";
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_XssPayloadInNotes_Allowed_SanitizedByClient()
     {
         var s = ValidStage(); s.Notes = "<script>alert('xss')</script>";
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_WithSponsorCompanyId_StillValid()
     {
         var s = ValidStage(); s.SponsorCompanyId = "company-uuid-123";
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     [Fact]
     public void ValidateStage_SponsorCompanyIdNull_StillValid()
     {
         var s = ValidStage(); s.SponsorCompanyId = null;
-        Assert.True(DashboardCrudFunction.ValidateStage(s, out _));
+        Assert.True(DashboardController.ValidateStage(s, out _));
     }
 
     // ── SponsorCompanyId in BuildActivityLogs ─────────────────────────────────
@@ -363,7 +363,7 @@ public sealed class DashboardFunctionTests
         // logged in the activity log (it's set once on creation / via typeahead).
         var before = MakeStage(); before.SponsorCompanyId = "co-1";
         var after  = MakeStage(); after.SponsorCompanyId  = "co-2";
-        var logs = DashboardCrudFunction.BuildActivityLogs(before, after, "u1");
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
         Assert.DoesNotContain(logs, l => l.Field == "SponsorCompanyId");
     }
 
@@ -371,7 +371,7 @@ public sealed class DashboardFunctionTests
     public void BuildActivityLogs_SponsorCompanyIdSet_DoesNotTriggerUnrelatedLogs()
     {
         var stage = MakeStage(); stage.SponsorCompanyId = "co-1";
-        var logs = DashboardCrudFunction.BuildActivityLogs(stage, stage, "u1");
+        var logs = DashboardController.BuildActivityLogs(stage, stage, "u1");
         Assert.Empty(logs);
     }
 }

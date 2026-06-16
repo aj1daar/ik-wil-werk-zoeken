@@ -1,16 +1,31 @@
-using Azure.Monitor.OpenTelemetry.Exporter;
+using System.Text.Json;
 using backend;
 using backend.Data;
 using backend.Services;
-using Microsoft.Azure.Functions.Worker.Builder;
-using Microsoft.Azure.Functions.Worker.OpenTelemetry;
+using backend.Workers;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
-var builder = FunctionsApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
-builder.ConfigureFunctionsWebApplication();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(o => o.SuppressModelStateInvalidFilter = true)
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
+        o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    });
+
+builder.Services.AddCors(opts =>
+    opts.AddDefaultPolicy(policy =>
+    {
+        var origin = Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") ?? "*";
+        if (origin == "*")
+            policy.AllowAnyOrigin();
+        else
+            policy.WithOrigins(origin);
+        policy.WithHeaders("Content-Type", "Authorization")
+              .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS");
+    }));
 
 builder.Services.AddHttpClient("ind", client =>
 {
@@ -43,28 +58,23 @@ builder.Services.AddSingleton<EmailService>();
 builder.Services.AddScoped<UserStore>();
 builder.Services.AddScoped<StageStore>();
 builder.Services.AddScoped<SponsorStore>();
+builder.Services.AddHostedService<MonthlyIndSponsorSyncWorker>();
 
-if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
-{
-    builder.Services.AddOpenTelemetry()
-        .UseFunctionsWorkerDefaults()
-        .UseAzureMonitorExporter();
-}
+var app = builder.Build();
 
-var host = builder.Build();
+app.UseCors();
+app.MapControllers();
 
-// Seed sponsor companies on first run (table must already exist — migrations run in CI)
-using (var scope = host.Services.CreateScope())
+using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
     if (!await db.Sponsors.AnyAsync())
     {
         db.Sponsors.AddRange(SeedData.Companies);
         await db.SaveChangesAsync();
     }
 
-    // Promote the designated admin account (ADMIN_EMAIL env var) on every startup.
-    // Idempotent: only updates if the user exists and is not already an admin.
     var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL");
     if (!string.IsNullOrWhiteSpace(adminEmail))
     {
@@ -78,4 +88,4 @@ using (var scope = host.Services.CreateScope())
     }
 }
 
-host.Run();
+app.Run();

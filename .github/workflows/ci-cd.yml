@@ -110,19 +110,23 @@ jobs:
   build-backend:
     name: Build / Backend
     needs: test-backend
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Publish
-        run: dotnet publish backend/backend.csproj -c Release -p:PublishAot=false -o ./publish
+      - name: Publish (linux-x64 self-contained)
+        run: >
+          dotnet publish backend/backend.csproj
+          -c Release
+          -r linux-x64
+          --self-contained true
+          -o ./publish
       - uses: actions/upload-artifact@v4
         with:
           name: backend-publish
           path: ./publish
-          include-hidden-files: true
           retention-days: 1
 
   # ── Deploy (parallel, main only, after both builds pass) ─────────────────────
@@ -153,112 +157,73 @@ jobs:
           command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
 
   deploy-backend:
-    name: Deploy / Azure Functions
+    name: Deploy / Hetzner
     needs: [build-frontend, build-backend]
     if: github.ref == 'refs/heads/main'
-    runs-on: windows-latest
-    permissions:
-      id-token: write
-      contents: read
-    defaults:
-      run:
-        shell: bash
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: backend-publish
           path: ./publish
-      - name: Verify publish artifact
+
+      - name: Configure SSH
         run: |
-          echo "=== Publish contents ==="
-          ls -lh ./publish/
-          echo "=== Key files ==="
-          ls ./publish/*.dll 2>/dev/null | head -10 || echo "WARNING: no DLLs found"
-          ls ./publish/host.json 2>/dev/null || echo "WARNING: host.json missing"
-          ls ./publish/functions.metadata 2>/dev/null && echo "functions.metadata present" || echo "WARNING: functions.metadata missing"
-          ls ./publish/worker.config.json 2>/dev/null && echo "worker.config.json present" || echo "WARNING: worker.config.json missing"
-      - uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy infrastructure (Bicep)
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.HETZNER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.HETZNER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Write environment file on server
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ASPNETCORE_URLS: http://*:5000
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
         run: |
-          az deployment sub create \
-            --name infra \
-            --location westeurope \
-            --template-file infra/main.bicep \
-            --parameters \
-              "resourceGroupName=${{ vars.AZURE_RESOURCE_GROUP }}" \
-              "functionAppName=${{ vars.AZURE_FUNCTION_APP_NAME }}" \
-              "storageAccountName=${{ vars.AZURE_STORAGE_ACCOUNT }}" \
-              "postgresPassword=${{ secrets.POSTGRES_PASSWORD }}"
-          echo "=== App settings after Bicep ==="
-          az functionapp config appsettings list \
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --query "[].name" --output tsv
-      - name: Push app secrets
+          {
+            printf "ASPNETCORE_ENVIRONMENT=%s\n" "$ASPNETCORE_ENVIRONMENT"
+            printf "ASPNETCORE_URLS=%s\n" "$ASPNETCORE_URLS"
+            printf "DATABASE_URL=%s\n" "$DATABASE_URL"
+            printf "JWT_SECRET=%s\n" "$JWT_SECRET"
+            printf "GEMINI_API_KEY=%s\n" "$GEMINI_API_KEY"
+            printf "RESEND_API_KEY=%s\n" "$RESEND_API_KEY"
+            printf "ADMIN_EMAIL=%s\n" "$ADMIN_EMAIL"
+            printf "ALLOWED_ORIGIN=%s\n" "$ALLOWED_ORIGIN"
+          } | ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "cat > /var/www/iwwz/.env"
+
+      - name: Stop service
+        run: ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "sudo systemctl stop iwwz || true"
+
+      - name: Upload build
         run: |
-          az functionapp config appsettings set \
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --settings \
-              JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-              RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
-              ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}"
-          echo "=== App settings after secrets push ==="
-          az functionapp config appsettings list \
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} \
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --query "[].name" --output tsv
-      - name: Run database migrations
-        run: |
-          dotnet tool install --global dotnet-ef || dotnet tool update --global dotnet-ef
-          dotnet restore backend/backend.csproj
-          DATABASE_URL="Host=${{ vars.AZURE_FUNCTION_APP_NAME }}-pg.postgres.database.azure.com;Database=iwwz;Username=iwwzadmin;Password=${{ secrets.POSTGRES_PASSWORD }};SSL Mode=Require" \
-          dotnet ef database update --project backend --startup-project backend
-      - name: Package and deploy
-        shell: pwsh
-        run: |
-          Write-Host "=== Zipping publish output ==="
-          Compress-Archive -Path "./publish/*" -DestinationPath "./deploy.zip" -Force
-          Write-Host "=== deploy.zip size: $((Get-Item ./deploy.zip).Length / 1MB) MB ==="
-          Write-Host "=== Deploying to Azure ==="
-          az webapp deploy `
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} `
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
-            --src-path deploy.zip `
-            --type zip `
-            --verbose
-          Write-Host "=== Restarting function app ==="
-          az functionapp restart `
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} `
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }}
-          Write-Host "=== Waiting 20s for restart ==="
-          Start-Sleep 20
-          Write-Host "=== Functions registered after deploy ==="
-          az functionapp function list `
-            --name ${{ vars.AZURE_FUNCTION_APP_NAME }} `
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
-            --query "[].name" --output tsv
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./publish/ \
+            iwwz@${{ secrets.HETZNER_HOST }}:/var/www/iwwz/app/
+
+      - name: Start service
+        run: ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "sudo systemctl start iwwz"
+
       - name: Health check
         run: |
-          echo "Waiting 30s for cold start..."
-          sleep 30
+          echo "Waiting 10s for startup..."
+          sleep 10
           for i in 1 2 3 4 5; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              "https://${{ vars.AZURE_FUNCTION_APP_NAME }}.azurewebsites.net/api/auth/login" \
+              "http://${{ secrets.HETZNER_HOST }}:5000/api/auth/login" \
               -H "Content-Type: application/json" \
               -d '{"email":"healthcheck@example.com","password":"healthcheck"}')
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "401" ]; then
-              echo "Functions are up."
+              echo "API is up."
               exit 0
             fi
-            sleep 15
+            sleep 5
           done
-          echo "Health check failed — functions still returning $STATUS"
+          echo "Health check failed"
           exit 1

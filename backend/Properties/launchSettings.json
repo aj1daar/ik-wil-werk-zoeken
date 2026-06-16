@@ -2,8 +2,15 @@
   "profiles": {
     "backend": {
       "commandName": "Project",
-      "commandLineArgs": "--port 7198",
-      "launchBrowser": false
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:7198",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "JWT_SECRET": "dev-only-not-for-production-change-me",
+        "ADMIN_EMAIL": "atainogoibaev@gmail.com",
+        "ALLOWED_ORIGIN": "http://localhost:5173",
+        "DATABASE_URL": "Host=localhost;Database=iwwz;Username=postgres;Password=postgres"
+      }
     }
   }
 }
