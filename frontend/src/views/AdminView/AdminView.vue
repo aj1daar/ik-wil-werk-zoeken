@@ -180,7 +180,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
       <p v-if="loadingLogs" class="muted">Loading…</p>
       <p v-else-if="logsError" class="form-error" role="alert">{{ logsError }}</p>
       <p v-else-if="syncLogs.length === 0" class="muted">No syncs recorded yet.</p>
-      <div v-else class="table-wrap">
+      <div v-else class="table-wrap table-wrap--capped">
         <table class="users-table" aria-label="IND sync history">
           <thead>
             <tr>
@@ -337,6 +337,8 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .muted        { color: var(--col-muted); font-size: 0.9rem; }
 
 .table-wrap { overflow-x: auto; }
+.table-wrap--capped { max-height: 220px; overflow-y: auto; }
+.table-wrap--capped thead th { position: sticky; top: 0; background: var(--col-surface); z-index: 1; }
 
 .users-table {
   width: 100%;
