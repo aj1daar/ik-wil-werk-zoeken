@@ -447,7 +447,7 @@ function printPage() {
 
 <style scoped>
 /* layout wrappers */
-.dashboard { max-width: 1280px; margin: 0 auto; }
+.dashboard { max-width: 1280px; margin: 10px auto 0; }
 .list-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .list-col  { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
