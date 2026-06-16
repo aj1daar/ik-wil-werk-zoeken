@@ -174,7 +174,7 @@ public sealed class AdminController : ApiControllerBase
         if (CheckAdmin() is { } err) return err;
         try
         {
-            const int PageSize = 500;
+            const int PageSize = 100;
             var toEnrich = await _sponsorStore.GetUnEnrichedAsync(PageSize, CompanyEnricher.CurrentVersion);
 
             if (toEnrich.Count == 0)
