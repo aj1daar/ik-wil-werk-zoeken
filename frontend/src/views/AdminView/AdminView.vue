@@ -162,7 +162,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Enrich sponsors section -->
     <section class="admin-card" aria-labelledby="enrich-heading">
       <h2 id="enrich-heading" class="card-title">Enrich Companies via AI</h2>
-      <p class="card-desc">Runs AI enrichment in batches of 500. Progress is saved after every 20 companies — safe to stop and restart. Click once and it runs until all companies are done.</p>
+      <p class="card-desc">Runs AI enrichment in batches of 100. Progress is saved after every 20 companies — safe to stop and restart. Click once and it runs until all companies are done.</p>
       <button
         class="btn-primary"
         :disabled="enriching"
