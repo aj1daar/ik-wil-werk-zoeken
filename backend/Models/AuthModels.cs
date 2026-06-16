@@ -63,6 +63,13 @@ public sealed class MessageResponse
     [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;
 }
 
+public sealed class EnrichResponse
+{
+    [JsonPropertyName("enriched")]  public int    Enriched  { get; set; }
+    [JsonPropertyName("remaining")] public int    Remaining { get; set; }
+    [JsonPropertyName("message")]   public string Message   { get; set; } = string.Empty;
+}
+
 internal sealed class ResendEmailRequest
 {
     [JsonPropertyName("from")] public string From { get; set; } = string.Empty;

@@ -26,6 +26,7 @@ namespace backend;
 [JsonSerializable(typeof(AddStatusHistoryRequest))]
 [JsonSerializable(typeof(UpdateStatusHistoryRequest))]
 [JsonSerializable(typeof(MessageResponse))]
+[JsonSerializable(typeof(EnrichResponse))]
 [JsonSerializable(typeof(ResendEmailRequest))]
 [JsonSerializable(typeof(ErrorResponse))]
 [JsonSerializable(typeof(JwtPayload))]
