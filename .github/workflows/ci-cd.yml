@@ -207,17 +207,18 @@ jobs:
             iwwz@${{ secrets.HETZNER_HOST }}:/var/www/iwwz/app/
 
       - name: Start service
-        run: ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "sudo systemctl start iwwz"
+        run: |
+          ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} \
+            "chmod +x /var/www/iwwz/app/backend && sudo systemctl start iwwz"
 
       - name: Health check
         run: |
           echo "Waiting 10s for startup..."
           sleep 10
           for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              "http://${{ secrets.HETZNER_HOST }}:5000/api/auth/login" \
-              -H "Content-Type: application/json" \
-              -d '{"email":"healthcheck@example.com","password":"healthcheck"}')
+            STATUS=$(ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} \
+              "curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5000/api/auth/login \
+               -H 'Content-Type: application/json' -d '{\"email\":\"h\",\"password\":\"h\"}'")
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "401" ]; then
               echo "API is up."
