@@ -4,6 +4,7 @@ import { useApplicationsStore, STATUS_LABELS } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
 import type { ApplicationStatus, SponsorCompany } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
+import DatePicker from '../DatePicker/DatePicker.vue'
 
 const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted'])
 
@@ -203,8 +204,8 @@ async function submit() {
         </div>
 
         <div class="field">
-          <label class="field-label" for="applied-at">Application date <span class="required">*</span></label>
-          <input id="applied-at" v-model="appliedAt" type="date" class="field-input" />
+          <label class="field-label">Application date <span class="required">*</span></label>
+          <DatePicker v-model="appliedAt" placeholder="Select date" />
         </div>
 
         <div class="field">
