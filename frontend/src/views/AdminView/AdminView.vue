@@ -337,7 +337,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .muted        { color: var(--col-muted); font-size: 0.9rem; }
 
 .table-wrap { overflow-x: auto; }
-.table-wrap--capped { max-height: 220px; overflow-y: auto; }
+.table-wrap--capped { max-height: 220px; overflow-y: auto; overflow-x: hidden; }
 .table-wrap--capped thead th { position: sticky; top: 0; background: var(--col-surface); z-index: 1; }
 
 .users-table {
