@@ -66,7 +66,16 @@ const buckets = computed(() => {
   return REASON_META.map(m => ({ ...m, value: counts[m.key] ?? 0 }))
 })
 
-const visibleBuckets = computed(() => buckets.value.filter(b => b.value > 0))
+const TOP_N = 2
+
+const visibleBuckets = computed(() => {
+  const nonZero = buckets.value.filter(b => b.value > 0).sort((a, b) => b.value - a.value)
+  if (nonZero.length <= TOP_N) return nonZero
+  const top  = nonZero.slice(0, TOP_N)
+  const rest = nonZero.slice(TOP_N)
+  const otherCount = rest.reduce((sum, b) => sum + b.value, 0)
+  return [...top, { key: '__other__', label: 'Other', color: '#94a3b8', value: otherCount }]
+})
 
 const isEmpty = computed(() => rejected.value.length === 0)
 
