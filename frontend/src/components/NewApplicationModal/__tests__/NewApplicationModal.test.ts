@@ -72,13 +72,14 @@ describe('NewApplicationModal – rendering', () => {
     expect(mountModal().find('#position').exists()).toBe(true)
   })
 
-  it('renders date input', () => {
-    expect(mountModal().find('#applied-at').exists()).toBe(true)
+  it('renders date picker trigger', () => {
+    expect(mountModal().find('.dp-trigger').exists()).toBe(true)
   })
 
   it('date defaults to today', () => {
     const today = new Date().toISOString().slice(0, 10)
-    expect((mountModal().find('#applied-at').element as HTMLInputElement).value).toBe(today)
+    const expected = new Date(today + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    expect(mountModal().find('.dp-val').text()).toBe(expected)
   })
 
   it('prefillCompany prop pre-fills company name', () => {
