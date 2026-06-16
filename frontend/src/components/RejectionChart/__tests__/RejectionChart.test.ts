@@ -127,11 +127,14 @@ describe('RejectionChart – rejection counting', () => {
     expect(items[0].find('.donut-legend-count').text()).toBe('1')
   })
 
-  it('all seven known rejection reasons are recognised', () => {
+  it('collapses to top 2 + Other when more than 2 reasons exist', () => {
     const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'other'] as const
     const apps = reasons.map(r => makeApp({ rejectionReason: r }))
     const w = mountChart(apps)
-    expect(w.findAll('.donut-legend-item')).toHaveLength(7)
+    const items = w.findAll('.donut-legend-item')
+    expect(items).toHaveLength(3)
+    expect(items[2].find('.donut-legend-label').text()).toBe('Other')
+    expect(items[2].find('.donut-legend-count').text()).toBe('5')
   })
 
   it('failed_assessment is recognised as a distinct rejection reason', () => {
