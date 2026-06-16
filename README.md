@@ -174,14 +174,15 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 |--------|------|------|-------------|
 | `GET`  | `/api/mgmt/users`           | Bearer (admin) | List all registered users |
 | `POST` | `/api/mgmt/promote`         | Bearer (admin) | Promote user to admin by email |
-| `POST` | `/api/mgmt/reload-sponsors` | Bearer (admin) | Full IND scrape + upsert + LLM enrichment |
+| `POST` | `/api/mgmt/reload-sponsors` | Bearer (admin) | Scrape IND register and insert new companies only; never overwrites existing ones; soft-deletes companies no longer on the register |
+| `POST` | `/api/mgmt/enrich-sponsors` | Bearer (admin) | Enrich unenriched companies via Gemini in batches of 100; safe to call repeatedly until all are done |
 | `GET`  | `/api/mgmt/sync-logs`       | Bearer (admin) | IND sync history |
 
 ### Background Worker
 
 | Trigger | Schedule | Description |
 |---------|----------|-------------|
-| `MonthlyIndSponsorSyncWorker` | Monthly (20th at midnight UTC) | Fetches the IND public register, upserts all sponsors, soft-deletes removed entries, re-enriches stale companies via Gemini batch API |
+| `MonthlyIndSponsorSyncWorker` | Monthly (20th at midnight UTC) | Fetches the IND public register, inserts new companies only (never overwrites existing ones), soft-deletes companies no longer on the register, enriches new companies via Gemini batch API |
 
 ---
 
