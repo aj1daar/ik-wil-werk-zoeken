@@ -14,6 +14,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 - **Kanban board view** — switch ApplicationsView to a per-status column board; empty columns hidden by default with a "show empty" toggle
 - **Follow-up dates** — set a follow-up date per application; overdue badges in the list; overdue follow-ups collapsible card on the dashboard
 - **Activity log** — every field change is logged with old/new values and timestamp; collapsible history section in the detail panel
+- **Status history** — manual timeline of status transitions per application with editable dates
 - **Bulk status update** — select multiple applications and change their status in one action
 - **Job posting URL** — optional link to the original job posting, openable in one click from the detail panel
 - **Company typeahead** — both the new-application modal and the detail panel search the IND sponsor list as you type; selecting a company pre-fills available enrichment context
@@ -70,12 +71,12 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 |---|---|
 | Frontend | Vue 3 + TypeScript + Vite + Pinia + Vue Router |
 | Charts | Apache ECharts + vue-echarts (rejection donut, area chart); pure CSS/Vue (status stacked bar) |
-| Backend | Azure Functions (.NET 8 isolated worker) |
-| Database | PostgreSQL (Azure Database for PostgreSQL Flexible Server) via EF Core |
+| Backend | ASP.NET Core Web API (.NET 8) |
+| Database | PostgreSQL 18 on Hetzner via EF Core + Npgsql |
 | Auth | JWT HS256 · PBKDF2-SHA256 (100 000 iterations) |
 | Email | Resend (verification, password reset, email change) |
 | AI enrichment | Google Gemini 2.0 Flash (batch company enrichment, 20 companies per call) |
-| Hosting | Cloudflare Pages (frontend) · Azure consumption plan (backend) |
+| Hosting | Cloudflare Pages (frontend) · Hetzner CX23 behind Nginx (backend) |
 
 ---
 
@@ -83,23 +84,25 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 ```
 /
-├── backend/                 Azure Functions (.NET 8)
+├── backend/                 ASP.NET Core Web API (.NET 8)
+│   ├── Controllers/
+│   │   ├── AuthController.cs            POST|PUT|GET|DELETE /api/auth/*
+│   │   ├── DashboardController.cs       GET|POST|PUT|PATCH|DELETE /api/dashboard/*
+│   │   ├── AdminController.cs           GET|POST /api/mgmt/*
+│   │   └── ApiControllerBase.cs         Shared helpers (auth check, client IP, error response)
+│   ├── Workers/
+│   │   └── MonthlyIndSponsorSyncWorker.cs  BackgroundService — runs on 20th of each month
 │   ├── Data/
 │   │   ├── AppDbContext.cs              EF Core DbContext
 │   │   ├── AppDbContextFactory.cs       Design-time factory (dotnet ef tooling)
-│   │   └── Migrations/                  EF Core migrations
-│   ├── Functions/
-│   │   ├── AuthFunction.cs              POST /api/auth/*
-│   │   ├── DashboardCrudFunction.cs     GET|POST|PUT|PATCH|DELETE /api/dashboard/*
-│   │   ├── AdminFunction.cs             GET|POST /api/admin/*
-│   │   └── MonthlyIndSponsorSyncFunction.cs  timer trigger
+│   │   └── Migrations/                  EF Core migrations (applied automatically on startup)
 │   ├── Models/              User, SponsorCompany, ApplicationStage,
-│   │                        ActivityLog, SyncLog, AuthModels
+│   │                        ActivityLog, StatusHistory, SyncLog, AuthModels
 │   └── Services/            PasswordHasher, TokenService, EmailService,
 │                            UserStore, StageStore, SponsorStore,
 │                            IndSponsorScraper, CompanyEnricher, RateLimiterService
 │
-├── backend.Tests/           xUnit tests (288 tests)
+├── backend.Tests/           xUnit tests (295 tests)
 │
 ├── frontend/                Vue 3 SPA
 │   └── src/
@@ -122,11 +125,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 │       ├── composables/     useSessionExpiry, useTokenRefresh, useTheme
 │       └── router/          index.ts — auth-guard + admin-guard navigation
 │
-├── frontend/src/**/__tests__/  Vitest tests (565 tests)
-│
-└── infra/                   Azure Bicep (subscription-scope)
-    ├── main.bicep            Resource group + module wiring
-    └── resources.bicep       Storage, PostgreSQL, Functions, App Insights
+└── frontend/src/**/__tests__/  Vitest tests (565 tests)
 ```
 
 ---
@@ -138,15 +137,15 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST`   | `/api/auth/login`                | —      | Email + password → JWT |
-| `POST`   | `/api/auth/register`             | —      | Register with GDPR consent → JWT |
-| `POST`   | `/api/auth/refresh`              | Bearer | Issue new JWT if current token is valid and non-expired |
+| `POST`   | `/api/auth/register`             | —      | Register with GDPR consent |
+| `POST`   | `/api/auth/refresh`              | Bearer | Issue new JWT if current token is valid |
 | `GET`    | `/api/auth/verify-email`         | —      | Validate email verification token (72 h HMAC) |
-| `POST`   | `/api/auth/resend-verification`  | —      | Re-send verification email (always 204, anti-enumeration) |
-| `PUT`    | `/api/auth/profile`              | Bearer | Update name / preferences → new JWT |
+| `POST`   | `/api/auth/resend-verification`  | —      | Re-send verification email (always 204) |
+| `PUT`    | `/api/auth/profile`              | Bearer | Update name / preferences |
 | `POST`   | `/api/auth/change-password`      | Bearer | Verify current password and set new one |
 | `POST`   | `/api/auth/change-email`         | Bearer | Send confirmation link to new address |
-| `GET`    | `/api/auth/confirm-email-change` | —      | Validate email-change token and swap address → new JWT |
-| `POST`   | `/api/auth/forgot-password`      | —      | Send password-reset email (always 204, anti-enumeration) |
+| `GET`    | `/api/auth/confirm-email-change` | —      | Validate email-change token and swap address |
+| `POST`   | `/api/auth/forgot-password`      | —      | Send password-reset email (always 204) |
 | `POST`   | `/api/auth/reset-password`       | —      | Validate signed token and set new password |
 | `DELETE` | `/api/auth/account`              | Bearer | Delete account and all data (GDPR erasure) |
 
@@ -154,29 +153,33 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET`    | `/api/dashboard/sponsors`                  | Bearer | All IND sponsor companies |
-| `GET`    | `/api/dashboard/applications`              | Bearer | User's job applications |
-| `POST`   | `/api/dashboard/applications`              | Bearer | Create application |
-| `PUT`    | `/api/dashboard/applications/{id}`         | Bearer | Update application (full replace) |
-| `PATCH`  | `/api/dashboard/applications`              | Bearer | Bulk status update (array of `{id, status}`) |
-| `DELETE` | `/api/dashboard/applications/{id}`         | Bearer | Delete application |
-| `GET`    | `/api/dashboard/stats?from=&to=`           | Bearer | Counts by status (optional ISO date range) |
-| `GET`    | `/api/dashboard/activity-log/{id}`         | Bearer | Activity log for a single application |
+| `GET`    | `/api/dashboard/sponsors`                         | Bearer | All active IND sponsor companies |
+| `GET`    | `/api/dashboard/applications`                     | Bearer | User's job applications |
+| `POST`   | `/api/dashboard/applications`                     | Bearer | Create application |
+| `PUT`    | `/api/dashboard/applications/{id}`                | Bearer | Update application (full replace) |
+| `PATCH`  | `/api/dashboard/applications`                     | Bearer | Bulk status update |
+| `DELETE` | `/api/dashboard/applications/{id}`                | Bearer | Delete application |
+| `GET`    | `/api/dashboard/stats?from=&to=`                  | Bearer | Counts by status (optional ISO date range) |
+| `GET`    | `/api/dashboard/activity/{applicationId}`         | Bearer | Activity log for a single application |
+| `GET`    | `/api/dashboard/status-history/{applicationId}`   | Bearer | Status timeline for a single application |
+| `POST`   | `/api/dashboard/status-history/{applicationId}`   | Bearer | Add a status history entry |
+| `PUT`    | `/api/dashboard/status-history-item/{historyId}`  | Bearer | Update a status history entry |
+| `DELETE` | `/api/dashboard/status-history-item/{historyId}`  | Bearer | Delete a status history entry |
 
-### Admin (`/api/admin/`)
+### Admin (`/api/mgmt/`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET`  | `/api/admin/users`           | Bearer (admin) | List all registered users |
-| `POST` | `/api/admin/promote`         | Bearer (admin) | Promote user to admin by email |
-| `POST` | `/api/admin/reload-sponsors` | Bearer (admin) | Full IND scrape + upsert + LLM enrichment |
-| `GET`  | `/api/admin/sync-logs`       | Bearer (admin) | IND sync history (added/updated/removed/enriched counts) |
+| `GET`  | `/api/mgmt/users`           | Bearer (admin) | List all registered users |
+| `POST` | `/api/mgmt/promote`         | Bearer (admin) | Promote user to admin by email |
+| `POST` | `/api/mgmt/reload-sponsors` | Bearer (admin) | Full IND scrape + upsert + LLM enrichment |
+| `GET`  | `/api/mgmt/sync-logs`       | Bearer (admin) | IND sync history |
 
-### Timer
+### Background Worker
 
 | Trigger | Schedule | Description |
 |---------|----------|-------------|
-| `MonthlyIndSponsorSync` | Monthly (20th) | Fetches the IND public register, upserts all sponsors, soft-deletes removed entries, re-enriches stale companies via Gemini batch API |
+| `MonthlyIndSponsorSyncWorker` | Monthly (20th at midnight UTC) | Fetches the IND public register, upserts all sponsors, soft-deletes removed entries, re-enriches stale companies via Gemini batch API |
 
 ---
 
@@ -184,45 +187,40 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm
+- Node.js 22+ and pnpm
 - .NET 8 SDK
-- Azure Functions Core Tools v4
 - Docker (for local PostgreSQL)
 
 ### Backend
 
 ```bash
 # 1. Start PostgreSQL
-docker compose up -d
+docker compose up -d db
 
-# 2. Copy and fill in secrets — never commit local.settings.json
-cp backend/local.settings.example.json backend/local.settings.json
-
-# 3. Apply database migrations
+# 2. Apply database migrations (runs automatically on startup too)
 dotnet ef database update --project backend --startup-project backend
 
-# 4. Start the functions host
+# 3. Start the API
 cd backend
-func start
-# Listens on http://localhost:7071
+dotnet run
+# Listens on http://localhost:7198
 ```
 
-**Environment variables** (set in `local.settings.json` for local dev, or as Azure App Settings in production):
+Environment variables are set via `backend/Properties/launchSettings.json` for local development (already configured for Docker Compose defaults). In production they come from the `.env` file written by the CI/CD pipeline.
 
 | Variable | Required | Description |
 |---|---|---|
-| `AzureWebJobsStorage` | ✅ | Azure Storage connection string (required by Functions runtime for timer triggers) |
-| `DATABASE_URL` | ✅ | PostgreSQL connection string — `Host=localhost;Database=iwwz;Username=postgres;Password=postgres` locally |
-| `JWT_SECRET` | ✅ | Random string ≥ 32 chars — signs and verifies JWTs and password-reset/email-change tokens |
+| `DATABASE_URL` | ✅ | Npgsql connection string — `Host=localhost;Database=iwwz;Username=postgres;Password=postgres` locally |
+| `JWT_SECRET` | ✅ | Random string ≥ 32 chars — signs and verifies JWTs and HMAC tokens |
 | `GEMINI_API_KEY` | ✅ | Google Gemini API key for AI company enrichment |
-| `ALLOWED_ORIGIN` | ✅ | CORS origin — `http://localhost:5173` locally, `https://iwwz.nogoibay.org` in prod |
+| `ALLOWED_ORIGIN` | ✅ | CORS origin — `http://localhost:5173` locally, `https://ik-wil-werk-zoeken-frontend.pages.dev` in prod |
 | `ADMIN_EMAIL` | ✅ | Email address seeded as admin on first startup (idempotent) |
 | `RESEND_API_KEY` | — | Resend API key — if absent, emails are silently skipped (fine for local dev) |
-| `RESEND_FROM` | — | From address for transactional emails (default: `noreply@iwwz.nogoibay.org`) |
+| `RESEND_FROM` | — | From address for transactional emails (default: `noreply@nogoibay.org`) |
 
 ### EF Core Migrations
 
-In production, migrations run automatically in CI before each deploy. To add a new migration during development:
+Migrations apply automatically at startup via `db.Database.MigrateAsync()`. To add a new migration during development:
 
 ```bash
 dotnet ef migrations add <MigrationName> --project backend --startup-project backend
@@ -235,20 +233,20 @@ dotnet ef database update --project backend --startup-project backend
 cd frontend
 pnpm install
 pnpm dev
-# Opens http://localhost:5173, proxies /api → http://localhost:7071
+# Opens http://localhost:5173, proxies /api → http://localhost:7198
 ```
 
 ---
 
 ## Testing
 
-### Backend (xUnit · 288 tests)
+### Backend (xUnit · 295 tests)
 
 ```bash
 dotnet test backend.Tests
 ```
 
-Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`/`GetUserId`/`GetRole`, reset and email-change token creation and validation), `StageStore` (EF Core CRUD, user isolation, not-found handling, follow-up dates, job URL, bulk status update, activity log), `UserStore` (CRUD, email uniqueness, role promotion), `SponsorStore` (upsert, soft-delete, sync logs), `CompanyEnricher` (batch enrichment, tag enum filtering, city population, low-confidence skipping, refinement pass, URL validation), seed data integrity.
+Covers: `PasswordHasher` (hash format, randomness, round-trips, malformed/tampered inputs), `TokenService` (JWT creation, validation, expiry, tamper detection, `GetEmail`/`GetUserId`/`GetRole`, reset and email-change token creation and validation), `StageStore` (EF Core CRUD, user isolation, not-found handling, follow-up dates, job URL, bulk status update, activity log), `UserStore` (CRUD, email uniqueness, role promotion), `SponsorStore` (upsert, soft-delete, sync logs), `CompanyEnricher` (batch enrichment, tag enum filtering, city population, low-confidence skipping, refinement pass, URL validation), `DashboardController` helpers (`ValidateStage`, `BuildActivityLogs`), seed data integrity.
 
 ### Frontend (Vitest · 565 tests)
 
@@ -296,35 +294,31 @@ Pricing basis: Gemini 2.0 Flash at $0.10/1M input tokens, $0.40/1M output tokens
 
 ---
 
-## CI/CD Setup
+## CI/CD
 
-The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test → build → deploy on every push to `main`. Infrastructure is provisioned via Bicep on each deploy, including the PostgreSQL Flexible Server. EF Core migrations run automatically before the backend deploy step.
+The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs lint → test → build → deploy on every push to `main`. EF Core migrations apply automatically at startup via `Database.MigrateAsync()`.
 
-### Secrets (Settings → Secrets and variables → Actions)
+### Secrets (Settings → Secrets → Actions)
 
-| Name | Value |
-|------|-------|
-| `AZURE_CLIENT_ID` | Service principal client ID |
-| `AZURE_TENANT_ID` | Azure tenant ID |
-| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Pages:Edit permission |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+| Name | Description |
+|------|-------------|
+| `HETZNER_HOST` | Hetzner server IP address |
+| `HETZNER_SSH_KEY` | Private SSH key for the `iwwz` deploy user |
+| `DATABASE_URL` | Npgsql connection string for the production PostgreSQL instance |
 | `JWT_SECRET` | Random string ≥ 32 chars |
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `RESEND_API_KEY` | Resend API key |
-| `RESEND_FROM` | From address for transactional emails |
-| `POSTGRES_PASSWORD` | PostgreSQL administrator password (used by Bicep and to construct `DATABASE_URL`) |
 | `ADMIN_EMAIL` | Email address seeded as the first admin user |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Pages:Edit permission |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
 
-### Variables (Settings → Secrets and variables → Actions → Variables)
+### Variables (Settings → Variables → Actions)
 
 | Name | Example value |
 |------|--------------|
-| `AZURE_RESOURCE_GROUP` | `iwwz-rg` |
-| `AZURE_FUNCTION_APP_NAME` | `iwwz-api` |
-| `AZURE_STORAGE_ACCOUNT` | `iwwzstorage` |
-| `CLOUDFLARE_PAGES_PROJECT` | `iwwz` |
-| `VITE_API_BASE_URL` | `https://iwwz-api.azurewebsites.net` |
+| `ALLOWED_ORIGIN` | `https://ik-wil-werk-zoeken-frontend.pages.dev` |
+| `VITE_API_BASE_URL` | `https://api.nogoibay.org` |
+| `CLOUDFLARE_PAGES_PROJECT` | `ik-wil-werk-zoeken-frontend` |
 
 ---
 
