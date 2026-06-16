@@ -155,37 +155,24 @@ public sealed class AdminController : ApiControllerBase
         if (CheckAdmin() is { } err) return err;
         try
         {
-            const int PageSize = 100;
-            var toEnrich = await _sponsorStore.GetUnEnrichedAsync(PageSize, CompanyEnricher.CurrentVersion);
+            var toEnrich = await _sponsorStore.GetUnEnrichedAsync(20, CompanyEnricher.CurrentVersion);
 
             if (toEnrich.Count == 0)
-                return Ok(new MessageResponse { Message = "All companies are already enriched." });
+                return Ok(new EnrichResponse { Enriched = 0, Remaining = 0, Message = "All companies are already enriched." });
 
-            var enriched = 0;
-            var saveLock = new SemaphoreSlim(1, 1);
-
-            await Parallel.ForEachAsync(
-                toEnrich.Chunk(20),
-                new ParallelOptions { MaxDegreeOfParallelism = 5 },
-                async (batch, ct) =>
-                {
-                    var batchList = batch.ToList();
-                    await _enricher.EnrichBatchAsync(batchList, ct);
-                    await saveLock.WaitAsync(ct);
-                    try
-                    {
-                        var done = batchList.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion).ToList();
-                        if (done.Count > 0)
-                        {
-                            await _sponsorStore.SaveEnrichmentBatchAsync(done);
-                            Interlocked.Add(ref enriched, done.Count);
-                        }
-                    }
-                    finally { saveLock.Release(); }
-                });
+            var batch = toEnrich.ToList();
+            await _enricher.EnrichBatchAsync(batch);
+            var done = batch.Where(c => c.EnrichmentVersion >= CompanyEnricher.CurrentVersion).ToList();
+            if (done.Count > 0)
+                await _sponsorStore.SaveEnrichmentBatchAsync(done);
 
             var remaining = await _sponsorStore.CountUnEnrichedAsync(CompanyEnricher.CurrentVersion);
-            return Ok(new MessageResponse { Message = $"Enriched {enriched}/{toEnrich.Count} companies. {remaining} remaining." });
+            return Ok(new EnrichResponse
+            {
+                Enriched  = done.Count,
+                Remaining = remaining,
+                Message   = $"Enriched {done.Count}/{toEnrich.Count}. {remaining} remaining.",
+            });
         }
         catch (Exception ex)
         {
