@@ -12,7 +12,7 @@ public sealed class CompanyEnricher
 
     private const string Model = "gemini-flash-latest";
     private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
-    private const int BatchSize = 20;
+    private const int BatchSize = 10;
     private const int MaxOutputTokens = 8192;
 
     private static readonly HashSet<string> ValidWorkingLanguages = new(StringComparer.Ordinal) { "English", "Dutch", "Mixed" };
