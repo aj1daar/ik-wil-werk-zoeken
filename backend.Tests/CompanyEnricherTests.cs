@@ -14,12 +14,18 @@ namespace backend.Tests;
 
 public sealed class CompanyEnricherTests
 {
-    // ── CurrentVersion constant ───────────────────────────────────────────────
+    // ── CurrentVersion / RetryVersion constants ───────────────────────────────
 
     [Fact]
     public void CurrentVersion_IsFour()
     {
         Assert.Equal(4, CompanyEnricher.CurrentVersion);
+    }
+
+    [Fact]
+    public void RetryVersion_IsFive()
+    {
+        Assert.Equal(5, CompanyEnricher.RetryVersion);
     }
 
     // ── EnrichBatchAsync — no API key ─────────────────────────────────────────
@@ -278,6 +284,92 @@ public sealed class CompanyEnricherTests
             Assert.Null(company.CoreIndustry);
             Assert.Null(company.WorkingLanguage);
             Assert.Null(company.WebsiteUrl);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    // ── EnrichRetryBatchAsync ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EnrichRetryBatchAsync_Success_SetsRetryVersion()
+    {
+        var company = MakeCompany("Gradyent", "12345678");
+        company.EnrichmentVersion = CompanyEnricher.CurrentVersion; // was low-confidence
+
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence        = "medium",
+                summary           = "Gradyent optimises heat networks.",
+                coreIndustry      = "Energy",
+                techStackTags     = new[] { "Python", "Cloud" },
+                functionalTags    = new[] { "CleanTech" },
+                workingLanguage   = "English",
+                companySize       = "startup",
+                remotePolicy      = "hybrid",
+                parentCompanyName = (string?)null,
+                websiteUrl        = (string?)null,
+                targetMarket      = "B2B"
+            }
+        });
+
+        var factory = new GeminiHttpClientFactory(HttpStatusCode.OK, WrapGeminiResponse(resultJson));
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            var enriched = await enricher.EnrichRetryBatchAsync([company]);
+
+            Assert.Equal(1, enriched);
+            Assert.Equal(CompanyEnricher.RetryVersion, company.EnrichmentVersion);
+            Assert.Equal("Gradyent optimises heat networks.", company.Summary);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", prev);
+        }
+    }
+
+    [Fact]
+    public async Task EnrichRetryBatchAsync_StillLowConfidence_SetsRetryVersionButNoFields()
+    {
+        var company = MakeCompany("Mystery B.V.", "99999999");
+        company.EnrichmentVersion = CompanyEnricher.CurrentVersion;
+
+        var resultJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                confidence        = "low",
+                summary           = (string?)null,
+                coreIndustry      = (string?)null,
+                techStackTags     = Array.Empty<string>(),
+                functionalTags    = Array.Empty<string>(),
+                workingLanguage   = (string?)null,
+                companySize       = (string?)null,
+                remotePolicy      = "unknown",
+                parentCompanyName = (string?)null,
+                websiteUrl        = (string?)null,
+                targetMarket      = (string?)null
+            }
+        });
+
+        var factory = new GeminiHttpClientFactory(HttpStatusCode.OK, WrapGeminiResponse(resultJson));
+        var prev = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "test-key");
+        try
+        {
+            var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
+            var enriched = await enricher.EnrichRetryBatchAsync([company]);
+
+            Assert.Equal(1, enriched);
+            Assert.Equal(CompanyEnricher.RetryVersion, company.EnrichmentVersion); // bumped to 5, won't be retried again
+            Assert.Null(company.Summary);
         }
         finally
         {

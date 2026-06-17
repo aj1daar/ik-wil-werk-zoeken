@@ -66,6 +66,17 @@ public sealed class SponsorStore(AppDbContext db)
         await db.Sponsors
             .CountAsync(c => c.RemovedAt == null && c.EnrichmentVersion < belowVersion);
 
+    public async Task<IReadOnlyList<SponsorCompany>> GetLowConfidenceAsync(int limit, int version) =>
+        await db.Sponsors
+            .Where(c => c.RemovedAt == null && c.EnrichmentVersion == version && c.Summary == null)
+            .OrderBy(c => c.Name)
+            .Take(limit)
+            .ToListAsync();
+
+    public async Task<int> CountLowConfidenceAsync(int version) =>
+        await db.Sponsors
+            .CountAsync(c => c.RemovedAt == null && c.EnrichmentVersion == version && c.Summary == null);
+
     // Persists enrichment fields for each company via direct UPDATE — no change-tracker overhead.
     public async Task SaveEnrichmentBatchAsync(IReadOnlyList<SponsorCompany> companies)
     {

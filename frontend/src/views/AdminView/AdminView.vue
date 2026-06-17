@@ -27,6 +27,14 @@ const testBatchRunning = ref(false)
 const testBatchResult  = ref<{ enriched: number; remaining: number; message: string } | null>(null)
 const testBatchError   = ref('')
 
+const retrying             = ref(false)
+const retryCancelled       = ref(false)
+const retryError           = ref('')
+const showRetryModal       = ref(false)
+const retriedThisSession   = ref(0)
+const retryRemaining       = ref<number | null>(null)
+let   retryAbort: AbortController | null = null
+
 const syncLogs      = ref<SyncLog[]>([])
 const loadingLogs   = ref(false)
 const logsError     = ref('')
@@ -118,6 +126,35 @@ async function runTestBatch() {
   }
 }
 
+async function retryLowConfidence() {
+  retrying.value           = true
+  retryCancelled.value     = false
+  retryError.value         = ''
+  retriedThisSession.value = 0
+  retryRemaining.value     = null
+  showRetryModal.value     = true
+  retryAbort               = new AbortController()
+  try {
+    while (!retryCancelled.value) {
+      const res = await api.adminRetryLowConfidence(retryAbort.signal)
+      retriedThisSession.value += res.enriched
+      retryRemaining.value = res.remaining
+      if (res.remaining === 0) break
+    }
+  } catch (e) {
+    if (e instanceof Error && e.name !== 'AbortError')
+      retryError.value = e.message
+  } finally {
+    retrying.value = false
+    retryAbort     = null
+  }
+}
+
+function stopRetry() {
+  retryCancelled.value = true
+  retryAbort?.abort()
+}
+
 async function loadSyncLogs() {
   loadingLogs.value = true
   logsError.value   = ''
@@ -204,6 +241,46 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
       </div>
       <p v-if="testBatchError" class="form-error" role="alert">{{ testBatchError }}</p>
     </section>
+
+    <!-- Retry low-confidence section -->
+    <section class="admin-card" aria-labelledby="retry-heading">
+      <h2 id="retry-heading" class="card-title">Retry Low-Confidence with {{ 'gemini-3.1-flash-lite' }}</h2>
+      <p class="card-desc">Re-processes companies enriched without data (low confidence) using a stronger model. 10 per request, safe to stop and restart.</p>
+      <button class="btn-primary" :disabled="retrying" @click="retryLowConfidence">
+        {{ retrying ? 'Retrying…' : 'Retry Low-Confidence' }}
+      </button>
+      <p v-if="retryError" class="form-error" role="alert">{{ retryError }}</p>
+    </section>
+
+    <!-- Retry progress modal -->
+    <Teleport to="body">
+      <div v-if="showRetryModal" class="enrich-backdrop" role="dialog" aria-modal="true" aria-labelledby="retry-modal-title">
+        <div class="enrich-modal">
+          <h3 id="retry-modal-title" class="enrich-modal-title">Retrying Low-Confidence Companies</h3>
+          <div v-if="retrying" class="enrich-body">
+            <div class="enrich-spinner" aria-hidden="true"></div>
+            <p class="enrich-stat">
+              <template v-if="retryRemaining === null">Starting first batch…</template>
+              <template v-else>
+                <strong>{{ retriedThisSession }}</strong> retried this session<br>
+                <strong>{{ retryRemaining }}</strong> low-confidence remaining
+              </template>
+            </p>
+            <button class="btn-danger" @click="stopRetry">Stop</button>
+          </div>
+          <div v-else class="enrich-body">
+            <p class="enrich-stat">
+              <template v-if="retryError">Failed: {{ retryError }}<br></template>
+              <template v-else-if="retryCancelled">Stopped early.<br></template>
+              <template v-else>All done!<br></template>
+              <strong>{{ retriedThisSession }}</strong> retried this session ·
+              <strong>{{ retryRemaining ?? '—' }}</strong> low-confidence remaining
+            </p>
+            <button class="btn-primary" @click="showRetryModal = false">Close</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Enrichment progress modal -->
     <Teleport to="body">

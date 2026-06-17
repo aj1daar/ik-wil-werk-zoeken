@@ -181,6 +181,37 @@ public sealed class AdminController : ApiControllerBase
         }
     }
 
+    [HttpPost("retry-low-confidence")]
+    public async Task<IActionResult> RetryLowConfidence()
+    {
+        if (CheckAdmin() is { } err) return err;
+        try
+        {
+            var toRetry = await _sponsorStore.GetLowConfidenceAsync(10, CompanyEnricher.CurrentVersion);
+            if (toRetry.Count == 0)
+                return Ok(new EnrichResponse { Enriched = 0, Remaining = 0, Message = "No low-confidence companies to retry." });
+
+            var batch = toRetry.ToList();
+            await _enricher.EnrichRetryBatchAsync(batch);
+            var done = batch.Where(c => c.EnrichmentVersion >= CompanyEnricher.RetryVersion).ToList();
+            if (done.Count > 0)
+                await _sponsorStore.SaveEnrichmentBatchAsync(done);
+
+            var remaining = await _sponsorStore.CountLowConfidenceAsync(CompanyEnricher.CurrentVersion);
+            return Ok(new EnrichResponse
+            {
+                Enriched  = done.Count,
+                Remaining = remaining,
+                Message   = $"Retried {done.Count}/{toRetry.Count} with {CompanyEnricher.RetryModel}. {remaining} low-confidence remaining.",
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in RetryLowConfidence");
+            return Error(500, $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     [HttpGet("sync-logs")]
     public async Task<IActionResult> GetSyncLogs()
     {

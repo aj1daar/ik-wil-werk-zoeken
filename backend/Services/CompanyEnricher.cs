@@ -12,9 +12,10 @@ namespace backend.Services;
 public sealed class CompanyEnricher
 {
     public const int CurrentVersion = 4;
+    public const int RetryVersion = 5;
 
-    private const string Model = "gemini-2.5-flash-lite";
-    private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
+    private const string Model      = "gemini-2.5-flash-lite";
+    public  const string RetryModel = "gemini-3.1-flash-lite";
     private const int BatchSize = 10;
     private const int MaxOutputTokens = 8192;
 
@@ -101,6 +102,20 @@ public sealed class CompanyEnricher
         - companySize guide: startup < 50 employees, scaleup 50–250, mid 250–1000, large 1000–5000, enterprise > 5000.
         - coreIndustry: one broad English label, e.g. "Software & Technology", "Financial Services", "Healthcare".
 
+        CONFIDENCE GUIDE — use "medium" generously:
+        - "high": you have reliable, specific knowledge of this company (founding, domain, size, key products, etc.)
+        - "medium": you recognise the company or can reasonably infer from its name and sector. Fill every field you can determine; leave unknowns null. Do NOT downgrade to "low" just because some details are uncertain.
+        - "low": you have no reliable knowledge of this specific legal entity — not even a reasonable inference. Set all text fields to null, all tag arrays to [], and use "low" only as a last resort.
+
+        DUTCH COMPANY CONTEXT — clues for better inference:
+        - "B.V." / "N.V." are Dutch legal suffixes equivalent to Ltd / Corp — ignore them when classifying the company.
+        - "Holding", "Group", or "Finance" in the name → likely a parent or treasury entity; set parentCompanyName if you know the operating brand.
+        - "International", "Global", "Europe", "Benelux", or "Netherlands" in the name → usually the Dutch subsidiary of a known multinational; apply the parent brand's profile and set parentCompanyName.
+        - Research institutes, universities, and their spin-offs → typically R&D + relevant functional or tech tag (e.g. "Deep Tech", "BioTech").
+        - Staffing, payroll, or secondment firms → "Staffing" functional tag; workingLanguage often Dutch.
+        - Small practices (dentist, GP, vet, law firm) → confidence "low" unless you have specific knowledge.
+        - When choosing between "medium" and "low": always prefer "medium" and share what you know.
+
         Self-check before outputting: (1) every tag is from the allowed list, (2) all text is in English.
         Output ONLY the JSON array.
         """;
@@ -138,7 +153,14 @@ public sealed class CompanyEnricher
         _scopeFactory = scopeFactory;
     }
 
-    public async Task<int> EnrichBatchAsync(IReadOnlyList<SponsorCompany> companies, CancellationToken ct = default)
+    public async Task<int> EnrichBatchAsync(IReadOnlyList<SponsorCompany> companies, CancellationToken ct = default) =>
+        await EnrichBatchCoreAsync(companies, Model, CurrentVersion, ct);
+
+    public async Task<int> EnrichRetryBatchAsync(IReadOnlyList<SponsorCompany> companies, CancellationToken ct = default) =>
+        await EnrichBatchCoreAsync(companies, RetryModel, RetryVersion, ct);
+
+    private async Task<int> EnrichBatchCoreAsync(
+        IReadOnlyList<SponsorCompany> companies, string model, int targetVersion, CancellationToken ct)
     {
         var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -152,13 +174,13 @@ public sealed class CompanyEnricher
         {
             if (ct.IsCancellationRequested) break;
             var batch = companies.Skip(i).Take(BatchSize).ToList();
-            enriched += await EnrichOneBatchAsync(batch, apiKey, ct);
+            enriched += await EnrichOneBatchAsync(batch, model, targetVersion, apiKey, ct);
         }
         return enriched;
     }
 
     private async Task<int> EnrichOneBatchAsync(
-        IReadOnlyList<SponsorCompany> batch, string apiKey, CancellationToken ct)
+        IReadOnlyList<SponsorCompany> batch, string model, int targetVersion, string apiKey, CancellationToken ct)
     {
         try
         {
@@ -168,7 +190,7 @@ public sealed class CompanyEnricher
             var userText = JsonSerializer.Serialize(
                 inputArray, CompanyEnricherJsonContext.Default.AnonymousCompanyInputArray);
 
-            var text = await CallGeminiAsync(SystemPrompt, userText, apiKey, ct, useCache: true, batchSize: batch.Count);
+            var text = await CallGeminiAsync(SystemPrompt, userText, apiKey, ct, model: model, useCache: true, batchSize: batch.Count);
             if (text is null)
             {
                 _logger.LogWarning("Empty response from Gemini for batch of {Count}", batch.Count);
@@ -196,7 +218,7 @@ public sealed class CompanyEnricher
 
             if (toRefine.Count > 0)
             {
-                var corrections = await RefineEnumFieldsAsync(batch, toRefine, apiKey, ct);
+                var corrections = await RefineEnumFieldsAsync(batch, toRefine, model, apiKey, ct);
                 foreach (var (idx, r, _) in toRefine)
                 {
                     if (!corrections.TryGetValue(idx, out var fix)) continue;
@@ -218,7 +240,7 @@ public sealed class CompanyEnricher
                 var c = batch[i];
 
                 c.EnrichedAt = now;
-                c.EnrichmentVersion = CurrentVersion;
+                c.EnrichmentVersion = targetVersion;
 
                 // Low-confidence: mark enriched so we don't retry, but don't write field data
                 if (string.Equals(r.Confidence, "low", StringComparison.OrdinalIgnoreCase))
@@ -267,7 +289,7 @@ public sealed class CompanyEnricher
     private async Task<Dictionary<int, EnrichmentRefinementResult>> RefineEnumFieldsAsync(
         IReadOnlyList<SponsorCompany> batch,
         List<(int Idx, CompanyEnrichmentResult Result, string[] InvalidFields)> toRefine,
-        string apiKey, CancellationToken ct)
+        string model, string apiKey, CancellationToken ct)
     {
         var corrections = new Dictionary<int, EnrichmentRefinementResult>();
         try
@@ -283,7 +305,7 @@ public sealed class CompanyEnricher
 
             var userText = JsonSerializer.Serialize(
                 inputs, CompanyEnricherJsonContext.Default.RefinementInputArray);
-            var text = await CallGeminiAsync(RefinementPrompt, userText, apiKey, ct, batchSize: toRefine.Count);
+            var text = await CallGeminiAsync(RefinementPrompt, userText, apiKey, ct, model: model, batchSize: toRefine.Count);
             if (text is null) return corrections;
 
             var refined = JsonSerializer.Deserialize(
@@ -359,9 +381,10 @@ public sealed class CompanyEnricher
 
     private async Task<string?> CallGeminiAsync(
         string systemPrompt, string userText, string apiKey, CancellationToken ct,
-        bool useCache = false, int batchSize = 0)
+        string model = Model, bool useCache = false, int batchSize = 0)
     {
-        var cachedContent = useCache ? await EnsureCacheAsync(apiKey, ct) : null;
+        var endpoint = $"v1beta/models/{model}:generateContent";
+        var cachedContent = (useCache && model == Model) ? await EnsureCacheAsync(apiKey, ct) : null;
 
         var requestObj = new GeminiRequest
         {
@@ -388,7 +411,7 @@ public sealed class CompanyEnricher
         const int maxAttempts = 4;
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint)
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
                 Content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json")
             };

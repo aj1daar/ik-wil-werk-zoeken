@@ -85,6 +85,9 @@ export const api = {
   adminEnrichSponsors: (signal?: AbortSignal) =>
     request<{ enriched: number; remaining: number; message: string }>('POST', '/api/mgmt/enrich-sponsors', undefined, signal),
 
+  adminRetryLowConfidence: (signal?: AbortSignal) =>
+    request<{ enriched: number; remaining: number; message: string }>('POST', '/api/mgmt/retry-low-confidence', undefined, signal),
+
   adminGetSyncLogs: () =>
     request<SyncLog[]>('GET', '/api/mgmt/sync-logs'),
 
