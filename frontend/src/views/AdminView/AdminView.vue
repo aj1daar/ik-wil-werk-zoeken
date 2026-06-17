@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api, type AdminUserSummary, type SyncLog } from '../../api'
+import { useCompaniesStore } from '../../stores/companies'
+
+const companiesStore = useCompaniesStore()
 
 const users         = ref<AdminUserSummary[]>([])
 const loadingUsers  = ref(false)
@@ -105,6 +108,7 @@ async function enrichSponsors() {
   } finally {
     enriching.value = false
     enrichAbort     = null
+    companiesStore.companies = []
   }
 }
 
@@ -147,6 +151,7 @@ async function retryLowConfidence() {
   } finally {
     retrying.value = false
     retryAbort     = null
+    companiesStore.companies = []
   }
 }
 
