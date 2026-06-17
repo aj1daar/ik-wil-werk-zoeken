@@ -435,21 +435,21 @@ public sealed class CompanyEnricher
                     continue;
                 }
 
-                _ = SaveCallLogAsync(batchSize, null, (int)sw.ElapsedMilliseconds, success: false);
+                _ = SaveCallLogAsync(model, batchSize, null, (int)sw.ElapsedMilliseconds, success: false);
                 return null;
             }
 
             var apiResponse = await httpResponse.Content.ReadFromJsonAsync(
                 CompanyEnricherJsonContext.Default.GeminiResponse, ct);
             var text = apiResponse?.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
-            _ = SaveCallLogAsync(batchSize, apiResponse?.UsageMetadata, (int)sw.ElapsedMilliseconds, success: text is not null);
+            _ = SaveCallLogAsync(model, batchSize, apiResponse?.UsageMetadata, (int)sw.ElapsedMilliseconds, success: text is not null);
             return string.IsNullOrWhiteSpace(text) ? null : text;
         }
 
         return null;
     }
 
-    private async Task SaveCallLogAsync(int batchSize, GeminiUsageMetadata? usage, int durationMs, bool success)
+    private async Task SaveCallLogAsync(string model, int batchSize, GeminiUsageMetadata? usage, int durationMs, bool success)
     {
         if (_scopeFactory is null) return;
         try
@@ -459,7 +459,7 @@ public sealed class CompanyEnricher
             db.GeminiCallLogs.Add(new GeminiCallLog
             {
                 CalledAt       = DateTimeOffset.UtcNow,
-                Model          = Model,
+                Model          = model,
                 BatchSize      = batchSize,
                 PromptTokens   = usage?.PromptTokenCount        ?? 0,
                 CachedTokens   = usage?.CachedContentTokenCount ?? 0,
