@@ -117,6 +117,13 @@ public sealed class CompanyEnricher
         If unsure, use null rather than guess. Output ONLY the JSON array.
         """;
 
+    private const string CacheEndpoint = "v1beta/cachedContents";
+
+    private static string?         s_cachedContentName;
+    private static DateTimeOffset  s_cacheExpiry = DateTimeOffset.MinValue;
+    private static bool            s_cachingUnsupported;
+    private static readonly SemaphoreSlim s_cacheLock = new(1, 1);
+
     private readonly IHttpClientFactory _http;
     private readonly ILogger<CompanyEnricher> _logger;
 
@@ -156,7 +163,7 @@ public sealed class CompanyEnricher
             var userText = JsonSerializer.Serialize(
                 inputArray, CompanyEnricherJsonContext.Default.AnonymousCompanyInputArray);
 
-            var text = await CallGeminiAsync(SystemPrompt, userText, apiKey, ct);
+            var text = await CallGeminiAsync(SystemPrompt, userText, apiKey, ct, useCache: true);
             if (text is null)
             {
                 _logger.LogWarning("Empty response from Gemini for batch of {Count}", batch.Count);
@@ -297,12 +304,66 @@ public sealed class CompanyEnricher
         return corrections;
     }
 
-    private async Task<string?> CallGeminiAsync(
-        string systemPrompt, string userText, string apiKey, CancellationToken ct)
+    private async Task<string?> EnsureCacheAsync(string apiKey, CancellationToken ct)
     {
+        if (s_cachingUnsupported) return null;
+        if (s_cachedContentName is not null && DateTimeOffset.UtcNow < s_cacheExpiry)
+            return s_cachedContentName;
+
+        await s_cacheLock.WaitAsync(ct);
+        try
+        {
+            if (s_cachedContentName is not null && DateTimeOffset.UtcNow < s_cacheExpiry)
+                return s_cachedContentName;
+
+            var body = JsonSerializer.Serialize(new CreateCacheRequest
+            {
+                Model              = $"models/{Model}",
+                SystemInstruction  = new GeminiContent { Parts = [new GeminiPart { Text = SystemPrompt }] },
+                Ttl                = "3600s",
+            }, CompanyEnricherJsonContext.Default.CreateCacheRequest);
+
+            using var client = _http.CreateClient("gemini");
+            using var req = new HttpRequestMessage(HttpMethod.Post, CacheEndpoint)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            };
+            req.Headers.Add("x-goog-api-key", apiKey);
+
+            using var resp = await client.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var err = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("Gemini cache creation failed ({Status}) — using uncached requests. {Err}",
+                    (int)resp.StatusCode, err.Length > 300 ? err[..300] : err);
+                s_cachingUnsupported = true;
+                return null;
+            }
+
+            var info = await resp.Content.ReadFromJsonAsync(
+                CompanyEnricherJsonContext.Default.CachedContentInfo, ct);
+            if (info?.Name is null) { s_cachingUnsupported = true; return null; }
+
+            s_cachedContentName = info.Name;
+            s_cacheExpiry       = DateTimeOffset.UtcNow.AddMinutes(55);
+            _logger.LogInformation("Gemini prompt cache created: {Name}", s_cachedContentName);
+            return s_cachedContentName;
+        }
+        finally { s_cacheLock.Release(); }
+    }
+
+    private async Task<string?> CallGeminiAsync(
+        string systemPrompt, string userText, string apiKey, CancellationToken ct,
+        bool useCache = false)
+    {
+        var cachedContent = useCache ? await EnsureCacheAsync(apiKey, ct) : null;
+
         var requestObj = new GeminiRequest
         {
-            SystemInstruction = new GeminiContent { Parts = [new GeminiPart { Text = systemPrompt }] },
+            CachedContent     = cachedContent,
+            SystemInstruction = cachedContent is null
+                ? new GeminiContent { Parts = [new GeminiPart { Text = systemPrompt }] }
+                : null,
             Contents =
             [
                 new GeminiContent { Role = "user", Parts = [new GeminiPart { Text = userText }] }
@@ -411,9 +472,25 @@ public sealed class CompanyEnricher
 
 internal sealed class GeminiRequest
 {
+    [JsonPropertyName("cachedContent")]     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string?         CachedContent     { get; set; }
+    [JsonPropertyName("systemInstruction")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public GeminiContent?  SystemInstruction { get; set; }
+    [JsonPropertyName("contents")]          public GeminiContent[] Contents { get; set; } = [];
+    [JsonPropertyName("generationConfig")]  public GeminiGenerationConfig? GenerationConfig { get; set; }
+}
+
+internal sealed class CreateCacheRequest
+{
+    [JsonPropertyName("model")]             public string        Model             { get; set; } = string.Empty;
     [JsonPropertyName("systemInstruction")] public GeminiContent? SystemInstruction { get; set; }
-    [JsonPropertyName("contents")] public GeminiContent[] Contents { get; set; } = [];
-    [JsonPropertyName("generationConfig")] public GeminiGenerationConfig? GenerationConfig { get; set; }
+    [JsonPropertyName("ttl")]               public string        Ttl               { get; set; } = "3600s";
+}
+
+internal sealed class CachedContentInfo
+{
+    [JsonPropertyName("name")]       public string  Name       { get; set; } = string.Empty;
+    [JsonPropertyName("expireTime")] public string? ExpireTime { get; set; }
 }
 
 internal sealed class GeminiContent
@@ -484,6 +561,8 @@ internal sealed class EnrichmentRefinementResult
 
 [JsonSerializable(typeof(GeminiRequest))]
 [JsonSerializable(typeof(GeminiResponse))]
+[JsonSerializable(typeof(CreateCacheRequest))]
+[JsonSerializable(typeof(CachedContentInfo))]
 [JsonSerializable(typeof(CompanyEnrichmentResult))]
 [JsonSerializable(typeof(CompanyEnrichmentResult[]))]
 [JsonSerializable(typeof(AnonymousCompanyInput))]
