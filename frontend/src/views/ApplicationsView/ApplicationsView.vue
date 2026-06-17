@@ -7,33 +7,9 @@ import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel
 
 const store = useApplicationsStore()
 
+const PAGE_SIZE = 25
+
 type SortKey = 'newest' | 'oldest' | 'updated' | 'company' | 'followup'
-
-const viewMode = ref<'list' | 'board'>((() => {
-  try { return (localStorage.getItem('iwwz_apps_view') as 'list' | 'board') ?? 'list' } catch { return 'list' }
-})())
-const showEmptyColumns = ref(false)
-
-function setViewMode(mode: 'list' | 'board') {
-  viewMode.value = mode
-  try { localStorage.setItem('iwwz_apps_view', mode) } catch { /* ignore */ }
-}
-
-watch(viewMode, () => {
-  clearSelection()
-  selectedId.value = null
-})
-
-const boardColumns = computed(() =>
-  ALL_STATUSES
-    .map(status => ({
-      status,
-      label:  STATUS_LABELS[status],
-      color:  STATUS_COLOR[status],
-      cards:  filtered.value.filter(a => a.status === status),
-    }))
-    .filter(col => showEmptyColumns.value || col.cards.length > 0)
-)
 
 const search            = ref('')
 const filterStatus      = ref<ApplicationStatus | ''>('')
@@ -41,13 +17,13 @@ const sortBy            = ref<SortKey>('newest')
 const selectedId        = ref<string | null>(null)
 const modalOpen         = ref(false)
 const showFiltersPanel  = ref(false)
+const currentPage       = ref(1)
 
 const activeFilterCount = computed(() =>
   (filterStatus.value !== '' ? 1 : 0) +
   (sortBy.value !== 'newest' ? 1 : 0)
 )
 
-// Bulk selection
 const checkedIds   = ref<Set<string>>(new Set())
 const bulkStatus   = ref<ApplicationStatus | ''>('')
 const bulkSaving   = ref(false)
@@ -92,13 +68,41 @@ const filtered = computed<Application[]>(() => {
   return list
 })
 
+const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))
+
+const pagedFiltered = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filtered.value.slice(start, start + PAGE_SIZE)
+})
+
+const visiblePages = computed((): (number | null)[] => {
+  const total = pageCount.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const around = new Set([1, total, cur - 2, cur - 1, cur, cur + 1, cur + 2].filter(p => p >= 1 && p <= total))
+  const sorted = [...around].sort((a, b) => a - b)
+  const pages: (number | null)[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) pages.push(null)
+    pages.push(sorted[i])
+  }
+  return pages
+})
+
+watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
+
 const selected = computed<Application | null>(() =>
   store.applications.find(a => a.id === selectedId.value) ?? null
 )
 
-const allFilteredChecked = computed(() =>
-  filtered.value.length > 0 && filtered.value.every(a => checkedIds.value.has(a.id))
+const allPageChecked = computed(() =>
+  pagedFiltered.value.length > 0 && pagedFiltered.value.every(a => checkedIds.value.has(a.id))
 )
+
+function goToPage(page: number) {
+  currentPage.value = page
+  document.querySelector<HTMLElement>('.app-list-wrapper')?.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 function selectRow(id: string) {
   if (checkedIds.value.size > 0) {
@@ -116,10 +120,14 @@ function toggleCheck(id: string) {
 }
 
 function toggleAll() {
-  if (allFilteredChecked.value) {
-    checkedIds.value = new Set()
+  if (allPageChecked.value) {
+    const s = new Set(checkedIds.value)
+    pagedFiltered.value.forEach(a => s.delete(a.id))
+    checkedIds.value = s
   } else {
-    checkedIds.value = new Set(filtered.value.map(a => a.id))
+    const s = new Set(checkedIds.value)
+    pagedFiltered.value.forEach(a => s.add(a.id))
+    checkedIds.value = s
   }
 }
 
@@ -223,24 +231,6 @@ function printPage() {
           </svg>
         </button>
 
-        <div class="view-toggle-group" role="group" aria-label="View mode">
-          <button :class="['view-toggle-btn', viewMode === 'list' && 'view-toggle-btn--active']" @click="setViewMode('list')" title="List view">
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
-            </svg>
-          </button>
-          <button :class="['view-toggle-btn', viewMode === 'board' && 'view-toggle-btn--active']" @click="setViewMode('board')" title="Board view">
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-            </svg>
-          </button>
-        </div>
-
-        <label v-if="viewMode === 'board'" class="show-empty-label">
-          <input type="checkbox" v-model="showEmptyColumns" class="show-empty-check" />
-          Show empty
-        </label>
-
         <button @click="modalOpen = true" class="btn-new" title="New application (N)">
           <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -291,18 +281,16 @@ function printPage() {
       </div>
     </Transition>
 
-    <!-- List -->
-    <div v-if="viewMode === 'list'" class="list-area">
+    <div class="list-area">
       <div class="list-col">
-        <!-- Select-all bar shown when list is non-empty -->
-        <div v-if="filtered.length > 0" class="select-bar">
+        <div v-if="pagedFiltered.length > 0" class="select-bar">
           <label class="select-all-label">
             <input
               type="checkbox"
-              :checked="allFilteredChecked"
-              :indeterminate="checkedIds.size > 0 && !allFilteredChecked"
+              :checked="allPageChecked"
+              :indeterminate="checkedIds.size > 0 && !allPageChecked"
               @change="toggleAll"
-              aria-label="Select all visible applications"
+              aria-label="Select all on this page"
             />
             <span class="select-all-text">
               {{ checkedIds.size > 0 ? `${checkedIds.size} selected` : 'Select all' }}
@@ -323,7 +311,7 @@ function printPage() {
 
           <TransitionGroup v-else tag="ul" name="list">
             <li
-              v-for="(app, index) in filtered"
+              v-for="(app, index) in pagedFiltered"
               :key="app.id"
               :style="{ '--i': Math.min(index, 9) }"
               @click="selectRow(app.id)"
@@ -358,49 +346,26 @@ function printPage() {
             </li>
           </TransitionGroup>
         </div>
-      </div>
 
-    </div>
-
-    <!-- Board (Kanban) view -->
-    <div v-else class="board-view">
-      <div v-if="store.loading" class="state-msg">Loading…</div>
-      <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
-      <template v-else>
-        <div v-if="boardColumns.length === 0" class="state-msg">No applications match your filters.</div>
-        <div v-for="col in boardColumns" :key="col.status" class="board-col">
-          <div class="board-col-header">
-            <span :class="['chip', col.color]">{{ col.label }}</span>
-            <span class="board-col-count">{{ col.cards.length }}</span>
-          </div>
-          <div class="board-cards">
-            <div
-              v-for="app in col.cards"
-              :key="app.id"
-              :class="['board-card', { 'board-card--active': selectedId === app.id }]"
-              @click="selectedId = app.id"
-              role="button"
-              tabindex="0"
-              :aria-label="`${app.companyName} — ${app.position}`"
-              @keydown.enter="selectedId = app.id"
-            >
-              <p class="board-card-company">{{ app.companyName }}</p>
-              <p class="board-card-position">{{ app.position }}</p>
-              <div class="board-card-meta">
-                <span v-if="store.savingIds.includes(app.id)" class="board-card-saving">Saving…</span>
-                <span class="board-card-date">{{ formatDate(app.appliedAt) }}</span>
-                <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠</span>
-                <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Today">📅</span>
-              </div>
-            </div>
-          </div>
+        <div v-if="pageCount > 1" class="pagination">
+          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
+          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
+          <template v-for="(p, i) in visiblePages" :key="i">
+            <span v-if="p === null" class="page-ellipsis">…</span>
+            <button
+              v-else
+              :class="['page-btn', p === currentPage && 'page-btn--active']"
+              @click="goToPage(p)"
+              :aria-current="p === currentPage ? 'page' : undefined"
+            >{{ p }}</button>
+          </template>
+          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
         </div>
-      </template>
+      </div>
     </div>
 
-    <!-- Bulk action bar (list mode only) -->
     <transition name="bulk-bar">
-      <div v-if="checkedIds.size > 0 && viewMode === 'list'" class="bulk-bar" role="region" aria-label="Bulk actions">
+      <div v-if="checkedIds.size > 0" class="bulk-bar" role="region" aria-label="Bulk actions">
         <span class="bulk-count">{{ checkedIds.size }} selected</span>
         <select v-model="bulkStatus" class="bulk-select" aria-label="New status for selected">
           <option value="">Change status…</option>
@@ -416,7 +381,6 @@ function printPage() {
       </div>
     </transition>
 
-    <!-- Application detail modal (board mode always; list non-split or mobile) -->
     <teleport to="body">
       <Transition name="app-detail">
         <div v-if="selected" class="modal-backdrop" @click.self="onPanelClose" role="dialog" aria-modal="true" :aria-label="`Edit application: ${selected.companyName}`">
@@ -431,7 +395,6 @@ function printPage() {
       <NewApplicationModal v-if="modalOpen" @close="onModalClose" />
     </Transition>
 
-    <!-- Background-save error toast -->
     <teleport to="body">
       <Transition name="toast">
         <div v-if="store.toastError" class="toast-error" role="alert">
@@ -446,7 +409,6 @@ function printPage() {
 <style src="../../assets/split-panel.css" scoped></style>
 
 <style scoped>
-/* layout wrappers */
 .dashboard { max-width: 1280px; margin: 10px auto 0; }
 .list-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .list-col  { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -456,7 +418,6 @@ function printPage() {
   overflow-y: auto;
 }
 
-/* sticky filter bar */
 .filter-bar {
   position: sticky;
   top: 0;
@@ -465,7 +426,6 @@ function printPage() {
   border-bottom: 1px solid var(--col-border);
 }
 
-/* select-all bar */
 .select-bar {
   padding: .375rem 1rem;
   background: var(--col-raised);
@@ -477,7 +437,6 @@ function printPage() {
 .select-all-label { display: flex; align-items: center; gap: .5rem; cursor: pointer; font-size: .8rem; color: var(--col-muted); }
 .select-all-text { user-select: none; }
 
-/* row checkbox */
 .row-checkbox {
   flex-shrink: 0;
   width: 1rem;
@@ -487,12 +446,10 @@ function printPage() {
 }
 .company-row--checked { background: color-mix(in srgb, var(--col-accent) 8%, transparent); }
 
-/* follow-up badges */
 .followup-badge { font-size: .65rem; font-weight: 700; padding: .1rem .4rem; border-radius: 9999px; white-space: nowrap; }
 .followup-badge--overdue { background: #fee2e2; color: #b91c1c; }
 .followup-badge--today   { background: #fef3c7; color: #92400e; }
 
-/* bulk action bar */
 .bulk-bar {
   position: sticky;
   bottom: 0;
@@ -525,7 +482,6 @@ function printPage() {
 .bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
 .bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
 
-/* modal */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -548,7 +504,6 @@ function printPage() {
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
 }
-/* Application detail panel — slide from right (desktop), slide up (mobile) */
 .app-detail-enter-active,
 .app-detail-leave-active { transition: opacity 0.2s ease; }
 .app-detail-enter-from,
@@ -560,6 +515,8 @@ function printPage() {
 @media (max-width: 480px) {
   .app-detail-enter-from .modal-box,
   .app-detail-leave-to   .modal-box { transform: translateY(24px); }
+  .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
+  .modal-backdrop { align-items: flex-end; padding: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .app-detail-enter-active,
@@ -604,67 +561,42 @@ function printPage() {
 }
 .btn-export:hover { background: var(--col-raised); }
 
-/* view mode toggle */
-.view-toggle-group {
-  display: inline-flex; border: 1px solid var(--col-border); border-radius: .375rem; overflow: hidden;
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  padding: .625rem 1rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--col-border-lt);
 }
-.view-toggle-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--col-surface); color: var(--col-muted); border: none;
-  padding: .45rem .625rem; cursor: pointer; transition: background .12s, color .12s;
+.pagination-info {
+  width: 100%;
+  text-align: center;
+  font-size: .72rem;
+  color: var(--col-subtle);
+  margin-bottom: .2rem;
 }
-.view-toggle-btn:hover { background: var(--col-raised); color: var(--col-text); }
-.view-toggle-btn--active { background: var(--col-accent-lt); color: var(--col-accent-dk); }
+.page-btn {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 .4rem;
+  border: 1px solid var(--col-border);
+  border-radius: .375rem;
+  background: var(--col-surface);
+  color: var(--col-muted);
+  font-size: .8rem;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
+.page-btn--active { background: var(--col-accent); color: #fff; border-color: var(--col-accent); font-weight: 600; }
+.page-btn:disabled { opacity: .35; cursor: default; }
+.page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 
-.show-empty-label {
-  display: inline-flex; align-items: center; gap: .35rem;
-  font-size: .8rem; color: var(--col-muted); cursor: pointer; white-space: nowrap;
-}
-.show-empty-check { accent-color: var(--col-accent); }
-
-/* board (kanban) view */
-.board-view {
-  flex: 1; overflow-x: auto; overflow-y: hidden;
-  display: flex; align-items: flex-start; gap: .875rem;
-  padding: 1rem; background: var(--col-bg);
-}
-.board-col {
-  width: 220px; flex-shrink: 0; display: flex; flex-direction: column;
-  max-height: 100%; background: var(--col-surface);
-  border: 1px solid var(--col-border); border-radius: .625rem; overflow: hidden;
-}
-.board-col-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: .625rem .875rem; border-bottom: 1px solid var(--col-border); flex-shrink: 0;
-}
-.board-col-count {
-  font-size: .72rem; font-weight: 700; color: var(--col-muted);
-  background: var(--col-raised); border-radius: 9999px; padding: .1rem .4rem;
-}
-.board-cards { overflow-y: auto; flex: 1; padding: .5rem; display: flex; flex-direction: column; gap: .5rem; }
-.board-card {
-  background: var(--col-bg); border: 1px solid var(--col-border);
-  border-radius: .5rem; padding: .625rem .75rem; cursor: pointer;
-  transition: box-shadow .12s, border-color .12s;
-}
-.board-card:hover { box-shadow: 0 2px 8px color-mix(in srgb, var(--col-text) 8%, transparent); border-color: var(--col-accent); }
-.board-card--active { border-color: var(--col-accent); background: var(--col-accent-lt); }
-.board-card-company { font-size: .8rem; font-weight: 600; color: var(--col-text); margin: 0 0 .2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.board-card-position { font-size: .75rem; color: var(--col-muted); margin: 0 0 .375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.board-card-meta { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; }
-.board-card-date { font-size: .7rem; color: var(--col-subtle); }
-
-@media (max-width: 480px) {
-  .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
-  .modal-backdrop { align-items: flex-end; padding: 0; }
-}
-
-/* saving indicators */
 .row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
-.board-card-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
-/* background-save error toast */
 .toast-error {
   position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
   background: var(--col-error); color: #fff;
@@ -679,9 +611,8 @@ function printPage() {
 .toast-enter-active, .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
 
-/* print styles */
 @media print {
-  .filter-bar, .dropdown-filters-panel, .select-bar, .bulk-bar, .btn-export, .btn-new { display: none !important; }
+  .filter-bar, .dropdown-filters-panel, .select-bar, .bulk-bar, .btn-export, .btn-new, .pagination { display: none !important; }
   .app-list-wrapper { overflow: visible; }
   .modal-backdrop { display: none !important; }
   .company-row { break-inside: avoid; }
