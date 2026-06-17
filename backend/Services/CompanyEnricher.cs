@@ -10,7 +10,7 @@ public sealed class CompanyEnricher
 {
     public const int CurrentVersion = 4;
 
-    private const string Model = "gemini-flash-latest";
+    private const string Model = "gemini-2.0-flash";
     private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
     private const int BatchSize = 10;
     private const int MaxOutputTokens = 8192;
