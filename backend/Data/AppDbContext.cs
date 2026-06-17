@@ -13,6 +13,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<StatusHistory> StatusHistories => Set<StatusHistory>();
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
+    public DbSet<GeminiCallLog> GeminiCallLogs => Set<GeminiCallLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +64,12 @@ public sealed class AppDbContext : DbContext
         {
             e.HasKey(s => s.Id);
             e.Property(s => s.Id).ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<GeminiCallLog>(e =>
+        {
+            e.HasKey(g => g.Id);
+            e.Property(g => g.Id).ValueGeneratedOnAdd();
         });
     }
 }

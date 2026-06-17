@@ -1,7 +1,10 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using backend.Data;
 using backend.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace backend.Services;
@@ -126,11 +129,13 @@ public sealed class CompanyEnricher
 
     private readonly IHttpClientFactory _http;
     private readonly ILogger<CompanyEnricher> _logger;
+    private readonly IServiceScopeFactory? _scopeFactory;
 
-    public CompanyEnricher(IHttpClientFactory http, ILogger<CompanyEnricher> logger)
+    public CompanyEnricher(IHttpClientFactory http, ILogger<CompanyEnricher> logger, IServiceScopeFactory? scopeFactory = null)
     {
-        _http = http;
-        _logger = logger;
+        _http         = http;
+        _logger       = logger;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<int> EnrichBatchAsync(IReadOnlyList<SponsorCompany> companies, CancellationToken ct = default)
@@ -163,7 +168,7 @@ public sealed class CompanyEnricher
             var userText = JsonSerializer.Serialize(
                 inputArray, CompanyEnricherJsonContext.Default.AnonymousCompanyInputArray);
 
-            var text = await CallGeminiAsync(SystemPrompt, userText, apiKey, ct, useCache: true);
+            var text = await CallGeminiAsync(SystemPrompt, userText, apiKey, ct, useCache: true, batchSize: batch.Count);
             if (text is null)
             {
                 _logger.LogWarning("Empty response from Gemini for batch of {Count}", batch.Count);
@@ -278,7 +283,7 @@ public sealed class CompanyEnricher
 
             var userText = JsonSerializer.Serialize(
                 inputs, CompanyEnricherJsonContext.Default.RefinementInputArray);
-            var text = await CallGeminiAsync(RefinementPrompt, userText, apiKey, ct);
+            var text = await CallGeminiAsync(RefinementPrompt, userText, apiKey, ct, batchSize: toRefine.Count);
             if (text is null) return corrections;
 
             var refined = JsonSerializer.Deserialize(
@@ -354,7 +359,7 @@ public sealed class CompanyEnricher
 
     private async Task<string?> CallGeminiAsync(
         string systemPrompt, string userText, string apiKey, CancellationToken ct,
-        bool useCache = false)
+        bool useCache = false, int batchSize = 0)
     {
         var cachedContent = useCache ? await EnsureCacheAsync(apiKey, ct) : null;
 
@@ -385,20 +390,53 @@ public sealed class CompanyEnricher
         };
         httpRequest.Headers.Add("x-goog-api-key", apiKey);
 
+        var sw = Stopwatch.StartNew();
         using var httpResponse = await client.SendAsync(httpRequest, ct);
+        sw.Stop();
+
         if (!httpResponse.IsSuccessStatusCode)
         {
             var body = await httpResponse.Content.ReadAsStringAsync(ct);
             _logger.LogWarning("Gemini API {Status}: {Body}",
                 (int)httpResponse.StatusCode,
                 body.Length > 200 ? body[..200] : body);
+            _ = SaveCallLogAsync(batchSize, null, (int)sw.ElapsedMilliseconds, success: false);
             return null;
         }
 
         var apiResponse = await httpResponse.Content.ReadFromJsonAsync(
             CompanyEnricherJsonContext.Default.GeminiResponse, ct);
         var text = apiResponse?.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
+        _ = SaveCallLogAsync(batchSize, apiResponse?.UsageMetadata, (int)sw.ElapsedMilliseconds, success: text is not null);
         return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private async Task SaveCallLogAsync(int batchSize, GeminiUsageMetadata? usage, int durationMs, bool success)
+    {
+        if (_scopeFactory is null) return;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.GeminiCallLogs.Add(new GeminiCallLog
+            {
+                CalledAt       = DateTimeOffset.UtcNow,
+                Model          = Model,
+                BatchSize      = batchSize,
+                PromptTokens   = usage?.PromptTokenCount        ?? 0,
+                CachedTokens   = usage?.CachedContentTokenCount ?? 0,
+                OutputTokens   = usage?.CandidatesTokenCount    ?? 0,
+                ThinkingTokens = usage?.ThoughtsTokenCount      ?? 0,
+                TotalTokens    = usage?.TotalTokenCount         ?? 0,
+                DurationMs     = durationMs,
+                Success        = success,
+            });
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save Gemini call log");
+        }
     }
 
     private async Task<string?> ValidateUrlAsync(string? url, CancellationToken ct)
@@ -519,7 +557,17 @@ internal sealed class GeminiThinkingConfig
 
 internal sealed class GeminiResponse
 {
-    [JsonPropertyName("candidates")] public GeminiCandidate[] Candidates { get; set; } = [];
+    [JsonPropertyName("candidates")]    public GeminiCandidate[]     Candidates    { get; set; } = [];
+    [JsonPropertyName("usageMetadata")] public GeminiUsageMetadata?  UsageMetadata { get; set; }
+}
+
+internal sealed class GeminiUsageMetadata
+{
+    [JsonPropertyName("promptTokenCount")]          public int PromptTokenCount          { get; set; }
+    [JsonPropertyName("candidatesTokenCount")]      public int CandidatesTokenCount      { get; set; }
+    [JsonPropertyName("cachedContentTokenCount")]   public int CachedContentTokenCount   { get; set; }
+    [JsonPropertyName("thoughtsTokenCount")]        public int ThoughtsTokenCount        { get; set; }
+    [JsonPropertyName("totalTokenCount")]           public int TotalTokenCount           { get; set; }
 }
 
 internal sealed class GeminiCandidate
@@ -568,6 +616,7 @@ internal sealed class EnrichmentRefinementResult
 
 [JsonSerializable(typeof(GeminiRequest))]
 [JsonSerializable(typeof(GeminiResponse))]
+[JsonSerializable(typeof(GeminiUsageMetadata))]
 [JsonSerializable(typeof(CreateCacheRequest))]
 [JsonSerializable(typeof(CachedContentInfo))]
 [JsonSerializable(typeof(CompanyEnrichmentResult))]
