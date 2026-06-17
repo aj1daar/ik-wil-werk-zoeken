@@ -347,7 +347,7 @@ function printPage() {
           </TransitionGroup>
         </div>
 
-        <div v-if="pageCount > 1" class="pagination">
+        <div v-if="filtered.length > 0" class="pagination">
           <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
           <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
           <template v-for="(p, i) in visiblePages" :key="i">
@@ -569,6 +569,10 @@ function printPage() {
   padding: .625rem 1rem;
   flex-wrap: wrap;
   border-top: 1px solid var(--col-border-lt);
+  position: sticky;
+  bottom: 0;
+  background: var(--col-bg);
+  z-index: 2;
 }
 .pagination-info {
   width: 100%;

@@ -31,7 +31,6 @@ const visibleTags = computed(() => {
   if (!q) return all.slice(0, TAG_LIMIT)
   return all.filter(t => t.toLowerCase().includes(q))
 })
-const displayCount        = ref(60)
 const sortOrder           = ref<'default' | 'az' | 'za' | 'city'>('az')
 const hiddenIds           = ref<Set<string>>((() => {
   try { return new Set<string>(JSON.parse(localStorage.getItem('iwwz_hidden_companies') ?? '[]')) }
@@ -110,16 +109,9 @@ const filteredRows = computed<SponsorCompany[]>(() => {
 })
 
 const rows = computed<SponsorCompany[]>(() => {
-  if (!anyFilter.value) return filteredRows.value.slice(0, displayCount.value)
   const start = (currentPage.value - 1) * PAGE_SIZE
   return filteredRows.value.slice(start, start + PAGE_SIZE)
 })
-
-const canLoadMore = computed(() =>
-  !anyFilter.value && displayCount.value < filteredRows.value.length
-)
-
-function loadMore() { displayCount.value += PAGE_SIZE }
 
 const pageCount = computed(() => Math.ceil(filteredRows.value.length / PAGE_SIZE))
 
@@ -276,7 +268,6 @@ function clearFilters() {
   appliedFilter.value = 'all'
   includeTags.value = []
   excludeTags.value = []
-  displayCount.value = PAGE_SIZE
   sortOrder.value = 'az'
 }
 
@@ -494,16 +485,7 @@ const activeDropdownCount = computed(() =>
           </template>
         </ul>
 
-        <div v-if="canLoadMore" class="load-more-wrap">
-          <button @click="loadMore" class="btn-load-more">
-            Load more ({{ filteredRows.length - displayCount }} remaining)
-          </button>
-          <button @click="displayCount = filteredRows.length" class="btn-load-more">
-            Load all
-          </button>
-        </div>
-
-        <div v-if="anyFilter && pageCount > 1" class="pagination">
+        <div v-if="filteredRows.length > 0" class="pagination">
           <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filteredRows.length) }} of {{ filteredRows.length }}</span>
           <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
           <template v-for="(p, i) in visiblePages" :key="i">
@@ -799,6 +781,10 @@ const activeDropdownCount = computed(() =>
   padding: .625rem 1rem;
   flex-wrap: wrap;
   border-top: 1px solid var(--col-border-lt);
+  position: sticky;
+  bottom: 0;
+  background: var(--col-bg);
+  z-index: 2;
 }
 .pagination-info {
   width: 100%;
