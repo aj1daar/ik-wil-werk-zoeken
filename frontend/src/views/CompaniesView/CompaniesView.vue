@@ -558,6 +558,7 @@ const activeDropdownCount = computed(() =>
       <NewApplicationModal
         v-if="modalOpen"
         :prefill-company="prefillCompany"
+        :prefill-sponsor-id="prefillSponsorId"
         @close="modalOpen = false"
       />
     </Transition>

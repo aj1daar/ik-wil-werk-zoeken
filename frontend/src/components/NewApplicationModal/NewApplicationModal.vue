@@ -8,7 +8,7 @@ import DatePicker from '../DatePicker/DatePicker.vue'
 
 const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted'])
 
-const props = defineProps<{ prefillCompany?: string }>()
+const props = defineProps<{ prefillCompany?: string; prefillSponsorId?: string }>()
 const emit  = defineEmits<{ close: [] }>()
 
 const store          = useApplicationsStore()
@@ -16,7 +16,7 @@ const companiesStore = useCompaniesStore()
 
 const initialCompany = props.prefillCompany ?? ''
 const companyName     = ref(initialCompany)
-const sponsorCompanyId = ref<string | undefined>(undefined)
+const sponsorCompanyId = ref<string | undefined>(props.prefillSponsorId)
 const selectedCompany  = ref<SponsorCompany | null>(null)
 const suggestions      = ref<SponsorCompany[]>([])
 const highlightedIndex = ref(-1)
