@@ -10,7 +10,7 @@ public sealed class CompanyEnricher
 {
     public const int CurrentVersion = 4;
 
-    private const string Model = "gemini-2.5-flash";
+    private const string Model = "gemini-2.5-flash-lite";
     private const string GenerateEndpoint = $"v1beta/models/{Model}:generateContent";
     private const int BatchSize = 10;
     private const int MaxOutputTokens = 8192;
@@ -92,7 +92,7 @@ public sealed class CompanyEnricher
         - companySize MUST be exactly one of: "startup", "scaleup", "mid", "large", "enterprise" — or null.
         - remotePolicy MUST be exactly one of: "remote", "hybrid", "office", "unknown". Never null.
         - targetMarket MUST be exactly one of: "B2B", "B2C", "B2G", "Mixed" — or null.
-        - websiteUrl: only include if CERTAIN it is the company's official, currently-active website. Prefer null over a guess.
+        - websiteUrl: only include if CERTAIN it is the company's own official website. NEVER output kvk.nl URLs. Prefer null over a guess.
         - city: only include if CERTAIN this is the company's primary HQ city in the Netherlands (e.g. "Amsterdam",
                 "Rotterdam", "Eindhoven", "Utrecht", "Delft"). Prefer null over a guess. Never invent a city.
         - companySize guide: startup < 50 employees, scaleup 50–250, mid 250–1000, large 1000–5000, enterprise > 5000.
@@ -371,7 +371,8 @@ public sealed class CompanyEnricher
             GenerationConfig = new GeminiGenerationConfig
             {
                 ResponseMimeType = "application/json",
-                MaxOutputTokens = MaxOutputTokens
+                MaxOutputTokens  = MaxOutputTokens,
+                ThinkingConfig   = new GeminiThinkingConfig { ThinkingBudget = 0 }
             }
         };
 
@@ -508,6 +509,12 @@ internal sealed class GeminiGenerationConfig
 {
     [JsonPropertyName("responseMimeType")] public string ResponseMimeType { get; set; } = "application/json";
     [JsonPropertyName("maxOutputTokens")] public int MaxOutputTokens { get; set; }
+    [JsonPropertyName("thinkingConfig")]   public GeminiThinkingConfig? ThinkingConfig { get; set; }
+}
+
+internal sealed class GeminiThinkingConfig
+{
+    [JsonPropertyName("thinkingBudget")] public int ThinkingBudget { get; set; }
 }
 
 internal sealed class GeminiResponse
