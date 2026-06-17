@@ -138,6 +138,17 @@
 
   .company-list { min-height: 0; }
 
-  /* Hide panel column on mobile — the modal overlay is used instead */
-  .detail-panel { display: none !important; }
+  .main-split { overflow: visible; }
+
+  .detail-panel {
+    max-width: none;
+    width: 100%;
+    border-left: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  /* max-width animation doesn't work with none; use fade only */
+  .panel-enter-active,
+  .panel-leave-active { transition: opacity 0.2s ease; }
 }
