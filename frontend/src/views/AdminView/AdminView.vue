@@ -23,6 +23,10 @@ const enrichedThisSession = ref(0)
 const enrichRemaining    = ref<number | null>(null)
 let   enrichAbort: AbortController | null = null
 
+const testBatchRunning = ref(false)
+const testBatchResult  = ref<{ enriched: number; remaining: number; message: string } | null>(null)
+const testBatchError   = ref('')
+
 const syncLogs      = ref<SyncLog[]>([])
 const loadingLogs   = ref(false)
 const logsError     = ref('')
@@ -101,6 +105,19 @@ function stopEnrich() {
   enrichAbort?.abort()
 }
 
+async function runTestBatch() {
+  testBatchRunning.value = true
+  testBatchResult.value  = null
+  testBatchError.value   = ''
+  try {
+    testBatchResult.value = await api.adminEnrichSponsors()
+  } catch (e) {
+    testBatchError.value = e instanceof Error ? e.message : 'Failed'
+  } finally {
+    testBatchRunning.value = false
+  }
+}
+
 async function loadSyncLogs() {
   loadingLogs.value = true
   logsError.value   = ''
@@ -170,9 +187,22 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <section class="admin-card" aria-labelledby="enrich-heading">
       <h2 id="enrich-heading" class="card-title">Enrich Companies via AI</h2>
       <p class="card-desc">Enriches 10 companies per request sequentially. Progress is saved after each batch — safe to stop and restart.</p>
-      <button class="btn-primary" :disabled="enriching" @click="enrichSponsors">
-        Enrich Companies
-      </button>
+      <div class="enrich-actions">
+        <button class="btn-primary" :disabled="enriching || testBatchRunning" @click="enrichSponsors">
+          Enrich Companies
+        </button>
+        <button class="btn-ghost" :disabled="enriching || testBatchRunning" @click="runTestBatch">
+          {{ testBatchRunning ? 'Running…' : 'Run 1 batch' }}
+        </button>
+      </div>
+      <div v-if="testBatchResult" class="batch-result" role="status">
+        <span class="batch-stat"><strong>{{ testBatchResult.enriched }}</strong> enriched</span>
+        <span class="batch-sep">·</span>
+        <span class="batch-stat"><strong>{{ testBatchResult.remaining }}</strong> remaining</span>
+        <span class="batch-sep">·</span>
+        <span class="batch-note">Check GeminiCallLogs table for token breakdown</span>
+      </div>
+      <p v-if="testBatchError" class="form-error" role="alert">{{ testBatchError }}</p>
     </section>
 
     <!-- Enrichment progress modal -->
@@ -439,6 +469,25 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
   animation: spin .75s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.enrich-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+
+.btn-ghost {
+  background: var(--col-surface); color: var(--col-muted);
+  border: 1px solid var(--col-border); border-radius: 6px;
+  padding: 0.55rem 1.25rem; font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; transition: background .15s, color .15s; white-space: nowrap;
+}
+.btn-ghost:disabled { opacity: .55; cursor: not-allowed; }
+.btn-ghost:not(:disabled):hover { background: var(--col-raised); color: var(--col-text); }
+
+.batch-result {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+  margin-top: .75rem; font-size: .875rem;
+}
+.batch-stat { color: var(--col-text); }
+.batch-sep  { color: var(--col-subtle); }
+.batch-note { color: var(--col-muted); font-size: .8rem; font-style: italic; }
 
 @media (max-width: 600px) {
   .admin-page { margin: 0; border-radius: 0; box-shadow: none; }
