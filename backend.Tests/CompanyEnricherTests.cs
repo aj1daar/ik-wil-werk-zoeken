@@ -173,9 +173,9 @@ public sealed class CompanyEnricherTests
     }
 
     [Fact]
-    public async Task EnrichBatchAsync_BatchOf21_SendsTwoHttpCalls()
+    public async Task EnrichBatchAsync_BatchOf11_SendsTwoHttpCalls()
     {
-        var companies = Enumerable.Range(0, 21)
+        var companies = Enumerable.Range(0, 11)
             .Select(i => MakeCompany($"Co {i}", $"{i:D8}"))
             .ToList();
 
@@ -187,9 +187,9 @@ public sealed class CompanyEnricherTests
             websiteUrl = (string?)null, targetMarket = "B2B"
         };
 
-        // Return arrays for batch of 20 and batch of 1
+        // Return arrays for batch of 10 and batch of 1
         var factory = new CountingGeminiHttpClientFactory([
-            (HttpStatusCode.OK, WrapGeminiResponse(JsonSerializer.Serialize(Enumerable.Repeat(singleResult, 20).ToArray()))),
+            (HttpStatusCode.OK, WrapGeminiResponse(JsonSerializer.Serialize(Enumerable.Repeat(singleResult, 10).ToArray()))),
             (HttpStatusCode.OK, WrapGeminiResponse(JsonSerializer.Serialize(Enumerable.Repeat(singleResult, 1).ToArray()))),
         ]);
 
@@ -199,7 +199,7 @@ public sealed class CompanyEnricherTests
         {
             var enricher = new CompanyEnricher(factory, NullLogger<CompanyEnricher>.Instance);
             var enriched = await enricher.EnrichBatchAsync(companies);
-            Assert.Equal(21, enriched);
+            Assert.Equal(11, enriched);
             Assert.Equal(2, factory.CallCount);
 
         }
