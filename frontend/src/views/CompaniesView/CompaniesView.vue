@@ -663,9 +663,9 @@ const activeDropdownCount = computed(() =>
 .tag-row { display: flex; flex-wrap: wrap; gap: .375rem; }
 .tag { background: var(--col-accent-lt); color: var(--col-accent-dk); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 500; }
 .tag--muted { background: var(--col-raised); color: var(--col-muted); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; }
-.panel-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); display: flex; gap: .625rem; }
+.panel-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); display: flex; gap: .625rem; flex-wrap: wrap; }
 .icon { width: 1.25rem; height: 1.25rem; }
-.footer-primary { flex: 1; }
+.footer-primary { flex: 1; min-width: 140px; }
 .footer-website {
   display: inline-flex; align-items: center; gap: .3rem;
   font-size: .875rem; white-space: nowrap; flex-shrink: 0;
