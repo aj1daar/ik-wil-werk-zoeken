@@ -79,6 +79,8 @@ const rows = computed<SponsorCompany[]>(() => {
       includeTags:     includeTags.value,
       excludeTags:     excludeTags.value,
     })
+  } else if (appliedFilter.value !== 'all') {
+    list = store.companies
   } else {
     list = store.companies.slice(0, displayCount.value)
   }
