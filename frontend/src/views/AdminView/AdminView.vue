@@ -169,7 +169,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Enrich sponsors section -->
     <section class="admin-card" aria-labelledby="enrich-heading">
       <h2 id="enrich-heading" class="card-title">Enrich Companies via AI</h2>
-      <p class="card-desc">Enriches 20 companies per request sequentially. Progress is saved after each batch — safe to stop and restart.</p>
+      <p class="card-desc">Enriches 10 companies per request sequentially. Progress is saved after each batch — safe to stop and restart.</p>
       <button class="btn-primary" :disabled="enriching" @click="enrichSponsors">
         Enrich Companies
       </button>
@@ -184,8 +184,11 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
           <div v-if="enriching" class="enrich-body">
             <div class="enrich-spinner" aria-hidden="true"></div>
             <p class="enrich-stat">
-              <strong>{{ enrichedThisSession }}</strong> enriched this session<br>
-              <strong>{{ enrichRemaining ?? '—' }}</strong> still remaining
+              <template v-if="enrichRemaining === null">Starting first batch…</template>
+              <template v-else>
+                <strong>{{ enrichedThisSession }}</strong> enriched this session<br>
+                <strong>{{ enrichRemaining }}</strong> still remaining
+              </template>
             </p>
             <button class="btn-danger" @click="stopEnrich">Stop</button>
           </div>
