@@ -128,7 +128,7 @@ describe('RejectionChart – rejection counting', () => {
   })
 
   it('legend shows only top 2 when more than 2 reasons exist', () => {
-    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'other'] as const
+    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'no_vacancies', 'other'] as const
     const apps = reasons.map(r => makeApp({ rejectionReason: r }))
     const w = mountChart(apps)
     expect(w.findAll('.donut-legend-item')).toHaveLength(2)

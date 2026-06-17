@@ -69,10 +69,10 @@ describe('STATUS_COLOR', () => {
 })
 
 describe('REJECTION_REASON_LABELS', () => {
-  it('covers all seven reasons', () => {
-    const expected = ['dutch_language','another_candidate','incompatible_profile','salary_mismatch','internal_hire','failed_assessment','other']
+  it('covers all eight reasons', () => {
+    const expected = ['dutch_language','another_candidate','incompatible_profile','salary_mismatch','internal_hire','failed_assessment','no_vacancies','other']
     expect(Object.keys(REJECTION_REASON_LABELS)).toEqual(expect.arrayContaining(expected))
-    expect(Object.keys(REJECTION_REASON_LABELS)).toHaveLength(7)
+    expect(Object.keys(REJECTION_REASON_LABELS)).toHaveLength(8)
   })
 })
 

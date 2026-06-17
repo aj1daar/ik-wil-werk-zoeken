@@ -202,6 +202,7 @@ export type RejectionReason =
   | 'salary_mismatch'
   | 'internal_hire'
   | 'failed_assessment'
+  | 'no_vacancies'
   | 'other'
 
 export interface Stats {

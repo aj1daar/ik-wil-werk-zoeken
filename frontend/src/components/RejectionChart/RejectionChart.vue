@@ -43,6 +43,7 @@ const REASON_META = [
   { key: 'salary_mismatch',      label: 'Salary mismatch',             color: '#eab308' },
   { key: 'internal_hire',        label: 'Filled internally',           color: '#8b5cf6' },
   { key: 'failed_assessment',    label: 'Did not pass assessment',     color: '#fb923c' },
+  { key: 'no_vacancies',         label: 'No vacancies at the moment',  color: '#06b6d4' },
   { key: 'other',                label: 'Other',                       color: '#6b7280' },
   { key: 'unknown',              label: 'No reason given',             color: '#94a3b8' },
 ] as const

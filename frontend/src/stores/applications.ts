@@ -36,6 +36,7 @@ export const REJECTION_REASON_LABELS: Record<string, string> = {
   salary_mismatch:      'Salary expectations mismatch',
   internal_hire:        'Position filled internally',
   failed_assessment:    'Did not pass the assessment',
+  no_vacancies:         'No vacancies at the moment',
   other:                'Other',
 }
 
