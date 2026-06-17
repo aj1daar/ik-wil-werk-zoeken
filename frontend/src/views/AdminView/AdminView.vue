@@ -20,7 +20,7 @@ const enrichError        = ref('')
 const enrichCancelled    = ref(false)
 const showEnrichModal    = ref(false)
 const enrichedThisSession = ref(0)
-const enrichRemaining    = ref(0)
+const enrichRemaining    = ref<number | null>(null)
 
 const syncLogs      = ref<SyncLog[]>([])
 const loadingLogs   = ref(false)
@@ -76,7 +76,7 @@ async function enrichSponsors() {
   enrichCancelled.value    = false
   enrichError.value        = ''
   enrichedThisSession.value = 0
-  enrichRemaining.value    = 0
+  enrichRemaining.value    = null
   showEnrichModal.value    = true
   try {
     while (!enrichCancelled.value) {
@@ -180,7 +180,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
             <div class="enrich-spinner" aria-hidden="true"></div>
             <p class="enrich-stat">
               <strong>{{ enrichedThisSession }}</strong> enriched this session<br>
-              <strong>{{ enrichRemaining }}</strong> still remaining
+              <strong>{{ enrichRemaining ?? '—' }}</strong> still remaining
             </p>
             <button class="btn-danger" @click="stopEnrich">Stop</button>
           </div>
@@ -191,7 +191,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
               <template v-else-if="enrichCancelled">Stopped early.<br></template>
               <template v-else>All done!<br></template>
               <strong>{{ enrichedThisSession }}</strong> enriched this session ·
-              <strong>{{ enrichRemaining }}</strong> still remaining
+              <strong>{{ enrichRemaining ?? '—' }}</strong> still remaining
             </p>
             <button class="btn-primary" @click="showEnrichModal = false">Close</button>
           </div>
