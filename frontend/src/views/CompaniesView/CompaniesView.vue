@@ -38,6 +38,7 @@ const hiddenIds           = ref<Set<string>>((() => {
   catch { return new Set<string>() }
 })())
 const showHidden          = ref(false)
+const currentPage         = ref(1)
 
 const PAGE_SIZE = 60
 
@@ -77,7 +78,7 @@ const anyFilter = computed(() =>
   includeTags.value.length > 0 || excludeTags.value.length > 0
 )
 
-const rows = computed<SponsorCompany[]>(() => {
+const filteredRows = computed<SponsorCompany[]>(() => {
   let list: SponsorCompany[]
   if (search.value.trim() !== '' || filterCity.value !== '' ||
       filterWorkingLanguage.value !== '' || filterCompanySize.value !== '' || filterRemotePolicy.value !== '' ||
@@ -91,10 +92,8 @@ const rows = computed<SponsorCompany[]>(() => {
       includeTags:     includeTags.value,
       excludeTags:     excludeTags.value,
     })
-  } else if (appliedFilter.value !== 'all') {
-    list = store.companies
   } else {
-    list = store.companies.slice(0, displayCount.value)
+    list = store.companies
   }
 
   if (!showHidden.value && hiddenIds.value.size > 0) {
@@ -110,11 +109,42 @@ const rows = computed<SponsorCompany[]>(() => {
   return list
 })
 
+const rows = computed<SponsorCompany[]>(() => {
+  if (!anyFilter.value) return filteredRows.value.slice(0, displayCount.value)
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredRows.value.slice(start, start + PAGE_SIZE)
+})
+
 const canLoadMore = computed(() =>
-  !anyFilter.value && displayCount.value < store.companies.length
+  !anyFilter.value && displayCount.value < filteredRows.value.length
 )
 
 function loadMore() { displayCount.value += PAGE_SIZE }
+
+const pageCount = computed(() => Math.ceil(filteredRows.value.length / PAGE_SIZE))
+
+const visiblePages = computed((): (number | null)[] => {
+  const total = pageCount.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const around = new Set([1, total, cur - 2, cur - 1, cur, cur + 1, cur + 2].filter(p => p >= 1 && p <= total))
+  const sorted = [...around].sort((a, b) => a - b)
+  const pages: (number | null)[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) pages.push(null)
+    pages.push(sorted[i])
+  }
+  return pages
+})
+
+watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden], () => {
+  currentPage.value = 1
+})
+
+function goToPage(page: number) {
+  currentPage.value = page
+  document.querySelector<HTMLElement>('.company-list')?.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 // ── Parent company grouping ──────────────────────────────────────────────────
 
@@ -466,11 +496,26 @@ const activeDropdownCount = computed(() =>
 
         <div v-if="canLoadMore" class="load-more-wrap">
           <button @click="loadMore" class="btn-load-more">
-            Load more ({{ store.companies.length - displayCount }} remaining)
+            Load more ({{ filteredRows.length - displayCount }} remaining)
           </button>
-          <button @click="displayCount = store.companies.length" class="btn-load-more">
+          <button @click="displayCount = filteredRows.length" class="btn-load-more">
             Load all
           </button>
+        </div>
+
+        <div v-if="anyFilter && pageCount > 1" class="pagination">
+          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filteredRows.length) }} of {{ filteredRows.length }}</span>
+          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
+          <template v-for="(p, i) in visiblePages" :key="i">
+            <span v-if="p === null" class="page-ellipsis">…</span>
+            <button
+              v-else
+              :class="['page-btn', p === currentPage && 'page-btn--active']"
+              @click="goToPage(p)"
+              :aria-current="p === currentPage ? 'page' : undefined"
+            >{{ p }}</button>
+          </template>
+          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
         </div>
       </div>
 
@@ -745,4 +790,37 @@ const activeDropdownCount = computed(() =>
   .panel { height: auto; }
   .panel-body { overflow-y: visible; }
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  padding: .625rem 1rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--col-border-lt);
+}
+.pagination-info {
+  width: 100%;
+  text-align: center;
+  font-size: .72rem;
+  color: var(--col-subtle);
+  margin-bottom: .2rem;
+}
+.page-btn {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 .4rem;
+  border: 1px solid var(--col-border);
+  border-radius: .375rem;
+  background: var(--col-surface);
+  color: var(--col-muted);
+  font-size: .8rem;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
+.page-btn--active { background: var(--col-accent); color: #fff; border-color: var(--col-accent); font-weight: 600; }
+.page-btn:disabled { opacity: .35; cursor: default; }
+.page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 </style>
