@@ -211,6 +211,39 @@ describe('CompaniesView – applied here overlay', () => {
     await wrapper.find('.company-row').trigger('click')
     expect(wrapper.find('.footer-primary').text()).toContain('Start Application')
   })
+
+  it('shows status chip via name match when sponsorCompanyId is null', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })],
+      [makeApp({ sponsorCompanyId: undefined, companyName: 'Acme B.V.', status: 'Applied' })]
+    )
+    await flushPromises()
+    expect(wrapper.find('.status-chip').exists()).toBe(true)
+    expect(wrapper.find('.status-chip').text()).toContain('Applied')
+  })
+
+  it('name match is case-insensitive and trims whitespace', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })],
+      [makeApp({ sponsorCompanyId: undefined, companyName: '  acme b.v.  ', status: 'Rejected' })]
+    )
+    await flushPromises()
+    expect(wrapper.find('.status-chip').exists()).toBe(true)
+    expect(wrapper.find('.status-chip').text()).toContain('Rejected')
+  })
+
+  it('ID match takes priority over name match when both exist', async () => {
+    const wrapper = mountView(
+      [makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })],
+      [
+        makeApp({ id: 'app-id',   sponsorCompanyId: 'sp-1',     companyName: 'Acme B.V.', status: 'Rejected',  updatedAt: '2026-01-01T00:00:00Z' }),
+        makeApp({ id: 'app-name', sponsorCompanyId: undefined,   companyName: 'Acme B.V.', status: 'Applied',   updatedAt: '2026-06-10T00:00:00Z' }),
+      ]
+    )
+    await flushPromises()
+    // The ID-matched app wins regardless of date; name-only app should not override it
+    expect(wrapper.find('.status-chip').text()).toContain('Rejected')
+  })
 })
 
 // ── applied filter toggle ─────────────────────────────────────────────────────
@@ -280,6 +313,22 @@ describe('CompaniesView – applied filter toggle', () => {
     await wrapper.find('.btn-clear-filters').trigger('click')
     await nextTick()
     expect(wrapper.find('.applied-toggle-btn--active').text()).toBe('All')
+  })
+
+  it('"Applied" filter shows company matched by name when sponsorCompanyId is null', async () => {
+    const wrapper = mountView(
+      [
+        makeSponsor({ id: 'sp-1', name: 'Name Matched Co' }),
+        makeSponsor({ id: 'sp-2', name: 'Unrelated Co' }),
+      ],
+      [makeApp({ sponsorCompanyId: undefined, companyName: 'Name Matched Co', status: 'Applied' })]
+    )
+    await flushPromises()
+    await wrapper.findAll('.applied-toggle-btn')[1].trigger('click')
+    await nextTick()
+    const rows = wrapper.findAll('.company-row')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text()).toContain('Name Matched Co')
   })
 
   it('applied filter toggle appears in clear-filters check', async () => {

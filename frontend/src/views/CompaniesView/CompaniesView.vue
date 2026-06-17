@@ -47,13 +47,25 @@ onMounted(() => {
 })
 
 const mostRecentForCompany = computed((): Map<string, Application> => {
-  const map = new Map<string, Application>()
+  const byId   = new Map<string, Application>()
+  const byName = new Map<string, Application>()
   for (const app of appsStore.applications) {
-    if (!app.sponsorCompanyId) continue
-    const existing = map.get(app.sponsorCompanyId)
-    if (!existing || app.updatedAt > existing.updatedAt) {
-      map.set(app.sponsorCompanyId, app)
+    if (app.sponsorCompanyId) {
+      const existing = byId.get(app.sponsorCompanyId)
+      if (!existing || app.updatedAt > existing.updatedAt)
+        byId.set(app.sponsorCompanyId, app)
+    } else if (app.companyName) {
+      const key = app.companyName.trim().toLowerCase()
+      const existing = byName.get(key)
+      if (!existing || app.updatedAt > existing.updatedAt)
+        byName.set(key, app)
     }
+  }
+  const map = new Map<string, Application>(byId)
+  for (const company of store.companies) {
+    if (map.has(company.id)) continue
+    const match = byName.get(company.name.trim().toLowerCase())
+    if (match) map.set(company.id, match)
   }
   return map
 })
@@ -728,4 +740,9 @@ const activeDropdownCount = computed(() =>
   flex-shrink: 0; white-space: nowrap;
 }
 .btn-hide-company:hover { background: var(--col-raised); color: var(--col-error); }
+
+@media (max-width: 767px) {
+  .panel { height: auto; }
+  .panel-body { overflow-y: visible; }
+}
 </style>
