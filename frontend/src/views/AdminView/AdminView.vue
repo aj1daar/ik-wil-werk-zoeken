@@ -214,7 +214,6 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
               <th scope="col">Added</th>
               <th scope="col">Updated</th>
               <th scope="col">Removed</th>
-              <th scope="col">Enriched</th>
               <th scope="col">Total</th>
             </tr>
           </thead>
@@ -229,7 +228,6 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
               <td class="num-cell">+{{ log.added }}</td>
               <td class="num-cell">{{ log.updated }}</td>
               <td class="num-cell removed-cell">{{ log.removed > 0 ? `-${log.removed}` : '0' }}</td>
-              <td class="num-cell">{{ log.enriched }}</td>
               <td class="num-cell">{{ log.totalAfterSync }}</td>
             </tr>
           </tbody>
