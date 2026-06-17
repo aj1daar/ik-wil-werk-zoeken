@@ -137,9 +137,9 @@ public sealed class CompanyEnricher
 
     private const string CacheEndpoint = "v1beta/cachedContents";
 
-    private static string?         s_cachedContentName;
-    private static DateTimeOffset  s_cacheExpiry = DateTimeOffset.MinValue;
-    private static bool            s_cachingUnsupported;
+    private record CacheState(string? Name, DateTimeOffset Expiry, bool Unsupported);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, CacheState>
+        s_cacheByModel = new();
     private static readonly SemaphoreSlim s_cacheLock = new(1, 1);
 
     private readonly IHttpClientFactory _http;
@@ -331,23 +331,24 @@ public sealed class CompanyEnricher
         return corrections;
     }
 
-    private async Task<string?> EnsureCacheAsync(string apiKey, CancellationToken ct)
+    private async Task<string?> EnsureCacheAsync(string model, string apiKey, CancellationToken ct)
     {
-        if (s_cachingUnsupported) return null;
-        if (s_cachedContentName is not null && DateTimeOffset.UtcNow < s_cacheExpiry)
-            return s_cachedContentName;
+        var state = s_cacheByModel.GetValueOrDefault(model);
+        if (state?.Unsupported == true) return null;
+        if (state?.Name is not null && DateTimeOffset.UtcNow < state.Expiry) return state.Name;
 
         await s_cacheLock.WaitAsync(ct);
         try
         {
-            if (s_cachedContentName is not null && DateTimeOffset.UtcNow < s_cacheExpiry)
-                return s_cachedContentName;
+            state = s_cacheByModel.GetValueOrDefault(model);
+            if (state?.Unsupported == true) return null;
+            if (state?.Name is not null && DateTimeOffset.UtcNow < state.Expiry) return state.Name;
 
             var body = JsonSerializer.Serialize(new CreateCacheRequest
             {
-                Model              = $"models/{Model}",
-                SystemInstruction  = new GeminiContent { Parts = [new GeminiPart { Text = SystemPrompt }] },
-                Ttl                = "3600s",
+                Model             = $"models/{model}",
+                SystemInstruction = new GeminiContent { Parts = [new GeminiPart { Text = SystemPrompt }] },
+                Ttl               = "3600s",
             }, CompanyEnricherJsonContext.Default.CreateCacheRequest);
 
             using var client = _http.CreateClient("gemini");
@@ -361,20 +362,23 @@ public sealed class CompanyEnricher
             if (!resp.IsSuccessStatusCode)
             {
                 var err = await resp.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning("Gemini cache creation failed ({Status}) — using uncached requests. {Err}",
-                    (int)resp.StatusCode, err.Length > 300 ? err[..300] : err);
-                s_cachingUnsupported = true;
+                _logger.LogWarning("Gemini cache creation failed for {Model} ({Status}) — using uncached requests. {Err}",
+                    model, (int)resp.StatusCode, err.Length > 300 ? err[..300] : err);
+                s_cacheByModel[model] = new CacheState(null, DateTimeOffset.MinValue, Unsupported: true);
                 return null;
             }
 
             var info = await resp.Content.ReadFromJsonAsync(
                 CompanyEnricherJsonContext.Default.CachedContentInfo, ct);
-            if (info?.Name is null) { s_cachingUnsupported = true; return null; }
+            if (info?.Name is null)
+            {
+                s_cacheByModel[model] = new CacheState(null, DateTimeOffset.MinValue, Unsupported: true);
+                return null;
+            }
 
-            s_cachedContentName = info.Name;
-            s_cacheExpiry       = DateTimeOffset.UtcNow.AddMinutes(55);
-            _logger.LogInformation("Gemini prompt cache created: {Name}", s_cachedContentName);
-            return s_cachedContentName;
+            s_cacheByModel[model] = new CacheState(info.Name, DateTimeOffset.UtcNow.AddMinutes(55), Unsupported: false);
+            _logger.LogInformation("Gemini prompt cache created for {Model}: {Name}", model, info.Name);
+            return info.Name;
         }
         finally { s_cacheLock.Release(); }
     }
@@ -384,7 +388,7 @@ public sealed class CompanyEnricher
         string model = Model, bool useCache = false, int batchSize = 0)
     {
         var endpoint = $"v1beta/models/{model}:generateContent";
-        var cachedContent = (useCache && model == Model) ? await EnsureCacheAsync(apiKey, ct) : null;
+        var cachedContent = useCache ? await EnsureCacheAsync(model, apiKey, ct) : null;
 
         var requestObj = new GeminiRequest
         {
