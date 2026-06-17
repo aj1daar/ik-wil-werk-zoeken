@@ -8,11 +8,12 @@ function headers(): HeadersInit {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: headers(),
-    body: body !== undefined ? JSON.stringify(body) : undefined
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
   })
   if (res.status === 401) {
     sessionStorage.removeItem('token')
@@ -81,8 +82,8 @@ export const api = {
   adminReloadSponsors: () =>
     request<{ message: string }>('POST', '/api/mgmt/reload-sponsors'),
 
-  adminEnrichSponsors: () =>
-    request<{ enriched: number; remaining: number; message: string }>('POST', '/api/mgmt/enrich-sponsors'),
+  adminEnrichSponsors: (signal?: AbortSignal) =>
+    request<{ enriched: number; remaining: number; message: string }>('POST', '/api/mgmt/enrich-sponsors', undefined, signal),
 
   adminGetSyncLogs: () =>
     request<SyncLog[]>('GET', '/api/mgmt/sync-logs'),

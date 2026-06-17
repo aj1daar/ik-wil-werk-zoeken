@@ -21,6 +21,7 @@ const enrichCancelled    = ref(false)
 const showEnrichModal    = ref(false)
 const enrichedThisSession = ref(0)
 const enrichRemaining    = ref<number | null>(null)
+let   enrichAbort: AbortController | null = null
 
 const syncLogs      = ref<SyncLog[]>([])
 const loadingLogs   = ref(false)
@@ -72,28 +73,32 @@ async function reloadSponsors() {
 }
 
 async function enrichSponsors() {
-  enriching.value          = true
-  enrichCancelled.value    = false
-  enrichError.value        = ''
+  enriching.value           = true
+  enrichCancelled.value     = false
+  enrichError.value         = ''
   enrichedThisSession.value = 0
-  enrichRemaining.value    = null
-  showEnrichModal.value    = true
+  enrichRemaining.value     = null
+  showEnrichModal.value     = true
+  enrichAbort               = new AbortController()
   try {
     while (!enrichCancelled.value) {
-      const res = await api.adminEnrichSponsors()
+      const res = await api.adminEnrichSponsors(enrichAbort.signal)
       enrichedThisSession.value += res.enriched
       enrichRemaining.value = res.remaining
       if (res.remaining === 0) break
     }
   } catch (e) {
-    enrichError.value = e instanceof Error ? e.message : 'Enrichment failed'
+    if (e instanceof Error && e.name !== 'AbortError')
+      enrichError.value = e.message
   } finally {
     enriching.value = false
+    enrichAbort     = null
   }
 }
 
 function stopEnrich() {
   enrichCancelled.value = true
+  enrichAbort?.abort()
 }
 
 async function loadSyncLogs() {
