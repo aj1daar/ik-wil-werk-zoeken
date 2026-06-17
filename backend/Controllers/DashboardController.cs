@@ -326,7 +326,7 @@ public sealed class DashboardController : ApiControllerBase
     private static readonly string[] ValidRejectionReasons =
     [
         "dutch_language", "another_candidate", "incompatible_profile",
-        "salary_mismatch", "internal_hire", "failed_assessment", "other"
+        "salary_mismatch", "internal_hire", "failed_assessment", "no_vacancies", "other"
     ];
 
     internal static bool ValidateStage(ApplicationStage s, out string error)
