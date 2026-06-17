@@ -7,7 +7,7 @@ import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel
 
 const store = useApplicationsStore()
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 15
 
 type SortKey = 'newest' | 'oldest' | 'updated' | 'company' | 'followup'
 
@@ -101,7 +101,7 @@ const allPageChecked = computed(() =>
 
 function goToPage(page: number) {
   currentPage.value = page
-  document.querySelector<HTMLElement>('.app-list-wrapper')?.scrollTo({ top: 0, behavior: 'smooth' })
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function selectRow(id: string) {
@@ -415,7 +415,7 @@ function printPage() {
 
 .app-list-wrapper {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .filter-bar {
@@ -569,10 +569,8 @@ function printPage() {
   padding: .625rem 1rem;
   flex-wrap: wrap;
   border-top: 1px solid var(--col-border-lt);
-  position: sticky;
-  bottom: 0;
   background: var(--col-bg);
-  z-index: 2;
+  flex-shrink: 0;
 }
 .pagination-info {
   width: 100%;

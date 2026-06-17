@@ -39,7 +39,7 @@ const hiddenIds           = ref<Set<string>>((() => {
 const showHidden          = ref(false)
 const currentPage         = ref(1)
 
-const PAGE_SIZE = 60
+const PAGE_SIZE = 15
 
 onMounted(() => {
   store.load()
@@ -135,7 +135,7 @@ watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemot
 
 function goToPage(page: number) {
   currentPage.value = page
-  document.querySelector<HTMLElement>('.company-list')?.scrollTo({ top: 0, behavior: 'smooth' })
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // ── Parent company grouping ──────────────────────────────────────────────────
@@ -484,21 +484,6 @@ const activeDropdownCount = computed(() =>
             </li>
           </template>
         </ul>
-
-        <div v-if="filteredRows.length > 0" class="pagination">
-          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filteredRows.length) }} of {{ filteredRows.length }}</span>
-          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
-          <template v-for="(p, i) in visiblePages" :key="i">
-            <span v-if="p === null" class="page-ellipsis">…</span>
-            <button
-              v-else
-              :class="['page-btn', p === currentPage && 'page-btn--active']"
-              @click="goToPage(p)"
-              :aria-current="p === currentPage ? 'page' : undefined"
-            >{{ p }}</button>
-          </template>
-          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
-        </div>
       </div>
 
       <transition name="panel">
@@ -591,6 +576,21 @@ const activeDropdownCount = computed(() =>
           </div>
         </div>
       </transition>
+    </div>
+
+    <div v-if="filteredRows.length > 0" class="pagination">
+      <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filteredRows.length) }} of {{ filteredRows.length }}</span>
+      <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
+      <template v-for="(p, i) in visiblePages" :key="i">
+        <span v-if="p === null" class="page-ellipsis">…</span>
+        <button
+          v-else
+          :class="['page-btn', p === currentPage && 'page-btn--active']"
+          @click="goToPage(p)"
+          :aria-current="p === currentPage ? 'page' : undefined"
+        >{{ p }}</button>
+      </template>
+      <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
     </div>
 
     <Transition name="modal">
@@ -781,10 +781,8 @@ const activeDropdownCount = computed(() =>
   padding: .625rem 1rem;
   flex-wrap: wrap;
   border-top: 1px solid var(--col-border-lt);
-  position: sticky;
-  bottom: 0;
   background: var(--col-bg);
-  z-index: 2;
+  flex-shrink: 0;
 }
 .pagination-info {
   width: 100%;
