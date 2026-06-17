@@ -185,6 +185,9 @@ const hoveredRow = computed(() => rows.value.find(r => r.key === hovered.value) 
   padding-top: .625rem;
   border-top: 1px solid var(--col-border-lt);
 }
+@media (max-width: 480px) {
+  .sb-legend { grid-template-columns: 1fr; }
+}
 .sb-leg-row {
   display: flex;
   align-items: center;
