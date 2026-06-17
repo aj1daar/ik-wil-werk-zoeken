@@ -384,31 +384,46 @@ public sealed class CompanyEnricher
         var requestJson = JsonSerializer.Serialize(requestObj, CompanyEnricherJsonContext.Default.GeminiRequest);
 
         using var client = _http.CreateClient("gemini");
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint)
-        {
-            Content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json")
-        };
-        httpRequest.Headers.Add("x-goog-api-key", apiKey);
 
-        var sw = Stopwatch.StartNew();
-        using var httpResponse = await client.SendAsync(httpRequest, ct);
-        sw.Stop();
-
-        if (!httpResponse.IsSuccessStatusCode)
+        const int maxAttempts = 4;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            var body = await httpResponse.Content.ReadAsStringAsync(ct);
-            _logger.LogWarning("Gemini API {Status}: {Body}",
-                (int)httpResponse.StatusCode,
-                body.Length > 200 ? body[..200] : body);
-            _ = SaveCallLogAsync(batchSize, null, (int)sw.ElapsedMilliseconds, success: false);
-            return null;
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, GenerateEndpoint)
+            {
+                Content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json")
+            };
+            httpRequest.Headers.Add("x-goog-api-key", apiKey);
+
+            var sw = Stopwatch.StartNew();
+            using var httpResponse = await client.SendAsync(httpRequest, ct);
+            sw.Stop();
+
+            var status = (int)httpResponse.StatusCode;
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                var body = await httpResponse.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("Gemini API {Status} (attempt {Attempt}/{Max}): {Body}",
+                    status, attempt, maxAttempts,
+                    body.Length > 200 ? body[..200] : body);
+
+                if ((status == 503 || status == 429) && attempt < maxAttempts)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5 * attempt), ct);
+                    continue;
+                }
+
+                _ = SaveCallLogAsync(batchSize, null, (int)sw.ElapsedMilliseconds, success: false);
+                return null;
+            }
+
+            var apiResponse = await httpResponse.Content.ReadFromJsonAsync(
+                CompanyEnricherJsonContext.Default.GeminiResponse, ct);
+            var text = apiResponse?.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
+            _ = SaveCallLogAsync(batchSize, apiResponse?.UsageMetadata, (int)sw.ElapsedMilliseconds, success: text is not null);
+            return string.IsNullOrWhiteSpace(text) ? null : text;
         }
 
-        var apiResponse = await httpResponse.Content.ReadFromJsonAsync(
-            CompanyEnricherJsonContext.Default.GeminiResponse, ct);
-        var text = apiResponse?.Candidates.FirstOrDefault()?.Content?.Parts.FirstOrDefault()?.Text;
-        _ = SaveCallLogAsync(batchSize, apiResponse?.UsageMetadata, (int)sw.ElapsedMilliseconds, success: text is not null);
-        return string.IsNullOrWhiteSpace(text) ? null : text;
+        return null;
     }
 
     private async Task SaveCallLogAsync(int batchSize, GeminiUsageMetadata? usage, int durationMs, bool success)
