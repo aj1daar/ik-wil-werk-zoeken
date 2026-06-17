@@ -7,7 +7,10 @@ import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel
 
 const store = useApplicationsStore()
 
-const PAGE_SIZE = 15
+const ROW_HEIGHT = 68
+const listEl = ref<HTMLElement | null>(null)
+const PAGE_SIZE = ref(10)
+let _ro: ResizeObserver | null = null
 
 type SortKey = 'newest' | 'oldest' | 'updated' | 'company' | 'followup'
 
@@ -36,8 +39,16 @@ function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') { selectedId.value = null; clearSelection() }
 }
 
-onMounted(() => { store.load(); window.addEventListener('keydown', onKey) })
-onUnmounted(() => window.removeEventListener('keydown', onKey))
+onMounted(() => {
+  store.load()
+  window.addEventListener('keydown', onKey)
+  _ro = new ResizeObserver(entries => {
+    const h = entries[0]?.contentRect.height ?? 0
+    if (h > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / ROW_HEIGHT))
+  })
+  if (listEl.value) _ro.observe(listEl.value)
+})
+onUnmounted(() => { window.removeEventListener('keydown', onKey); _ro?.disconnect() })
 
 const filtered = computed<Application[]>(() => {
   let list = [...store.applications]
@@ -68,11 +79,11 @@ const filtered = computed<Application[]>(() => {
   return list
 })
 
-const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))
+const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE.value))
 
 const pagedFiltered = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE
-  return filtered.value.slice(start, start + PAGE_SIZE)
+  const start = (currentPage.value - 1) * PAGE_SIZE.value
+  return filtered.value.slice(start, start + PAGE_SIZE.value)
 })
 
 const visiblePages = computed((): (number | null)[] => {
@@ -90,6 +101,7 @@ const visiblePages = computed((): (number | null)[] => {
 })
 
 watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
+watch(PAGE_SIZE, () => { currentPage.value = 1 })
 
 const selected = computed<Application | null>(() =>
   store.applications.find(a => a.id === selectedId.value) ?? null
@@ -298,7 +310,7 @@ function printPage() {
           </label>
         </div>
 
-        <div class="app-list-wrapper">
+        <div ref="listEl" class="app-list-wrapper">
           <div v-if="store.loading" class="state-msg">Loading…</div>
           <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
           <div v-else-if="filtered.length === 0" class="state-msg">

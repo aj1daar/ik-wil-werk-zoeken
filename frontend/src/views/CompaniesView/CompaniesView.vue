@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
 import type { SponsorCompany, Application } from '../../api'
@@ -37,14 +37,24 @@ const hiddenIds           = ref<Set<string>>((() => {
   catch { return new Set<string>() }
 })())
 const showHidden          = ref(false)
-const currentPage         = ref(1)
+const currentPage = ref(1)
 
-const PAGE_SIZE = 15
+const ROW_HEIGHT = 68
+const listEl = ref<HTMLElement | null>(null)
+const PAGE_SIZE = ref(10)
+let _ro: ResizeObserver | null = null
 
 onMounted(() => {
   store.load()
   appsStore.load()
+  _ro = new ResizeObserver(entries => {
+    const h = entries[0]?.contentRect.height ?? 0
+    if (h > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / ROW_HEIGHT))
+  })
+  if (listEl.value) _ro.observe(listEl.value)
 })
+
+onUnmounted(() => _ro?.disconnect())
 
 const mostRecentForCompany = computed((): Map<string, Application> => {
   const byId   = new Map<string, Application>()
@@ -109,11 +119,11 @@ const filteredRows = computed<SponsorCompany[]>(() => {
 })
 
 const rows = computed<SponsorCompany[]>(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE
-  return filteredRows.value.slice(start, start + PAGE_SIZE)
+  const start = (currentPage.value - 1) * PAGE_SIZE.value
+  return filteredRows.value.slice(start, start + PAGE_SIZE.value)
 })
 
-const pageCount = computed(() => Math.ceil(filteredRows.value.length / PAGE_SIZE))
+const pageCount = computed(() => Math.ceil(filteredRows.value.length / PAGE_SIZE.value))
 
 const visiblePages = computed((): (number | null)[] => {
   const total = pageCount.value
@@ -132,6 +142,7 @@ const visiblePages = computed((): (number | null)[] => {
 watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden], () => {
   currentPage.value = 1
 })
+watch(PAGE_SIZE, () => { currentPage.value = 1 })
 
 function goToPage(page: number) {
   currentPage.value = page
@@ -426,7 +437,7 @@ const activeDropdownCount = computed(() =>
     </div>
 
     <div class="main-split">
-      <div :class="['company-list', selectedCompany ? 'hidden md:block' : '']">
+      <div ref="listEl" :class="['company-list', selectedCompany ? 'hidden md:block' : '']">
         <div v-if="store.loading" class="state-msg">Loading…</div>
         <div v-else-if="store.error" class="state-msg state-msg--error" role="alert">{{ store.error }}</div>
         <div v-else-if="rows.length === 0" class="state-msg">
