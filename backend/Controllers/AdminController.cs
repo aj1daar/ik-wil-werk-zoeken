@@ -155,7 +155,7 @@ public sealed class AdminController : ApiControllerBase
         if (CheckAdmin() is { } err) return err;
         try
         {
-            var toEnrich = await _sponsorStore.GetUnEnrichedAsync(20, CompanyEnricher.CurrentVersion);
+            var toEnrich = await _sponsorStore.GetUnEnrichedAsync(10, CompanyEnricher.CurrentVersion);
 
             if (toEnrich.Count == 0)
                 return Ok(new EnrichResponse { Enriched = 0, Remaining = 0, Message = "All companies are already enriched." });
