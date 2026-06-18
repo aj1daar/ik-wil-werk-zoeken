@@ -10,8 +10,6 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 
 ### Application Tracking
 - **Application pipeline** — track applications through 7 statuses: Applied · Interviewing · Offer Received · On Hold · Rejected · Withdrawn · Accepted
-- **Split-panel mode** — toggle between full-width list + modal and a two-column split (list + detail panel side-by-side) in ApplicationsView; preference persisted in `localStorage`
-- **Kanban board view** — switch ApplicationsView to a per-status column board; empty columns hidden by default with a "show empty" toggle
 - **Follow-up dates** — set a follow-up date per application; overdue badges in the list; overdue follow-ups collapsible card on the dashboard
 - **Activity log** — every field change is logged with old/new values and timestamp; collapsible history section in the detail panel
 - **Status history** — manual timeline of status transitions per application with editable dates
@@ -33,7 +31,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 - **Sort options** — A→Z, Z→A, city A–Z, default (API order)
 - **Company grouping** — subsidiaries are collapsed under their parent company; toggle to expand
 - **"Not interested" hiding** — hide individual companies from the list; stored in `localStorage`; "Show hidden (N)" toggle to reveal
-- **Load all** — single click to show all companies instead of paging through 60-at-a-time
+- **Pagination** — both Companies and Applications views paginate without internal scrolling; page size adapts dynamically to the available viewport height
 - **Applied overlay** — companies where you have an active application show your current status chip
 
 ### Dashboard
@@ -75,7 +73,7 @@ A personal job-search tracker for Highly Skilled Migrants in the Netherlands. Br
 | Database | PostgreSQL 18 on Hetzner via EF Core + Npgsql |
 | Auth | JWT HS256 · PBKDF2-SHA256 (100 000 iterations) |
 | Email | Resend (verification, password reset, email change) |
-| AI enrichment | Google Gemini 2.0 Flash (batch company enrichment, 20 companies per call) |
+| AI enrichment | Google Gemini 2.5 Flash Lite (primary, v4) + Gemini 3.1 Flash Lite (retry, v5); batch size 10 |
 | Hosting | Cloudflare Pages (frontend) · Hetzner CX23 behind Nginx (backend) |
 
 **Request flow:** `Browser → Cloudflare (HTTPS) → Nginx :80 → ASP.NET Core :5000 → PostgreSQL 18`
@@ -264,7 +262,7 @@ Covers: auth store, companies store (search, filter, grouping, tag usage ranking
 
 ## AI Enrichment
 
-Company data is enriched via **Google Gemini 2.0 Flash** in batches of 20. All output is enforced to be in English. Fields enriched:
+Company data is enriched via **Google Gemini 2.5 Flash Lite** (primary, `CurrentVersion = 4`) in batches of 10, with a **Gemini 3.1 Flash Lite** retry pass (`RetryVersion = 5`) for companies that were missed or failed on the first run. All output is enforced to be in English. Fields enriched:
 
 | Field | Source priority | Notes |
 |---|---|---|
@@ -282,7 +280,21 @@ Company data is enriched via **Google Gemini 2.0 Flash** in batches of 20. All o
 
 Low-confidence results (`"confidence": "low"`) mark the company as enriched without writing field data, preventing expensive re-enrichment on every sync. A refinement pass corrects invalid enum values returned by the model.
 
-Enrichment is versioned (`CurrentVersion = 4`). Bumping the version triggers re-enrichment of all companies on the next monthly sync or manual admin reload.
+Enrichment is versioned (`CurrentVersion = 4`, `RetryVersion = 5`). Bumping `CurrentVersion` triggers re-enrichment of all companies on the next monthly sync or manual admin reload.
+
+### Enrichment coverage (as of June 2026 — 12,790 active companies)
+
+| Metric | Count | % |
+|--------|-------|---|
+| Total active companies | 12,790 | 100% |
+| Have summary | 11,320 | 88.5% |
+| Have industry | 11,316 | 88.5% |
+| Have city | 8,605 | 67.3% |
+| Have website | 7,104 | 55.5% |
+| Fully enriched (summary + city + website) | 6,211 | 48.6% |
+| Empty (low-confidence — Gemini has no knowledge) | 1,470 | 11.5% |
+
+**Enrichment versions:** v4 (Gemini 2.5 Flash Lite) covered 6,463 companies; v5 (Gemini 3.1 Flash Lite retry) covered 6,327 companies — of which 1,470 (23%) returned `"confidence": "low"` and were intentionally left blank rather than filled with guesses. These are typically micro-businesses, holding shells, or very recently registered companies with no public web presence.
 
 ### Gemini cost estimate for full initial enrichment (12,800 companies)
 
@@ -293,7 +305,7 @@ Enrichment is versioned (`CurrentVersion = 4`). Bumping the version triggers re-
 | Refinement pass (~10% of batches) | ~55K | $0.10 |
 | **Total** | | **~$1.00** |
 
-Pricing basis: Gemini 2.0 Flash at $0.10/1M input tokens, $0.40/1M output tokens. Ongoing monthly syncs add only the delta (new/changed companies), typically a few hundred at most.
+Pricing basis: Gemini 2.5 Flash Lite at $0.10/1M input tokens, $0.40/1M output tokens. Ongoing monthly syncs add only the delta (new/changed companies), typically a few hundred at most.
 
 ---
 
