@@ -42,9 +42,12 @@ function onKey(e: KeyboardEvent) {
 onMounted(() => {
   store.load()
   window.addEventListener('keydown', onKey)
-  _ro = new ResizeObserver(entries => {
-    const h = entries[0]?.contentRect.height ?? 0
-    if (h > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / ROW_HEIGHT))
+  _ro = new ResizeObserver(() => {
+    if (!listEl.value) return
+    const h = listEl.value.clientHeight
+    const firstRow = listEl.value.querySelector<HTMLElement>('.company-row')
+    const rowH = firstRow ? firstRow.offsetHeight : ROW_HEIGHT
+    if (h > 0 && rowH > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / rowH))
   })
   if (listEl.value) _ro.observe(listEl.value)
 })
