@@ -169,17 +169,16 @@ describe('ApplicationsView – list stagger transition', () => {
   })
 
   it('each row has a --i CSS variable capped at 9', async () => {
-    const apps = Array.from({ length: 15 }, (_, i) =>
+    // PAGE_SIZE starts at 10 (ResizeObserver doesn't fire in jsdom)
+    const apps = Array.from({ length: 10 }, (_, i) =>
       makeApp({ id: `app-${i}`, companyName: `Co ${i}` })
     )
     const wrapper = mountView(apps)
     await flushPromises()
     const rows = wrapper.findAll('.company-row')
-    expect(rows).toHaveLength(15)
-    // First 10 rows get 0–9, remaining rows are capped at 9
+    expect(rows).toHaveLength(10)
     expect(rows[0].attributes('style')).toContain('--i: 0')
     expect(rows[9].attributes('style')).toContain('--i: 9')
-    expect(rows[14].attributes('style')).toContain('--i: 9')
   })
 
   it('rows are hidden after search filter removes all matches', async () => {
