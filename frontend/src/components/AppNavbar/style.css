@@ -147,16 +147,22 @@
 /* Mobile: everything goes into the hamburger menu */
 @media (max-width: 767px) {
   .app-nav {
-    height: auto;
-    min-height: 60px;
+    height: 60px;
     align-items: center;
-    flex-wrap: wrap;
   }
 
   .nav-links    { display: none; }
   .desktop-only { display: none !important; }
   .nav-hamburger { display: flex; }
-  .mobile-menu  { display: flex; }
+
+  .mobile-menu {
+    display: flex;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    width: auto;
+  }
 }
 
 /* Tablet / narrow desktop: nav-links visible; Admin + Sign Out in hamburger */
