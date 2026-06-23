@@ -82,7 +82,7 @@ const emptyMessage = computed(() =>
 )
 
 const option = computed(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)', confine: window.innerWidth <= 767 },
   series: [{
     type: 'pie',
     radius: ['45%', '72%'],
