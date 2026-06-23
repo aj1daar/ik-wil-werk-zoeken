@@ -65,6 +65,9 @@ body {
   background-color: var(--col-desktop);
   color: var(--col-text);
 }
+@media (max-width: 767px) {
+  body { background-color: transparent; }
+}
 
 /* Global form element baseline — gives every native input/select/textarea the
    design-system border radius and focus ring. Class overrides (.field-input,
