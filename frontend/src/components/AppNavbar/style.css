@@ -130,6 +130,7 @@
 
 .mobile-signout {
   all: unset;
+  box-sizing: border-box;
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--col-nav-muted);
