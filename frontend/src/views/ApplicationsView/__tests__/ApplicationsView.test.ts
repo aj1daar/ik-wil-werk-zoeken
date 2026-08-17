@@ -264,4 +264,24 @@ describe('ApplicationsView – pagination survives PAGE_SIZE resize (Chrome iOS 
 
     expect(wrapper.find('.pagination-info').text()).toContain('1–15')
   })
+
+  it('ignores resize-driven PAGE_SIZE recalculation on mobile widths, where .dashboard is height:auto and the measurement is circular', async () => {
+    // window.innerWidth alone doesn't drive happy-dom's matchMedia — the
+    // viewport has to be set through its dedicated API for `(max-width)"
+    // queries (what the production guard uses) to actually match.
+    ;(window as any).happyDOM.setViewport({ width: 375 })
+    try {
+      const wrapper = mountView(makeManyApps(25))
+      await flushPromises()
+      expect(wrapper.find('.pagination-info').text()).toContain('1–10') // stable default PAGE_SIZE=10
+
+      const listEl = wrapper.find('.app-list-wrapper').element as HTMLElement
+      fireResize(680, 34, listEl) // would otherwise push PAGE_SIZE to 20
+      await flushPromises()
+
+      expect(wrapper.find('.pagination-info').text()).toContain('1–10') // unchanged
+    } finally {
+      ;(window as any).happyDOM.setViewport({ width: 1024 })
+    }
+  })
 })

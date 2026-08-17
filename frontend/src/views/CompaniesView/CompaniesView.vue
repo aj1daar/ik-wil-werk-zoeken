@@ -49,6 +49,13 @@ onMounted(() => {
   appsStore.load()
   _ro = new ResizeObserver(() => {
     if (!listEl.value) return
+    // Below 768px .dashboard switches to height:auto (the page scrolls
+    // instead of the list being clipped to fit the viewport) — the list
+    // container is then exactly as tall as its own rows, so measuring it
+    // is circular: it only ever reports back however many rows are already
+    // rendered, which ratchets PAGE_SIZE toward the full list or oscillates
+    // as row heights vary slightly between pages. Keep the stable default there.
+    if (window.matchMedia('(max-width: 767px)').matches) return
     const h = listEl.value.clientHeight
     const firstRow = listEl.value.querySelector<HTMLElement>('.company-row')
     const rowH = firstRow ? firstRow.offsetHeight : ROW_HEIGHT
