@@ -105,7 +105,12 @@ const visiblePages = computed((): (number | null)[] => {
 })
 
 watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
-watch(PAGE_SIZE, () => { currentPage.value = 1 })
+// Chrome iOS collapses/expands its bottom toolbar on tap, which resizes the
+// list container and re-fires the ResizeObserver above — clamp instead of
+// always jumping to page 1, or a tap on "page 2" gets silently undone.
+watch(PAGE_SIZE, () => {
+  if (currentPage.value > pageCount.value) currentPage.value = Math.max(1, pageCount.value)
+})
 
 const selected = computed<Application | null>(() =>
   store.applications.find(a => a.id === selectedId.value) ?? null

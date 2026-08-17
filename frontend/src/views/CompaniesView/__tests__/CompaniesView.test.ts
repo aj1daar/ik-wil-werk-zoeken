@@ -3,7 +3,7 @@ import { nextTick } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { Transition } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CompaniesView from '../CompaniesView.vue'
 
 vi.mock('../../../api', () => ({
@@ -453,5 +453,68 @@ describe('CompaniesView – parent company grouping', () => {
     await wrapper.findAll('.group-header-row')[1].trigger('click')
     await nextTick()
     expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(4)
+  })
+})
+
+// ── pagination / PAGE_SIZE resize ───────────────────────────────────────────────
+
+class MockResizeObserver {
+  static latest: MockResizeObserver | null = null
+  cb: ResizeObserverCallback
+  constructor(cb: ResizeObserverCallback) { this.cb = cb; MockResizeObserver.latest = this }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+function fireResize(clientHeight: number, rowHeight: number, listEl: HTMLElement) {
+  Object.defineProperty(listEl, 'clientHeight', { value: clientHeight, configurable: true })
+  const firstRow = listEl.querySelector<HTMLElement>('.company-row')
+  if (firstRow) Object.defineProperty(firstRow, 'offsetHeight', { value: rowHeight, configurable: true })
+  MockResizeObserver.latest!.cb([] as unknown as ResizeObserverEntry[], MockResizeObserver.latest as unknown as ResizeObserver)
+}
+
+function makeManySponsors(n: number): SponsorCompany[] {
+  return Array.from({ length: n }, (_, i) => makeSponsor({ id: `sp-${i}`, name: `Company ${i}` }))
+}
+
+function activePageLabel(wrapper: ReturnType<typeof mount>): string | undefined {
+  return wrapper.findAll('.page-btn--active')[0]?.text()
+}
+
+describe('CompaniesView – pagination survives PAGE_SIZE resize (Chrome iOS toolbar collapse)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.getApplications).mockResolvedValue([])
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('stays on page 2 when a resize fires but page 2 is still in range', async () => {
+    const wrapper = mountView(makeManySponsors(25))
+    await flushPromises()
+
+    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
+    expect(activePageLabel(wrapper)).toBe('2')
+
+    const listEl = wrapper.find('.company-list').element as HTMLElement
+    fireResize(600, 50, listEl) // -> PAGE_SIZE 12, pageCount ceil(25/12)=3, page 2 still valid
+    await flushPromises()
+
+    expect(activePageLabel(wrapper)).toBe('2')
+  })
+
+  it('clamps down to the last page when a resize makes page 2 go out of range', async () => {
+    const wrapper = mountView(makeManySponsors(15))
+    await flushPromises()
+
+    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
+    expect(activePageLabel(wrapper)).toBe('2')
+
+    const listEl = wrapper.find('.company-list').element as HTMLElement
+    fireResize(680, 34, listEl) // -> PAGE_SIZE 20, pageCount ceil(15/20)=1, page 2 no longer valid
+    await flushPromises()
+
+    expect(wrapper.find('.pagination-info').text()).toContain('1–15')
   })
 })

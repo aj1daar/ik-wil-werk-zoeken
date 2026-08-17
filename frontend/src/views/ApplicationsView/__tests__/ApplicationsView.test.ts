@@ -2,7 +2,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { Transition, TransitionGroup } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ApplicationsView from '../ApplicationsView.vue'
 
 vi.mock('../../../api', () => ({
@@ -201,5 +201,67 @@ describe('ApplicationsView – list stagger transition', () => {
     await input.setValue('')
     await flushPromises()
     expect(wrapper.findAll('.company-row')).toHaveLength(1)
+  })
+})
+
+// ── pagination / PAGE_SIZE resize ───────────────────────────────────────────────
+
+class MockResizeObserver {
+  static latest: MockResizeObserver | null = null
+  cb: ResizeObserverCallback
+  constructor(cb: ResizeObserverCallback) { this.cb = cb; MockResizeObserver.latest = this }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+function fireResize(clientHeight: number, rowHeight: number, listEl: HTMLElement) {
+  Object.defineProperty(listEl, 'clientHeight', { value: clientHeight, configurable: true })
+  const firstRow = listEl.querySelector<HTMLElement>('.company-row')
+  if (firstRow) Object.defineProperty(firstRow, 'offsetHeight', { value: rowHeight, configurable: true })
+  MockResizeObserver.latest!.cb([] as unknown as ResizeObserverEntry[], MockResizeObserver.latest as unknown as ResizeObserver)
+}
+
+function makeManyApps(n: number): Application[] {
+  return Array.from({ length: n }, (_, i) => makeApp({ id: `app-${i}`, companyName: `Company ${i}` }))
+}
+
+function activePageLabel(wrapper: ReturnType<typeof mount>): string | undefined {
+  return wrapper.findAll('.page-btn--active')[0]?.text()
+}
+
+describe('ApplicationsView – pagination survives PAGE_SIZE resize (Chrome iOS toolbar collapse)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('stays on page 2 when a resize fires but page 2 is still in range', async () => {
+    const wrapper = mountView(makeManyApps(25))
+    await flushPromises()
+
+    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
+    expect(activePageLabel(wrapper)).toBe('2')
+
+    const listEl = wrapper.find('.app-list-wrapper').element as HTMLElement
+    fireResize(600, 50, listEl) // -> PAGE_SIZE 12, pageCount ceil(25/12)=3, page 2 still valid
+    await flushPromises()
+
+    expect(activePageLabel(wrapper)).toBe('2')
+  })
+
+  it('clamps down to the last page when a resize makes page 2 go out of range', async () => {
+    const wrapper = mountView(makeManyApps(15))
+    await flushPromises()
+
+    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
+    expect(activePageLabel(wrapper)).toBe('2')
+
+    const listEl = wrapper.find('.app-list-wrapper').element as HTMLElement
+    fireResize(680, 34, listEl) // -> PAGE_SIZE 20, pageCount ceil(15/20)=1, page 2 no longer valid
+    await flushPromises()
+
+    expect(wrapper.find('.pagination-info').text()).toContain('1–15')
   })
 })

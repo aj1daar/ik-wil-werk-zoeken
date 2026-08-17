@@ -145,7 +145,12 @@ const visiblePages = computed((): (number | null)[] => {
 watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden], () => {
   currentPage.value = 1
 })
-watch(PAGE_SIZE, () => { currentPage.value = 1 })
+// Chrome iOS collapses/expands its bottom toolbar on tap, which resizes the
+// list container and re-fires the ResizeObserver above — clamp instead of
+// always jumping to page 1, or a tap on "page 2" gets silently undone.
+watch(PAGE_SIZE, () => {
+  if (currentPage.value > pageCount.value) currentPage.value = Math.max(1, pageCount.value)
+})
 
 function goToPage(page: number) {
   currentPage.value = page
