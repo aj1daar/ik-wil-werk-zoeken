@@ -94,6 +94,18 @@ select:focus {
 input::placeholder,
 textarea::placeholder { color: var(--col-subtle); }
 
+/* iOS Safari zooms the viewport on focus of any text input under 16px —
+   bump every form field to 16px on mobile widths to stop it. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
+  textarea,
+  select,
+  .field-input,
+  .filter-input {
+    font-size: 16px;
+  }
+}
+
 /* ─── Components ────────────────────────────────────────────────── */
 @layer components {
 

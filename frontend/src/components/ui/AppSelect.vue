@@ -67,4 +67,9 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   pointer-events: none;
   color: var(--col-subtle);
 }
+
+/* iOS Safari zooms the viewport on focus of selects under 16px. */
+@media (max-width: 767px) {
+  .app-select { font-size: 16px; }
+}
 </style>

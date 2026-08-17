@@ -69,4 +69,9 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   color: var(--col-danger, #e53e3e);
   margin: 0;
 }
+
+/* iOS Safari zooms the viewport on focus of text inputs under 16px. */
+@media (max-width: 767px) {
+  .app-input { font-size: 16px; }
+}
 </style>
