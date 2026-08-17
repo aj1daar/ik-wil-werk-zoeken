@@ -270,7 +270,9 @@ async function submit() {
   box-shadow: 0 8px 32px color-mix(in srgb, var(--col-text) 12%, transparent),
               0 24px 64px color-mix(in srgb, var(--col-text) 16%, transparent);
   display: flex; flex-direction: column;
-  max-height: 90vh; overflow: hidden;
+  max-height: 90vh;
+  max-height: 90dvh; /* tracks the visible viewport, not the toolbar-collapsed one on iOS Chrome */
+  overflow: hidden;
 }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;

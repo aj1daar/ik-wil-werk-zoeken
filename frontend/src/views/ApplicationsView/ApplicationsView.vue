@@ -522,6 +522,11 @@ function printPage() {
   max-width: 560px;
   height: 90vh;
   max-height: 90vh;
+  /* dvh tracks the actually-visible viewport, not the toolbar-collapsed one —
+     without it, the bottom-sheet variant below pins to a taller-than-visible
+     box and its header ends up above the fold on iOS Chrome. */
+  height: 90dvh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -538,7 +543,7 @@ function printPage() {
 @media (max-width: 480px) {
   .app-detail-enter-from .modal-box,
   .app-detail-leave-to   .modal-box { transform: translateY(24px); }
-  .modal-box { max-height: 100vh; border-radius: 16px 16px 0 0; align-self: flex-end; }
+  .modal-box { max-height: 100vh; max-height: 100dvh; border-radius: 16px 16px 0 0; align-self: flex-end; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
