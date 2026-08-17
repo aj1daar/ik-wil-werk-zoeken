@@ -761,7 +761,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .panel-title-block { flex: 1; min-width: 0; }
 .panel-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel-subtitle { font-size: .8rem; color: var(--col-muted); margin-top: .125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.panel-body { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.panel-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .panel-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); flex-shrink: 0; }
 .footer-actions { display: flex; gap: .75rem; }
 .field { display: flex; flex-direction: column; gap: .375rem; }
@@ -859,7 +859,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
   position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 50;
   background: var(--col-surface); border: 1px solid var(--col-border); border-radius: .375rem;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--col-text) 10%, transparent);
-  list-style: none; margin: 0; padding: .25rem 0; max-height: 220px; overflow-y: auto;
+  list-style: none; margin: 0; padding: .25rem 0; max-height: 220px; overflow-y: auto; overscroll-behavior: contain;
 }
 .combobox-option {
   display: flex; align-items: center; gap: .5rem;

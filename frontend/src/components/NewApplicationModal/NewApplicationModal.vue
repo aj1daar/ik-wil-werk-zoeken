@@ -277,7 +277,7 @@ async function submit() {
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border);
 }
 .modal-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); }
-.modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; }
+.modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; overscroll-behavior: contain; }
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); }
 .footer-actions { display: flex; gap: .75rem; justify-content: flex-end; }
 .field { display: flex; flex-direction: column; gap: .375rem; }
@@ -307,7 +307,7 @@ async function submit() {
   position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0;
   background: var(--col-bg); border: 1px solid var(--col-border);
   border-radius: .5rem; box-shadow: 0 4px 16px color-mix(in srgb, var(--col-text) 10%, transparent);
-  max-height: 220px; overflow-y: auto; list-style: none; margin: 0; padding: .25rem 0;
+  max-height: 220px; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0; padding: .25rem 0;
 }
 .combobox-option {
   display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
