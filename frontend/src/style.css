@@ -296,6 +296,10 @@ textarea::placeholder { color: var(--col-subtle); }
     .modal-leave-active .modal-box { transition: none; }
   }
 
+  /* Stop iOS Safari's double-tap-to-zoom from firing on rapid button taps
+     (pagination, filter toggles, etc.) */
+  button { touch-action: manipulation; }
+
   /* Global button press feedback */
   button:active:not(:disabled) { transform: scale(0.97); transition: transform 80ms; }
   @media (prefers-reduced-motion: reduce) {
