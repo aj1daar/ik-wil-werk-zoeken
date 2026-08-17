@@ -34,6 +34,12 @@ const sortedRows = computed(() => [...rows.value].sort((a, b) => b.count - a.cou
 const isEmpty  = computed(() => total.value === 0)
 const hovered  = ref<string | null>(null)
 const hoveredRow = computed(() => rows.value.find(r => r.key === hovered.value) ?? null)
+
+// iOS Safari doesn't fire mouseenter/mouseleave on tap, so hover-only
+// segments/legend rows are otherwise dead for touch users — tap toggles instead.
+function toggleHover(key: string) {
+  hovered.value = hovered.value === key ? null : key
+}
 </script>
 
 <template>
@@ -62,6 +68,7 @@ const hoveredRow = computed(() => rows.value.find(r => r.key === hovered.value) 
           :class="{ 'sb-seg--dim': hovered !== null && hovered !== seg.key }"
           @mouseenter="hovered = seg.key"
           @mouseleave="hovered = null"
+          @click="toggleHover(seg.key)"
         />
       </div>
 
@@ -85,6 +92,7 @@ const hoveredRow = computed(() => rows.value.find(r => r.key === hovered.value) 
           :class="{ 'sb-leg-row--zero': row.count === 0, 'sb-leg-row--hi': hovered === row.key }"
           @mouseenter="hovered = row.key"
           @mouseleave="hovered = null"
+          @click="toggleHover(row.key)"
         >
           <span class="sb-dot" :style="{ background: row.color }" />
           <span class="sb-leg-label">{{ row.label }}</span>

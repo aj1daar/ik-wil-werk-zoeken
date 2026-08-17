@@ -125,6 +125,42 @@ describe('FunnelChart – legend', () => {
   })
 })
 
+// ── touch interaction (tap toggles hover state — iOS has no mouseenter) ────────
+
+describe('FunnelChart – tap toggle', () => {
+  it('tapping a legend row shows its hover label', async () => {
+    const w = mountChart({ Applied: 10, Rejected: 3 })
+    const row = w.findAll('.sb-leg-row').find(r => r.text().includes('Applied'))!
+    await row.trigger('click')
+    expect(w.find('.sb-hover-label').text()).toContain('Applied')
+    expect(w.find('.sb-hover-label').text()).toContain('10')
+  })
+
+  it('tapping the same legend row again clears the hover label', async () => {
+    const w = mountChart({ Applied: 10, Rejected: 3 })
+    const row = w.findAll('.sb-leg-row').find(r => r.text().includes('Applied'))!
+    await row.trigger('click')
+    await row.trigger('click')
+    expect(w.find('.sb-hover-label').text()).not.toContain('Applied')
+  })
+
+  it('tapping a different legend row switches the selection', async () => {
+    const w = mountChart({ Applied: 10, Rejected: 3 })
+    const rows = w.findAll('.sb-leg-row')
+    await rows.find(r => r.text().includes('Applied'))!.trigger('click')
+    await rows.find(r => r.text().includes('Rejected'))!.trigger('click')
+    const label = w.find('.sb-hover-label').text()
+    expect(label).toContain('Rejected')
+    expect(label).not.toContain('Applied')
+  })
+
+  it('tapping a bar segment shows its hover label', async () => {
+    const w = mountChart({ Applied: 10, Rejected: 3 })
+    await w.find('.sb-seg').trigger('click')
+    expect(w.find('.sb-hover-label').text()).not.toBe('')
+  })
+})
+
 // ── reactivity ────────────────────────────────────────────────────────────────
 
 describe('FunnelChart – reactivity', () => {
