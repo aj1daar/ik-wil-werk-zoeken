@@ -613,6 +613,11 @@ function printPage() {
 .page-btn:disabled { opacity: .35; cursor: default; }
 .page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 
+@media (max-width: 767px) {
+  /* Apple HIG minimum 44x44pt tap target */
+  .page-btn { min-width: 2.75rem; height: 2.75rem; }
+}
+
 .row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 

@@ -785,6 +785,9 @@ const activeDropdownCount = computed(() =>
 @media (max-width: 767px) {
   .panel { height: auto; }
   .panel-body { overflow-y: visible; }
+
+  /* Apple HIG minimum 44x44pt tap target */
+  .page-btn { min-width: 2.75rem; height: 2.75rem; }
 }
 
 .pagination {

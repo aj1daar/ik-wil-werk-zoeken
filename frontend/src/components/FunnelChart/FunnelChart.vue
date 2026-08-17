@@ -187,6 +187,8 @@ const hoveredRow = computed(() => rows.value.find(r => r.key === hovered.value) 
 }
 @media (max-width: 480px) {
   .sb-legend { grid-template-columns: 1fr; }
+  /* Apple HIG minimum 44pt tap target */
+  .sb-leg-row { min-height: 44px; }
 }
 .sb-leg-row {
   display: flex;
