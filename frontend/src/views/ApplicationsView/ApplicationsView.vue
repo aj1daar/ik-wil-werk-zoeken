@@ -475,6 +475,7 @@ function printPage() {
   align-items: center;
   gap: .75rem;
   padding: .625rem 1rem;
+  padding-bottom: calc(.625rem + env(safe-area-inset-bottom));
   flex-wrap: wrap;
 }
 .bulk-count { font-size: .875rem; font-weight: 600; white-space: nowrap; }
@@ -582,6 +583,7 @@ function printPage() {
   justify-content: center;
   gap: .25rem;
   padding: .625rem 1rem;
+  padding-bottom: calc(.625rem + env(safe-area-inset-bottom));
   flex-wrap: wrap;
   border-top: 1px solid var(--col-border-lt);
   background: var(--col-bg);
