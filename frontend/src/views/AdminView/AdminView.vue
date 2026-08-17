@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { api, type AdminUserSummary, type SyncLog } from '../../api'
 import { useCompaniesStore } from '../../stores/companies'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const companiesStore = useCompaniesStore()
 
@@ -36,6 +37,7 @@ const retryError           = ref('')
 const showRetryModal       = ref(false)
 const retriedThisSession   = ref(0)
 const retryRemaining       = ref<number | null>(null)
+useBodyScrollLock(() => showRetryModal.value || showEnrichModal.value)
 let   retryAbort: AbortController | null = null
 
 const syncLogs      = ref<SyncLog[]>([])

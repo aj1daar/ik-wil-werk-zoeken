@@ -4,6 +4,7 @@ import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from 
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
 import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel.vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const store = useApplicationsStore()
 
@@ -109,6 +110,7 @@ watch(PAGE_SIZE, () => { currentPage.value = 1 })
 const selected = computed<Application | null>(() =>
   store.applications.find(a => a.id === selectedId.value) ?? null
 )
+useBodyScrollLock(() => selected.value !== null)
 
 const allPageChecked = computed(() =>
   pagedFiltered.value.length > 0 && pagedFiltered.value.every(a => checkedIds.value.has(a.id))

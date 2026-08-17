@@ -5,6 +5,7 @@ import { useCompaniesStore } from '../../stores/companies'
 import type { ApplicationStatus, SponsorCompany } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 import DatePicker from '../DatePicker/DatePicker.vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted'])
 
@@ -46,6 +47,7 @@ function requestClose() {
 
 onMounted(() => { companiesStore.load() })
 onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
+useBodyScrollLock()
 
 const activeMatch = computed(() => {
   if (sponsorCompanyId.value) {

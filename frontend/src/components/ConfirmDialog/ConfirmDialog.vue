@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
+import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const props = withDefaults(defineProps<{
   title?:         string
@@ -22,6 +23,7 @@ function onKey(e: KeyboardEvent) {
 
 onMounted(() => { document.addEventListener('keydown', onKey) })
 onUnmounted(() => { document.removeEventListener('keydown', onKey) })
+useBodyScrollLock()
 </script>
 
 <template>
