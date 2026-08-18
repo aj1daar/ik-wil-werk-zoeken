@@ -14,7 +14,6 @@ const targetRole  = ref('')
 const location    = ref('')
 const workType    = ref<'any'|'onsite'|'hybrid'|'remote'>('any')
 const confirmPassword = ref('')
-const gdprConsent = ref(false)
 const error       = ref('')
 const loading     = ref(false)
 const submitted   = ref(false)
@@ -38,10 +37,6 @@ const WORK_TYPES = [
 async function submit() {
   if (password.value !== confirmPassword.value) {
     error.value = 'Passwords do not match.'
-    return
-  }
-  if (!gdprConsent.value) {
-    error.value = 'You must agree to the privacy policy to create an account.'
     return
   }
   loading.value = true
@@ -171,17 +166,6 @@ async function submit() {
           </div>
         </div>
 
-        <hr class="form-divider" />
-
-        <label class="consent-row">
-          <input type="checkbox" v-model="gdprConsent" required />
-          <span class="consent-text">
-            I agree to the collection and processing of my personal data as described in the
-            <a href="/privacy" class="auth-link" target="_blank">Privacy Policy</a>.
-            This tool uses AI-generated summaries (Google Gemini) for company descriptions.
-          </span>
-        </label>
-
         <div v-if="error" id="reg-error" role="alert">
           <p v-if="isEmailTaken" class="auth-error">
             This email is already registered.
@@ -192,7 +176,7 @@ async function submit() {
           <p v-else class="auth-error">{{ error }}</p>
         </div>
 
-        <button type="submit" :disabled="loading || !firstName || !lastName || !email || emailInvalid || !pwLongEnough || !confirmPassword || !gdprConsent" class="btn-submit">
+        <button type="submit" :disabled="loading || !firstName || !lastName || !email || emailInvalid || !pwLongEnough || !confirmPassword" class="btn-submit">
           {{ loading ? 'Creating account…' : 'Create account' }}
         </button>
       </form>

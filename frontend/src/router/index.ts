@@ -15,7 +15,6 @@ import ProfileView        from '../views/ProfileView/ProfileView.vue'
 import RegisterView       from '../views/RegisterView/RegisterView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView/ForgotPasswordView.vue'
 import ResetPasswordView  from '../views/ResetPasswordView/ResetPasswordView.vue'
-import PrivacyView        from '../views/PrivacyView/PrivacyView.vue'
 import VerifyEmailView           from '../views/VerifyEmailView/VerifyEmailView.vue'
 import ConfirmEmailChangeView   from '../views/ConfirmEmailChangeView/ConfirmEmailChangeView.vue'
 import AdminView                from '../views/AdminView/AdminView.vue'
@@ -28,7 +27,6 @@ const router = createRouter({
     { path: '/register',        component: RegisterView,       meta: { title: 'Create Account — IWWZ' } },
     { path: '/forgot-password', component: ForgotPasswordView, meta: { title: 'Forgot Password — IWWZ' } },
     { path: '/reset-password',  component: ResetPasswordView,  meta: { title: 'Reset Password — IWWZ' } },
-    { path: '/privacy',       component: PrivacyView,     meta: { title: 'Privacy Policy — IWWZ' } },
     { path: '/verify-email',         component: VerifyEmailView,          meta: { title: 'Verify Email — IWWZ' } },
     { path: '/confirm-email-change', component: ConfirmEmailChangeView,   meta: { title: 'Confirm Email Change — IWWZ' } },
     { path: '/',              component: HomeView,         meta: { requiresAuth: true, title: 'Dashboard — IWWZ' } },

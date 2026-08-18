@@ -566,7 +566,6 @@ const activeDropdownCount = computed(() =>
               <div v-if="selectedCompany.summary" class="field">
                 <label class="field-label">About</label>
                 <p class="panel-body-text">{{ selectedCompany.summary }}</p>
-                <p class="ai-notice">AI-generated summary by Google Gemini. May contain errors.</p>
               </div>
 
               <div v-if="selectedCompany.coreIndustry || (selectedCompany.techStackTags?.length || selectedCompany.functionalTags?.length)" class="field">
@@ -713,7 +712,6 @@ const activeDropdownCount = computed(() =>
 .panel-subtitle { font-size: .75rem; color: var(--col-subtle); margin-top: .125rem; }
 .panel-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .panel-body-text { font-size: .875rem; color: var(--col-muted); line-height: 1.6; }
-.ai-notice { font-size: .7rem; color: var(--col-subtle); margin-top: .5rem; }
 .meta-chips { display: flex; flex-wrap: wrap; gap: .375rem; }
 .meta-chip {
   display: inline-flex; align-items: center;

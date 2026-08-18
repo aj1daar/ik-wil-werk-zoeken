@@ -113,7 +113,6 @@ async function deleteAccount() {
       </svg>
       <p>
         Signed in as <strong>{{ auth.user?.email }}</strong>.
-        Your data is processed under GDPR. AI-generated company summaries are provided by Google Gemini.
       </p>
     </div>
 
