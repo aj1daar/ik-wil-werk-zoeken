@@ -11,8 +11,12 @@ const store = useApplicationsStore()
 // Fallback only, used to size the very first paint — before any application
 // has loaded there's no real .company-row to measure yet. Once real rows
 // exist, later recalculations (e.g. on window resize) measure them directly
-// instead of trusting this constant.
-const ROW_HEIGHT = 90
+// instead of trusting this constant. Measured empirically at 157.5px
+// (desktop, 768px+ wide). Rows are a fixed height regardless of content —
+// see followup-badge--none, which reserves the badge's line even when no
+// badge applies — so this constant can't drift out of sync with a subset
+// of taller/shorter rows the way it did before.
+const ROW_HEIGHT = 158
 const listEl = ref<HTMLElement | null>(null)
 const PAGE_SIZE = ref(10)
 let _ro: ResizeObserver | null = null
@@ -393,8 +397,15 @@ function printPage() {
                   </span>
                 </span>
                 <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
-                <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠ Follow up</span>
-                <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Follow-up due today">📅 Today</span>
+                <!-- Always rendered (invisible when neither applies) so every row
+                     reserves the same vertical space — a row height that depends on
+                     which badges happen to be present breaks the desktop list's
+                     PAGE_SIZE math (it assumes one fixed row height) and can clip
+                     or hide rows near the bottom of the page. -->
+                <span
+                  :class="['followup-badge', isOverdue(app) ? 'followup-badge--overdue' : isDueToday(app) ? 'followup-badge--today' : 'followup-badge--none']"
+                  :title="isOverdue(app) ? 'Follow-up overdue' : isDueToday(app) ? 'Follow-up due today' : undefined"
+                >{{ isOverdue(app) ? '⚠ Follow up' : isDueToday(app) ? '📅 Today' : ' ' }}</span>
               </div>
               <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -505,6 +516,7 @@ function printPage() {
 .followup-badge { font-size: .65rem; font-weight: 700; padding: .1rem .4rem; border-radius: 9999px; white-space: nowrap; }
 .followup-badge--overdue { background: #fee2e2; color: #b91c1c; }
 .followup-badge--today   { background: #fef3c7; color: #92400e; }
+.followup-badge--none    { visibility: hidden; }
 
 .row-badges { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; justify-content: flex-end; }
 .success-rate-chip { background: var(--col-raised); color: var(--col-muted); }

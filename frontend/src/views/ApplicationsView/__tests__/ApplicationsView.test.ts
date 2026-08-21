@@ -198,6 +198,65 @@ describe('ApplicationsView – row badges', () => {
   })
 })
 
+// ── follow-up badge slot: every row reserves the same space ────────────────────
+//
+// Row height on desktop was measured empirically (via a live browser, not
+// happy-dom) at 157.5px — but only for rows that actually show a follow-up
+// badge. Rows without one measured 129px. A single ROW_HEIGHT constant can't
+// be right for both, so whichever page happens to land a mix of overdue and
+// non-overdue rows would still clip/hide a row near the bottom. Fixing this
+// for real means every row reserves the *same* vertical space regardless of
+// its data — the badge slot is always rendered, just invisible when unused.
+
+describe('ApplicationsView – follow-up badge always reserves its row slot', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders a .followup-badge element even when there is no follow-up date at all', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: undefined })])
+    await flushPromises()
+    const badge = wrapper.find('.followup-badge')
+    expect(badge.exists()).toBe(true)
+    expect(badge.classes()).toContain('followup-badge--none')
+  })
+
+  it('renders a .followup-badge element for a future (not overdue, not due today) follow-up date', async () => {
+    const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    const wrapper = mountView([makeApp({ followUpDate: future })])
+    await flushPromises()
+    const badge = wrapper.find('.followup-badge')
+    expect(badge.exists()).toBe(true)
+    expect(badge.classes()).toContain('followup-badge--none')
+  })
+
+  it('shows the overdue variant (not the empty slot) when the follow-up date is in the past', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: '2020-01-01T00:00:00Z' })])
+    await flushPromises()
+    const badge = wrapper.find('.followup-badge')
+    expect(badge.classes()).toContain('followup-badge--overdue')
+    expect(badge.classes()).not.toContain('followup-badge--none')
+    expect(badge.text()).toContain('Follow up')
+  })
+
+  it('shows the due-today variant when the follow-up date is today', async () => {
+    const today = new Date().toISOString()
+    const wrapper = mountView([makeApp({ followUpDate: today })])
+    await flushPromises()
+    const badge = wrapper.find('.followup-badge')
+    expect(badge.classes()).toContain('followup-badge--today')
+    expect(badge.classes()).not.toContain('followup-badge--none')
+  })
+
+  it('every row renders exactly one .followup-badge element, whether or not it has a follow-up date', async () => {
+    const wrapper = mountView([
+      makeApp({ id: 'a', followUpDate: undefined }),
+      makeApp({ id: 'b', followUpDate: '2020-01-01T00:00:00Z' }),
+      makeApp({ id: 'c', followUpDate: new Date().toISOString() }),
+    ])
+    await flushPromises()
+    expect(wrapper.findAll('.followup-badge')).toHaveLength(3)
+  })
+})
+
 // ── list stagger transition ───────────────────────────────────────────────────
 
 describe('ApplicationsView – list stagger transition', () => {
@@ -369,7 +428,7 @@ describe('ApplicationsView – PAGE_SIZE sized correctly on the very first paint
 
     const offsetDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
     const clientDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
-    // offsetHeight deliberately differs from the ROW_HEIGHT constant (90) —
+    // offsetHeight deliberately differs from the ROW_HEIGHT constant (158) —
     // it stands in for "a real row, if one existed yet", so a passing test
     // here can't be a coincidence of both numbers happening to match.
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
@@ -378,7 +437,8 @@ describe('ApplicationsView – PAGE_SIZE sized correctly on the very first paint
     })
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
       configurable: true,
-      get(this: HTMLElement) { return this.classList.contains('app-list-wrapper') ? 1350 : 0 },
+      // 158 * 15, so "fits 15 rows" is an exact, easy-to-read expectation.
+      get(this: HTMLElement) { return this.classList.contains('app-list-wrapper') ? 2370 : 0 },
     })
     restoreOffsetHeight = () => { if (offsetDesc) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetDesc) }
     restoreClientHeight = () => { if (clientDesc) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientDesc) }
@@ -394,9 +454,9 @@ describe('ApplicationsView – PAGE_SIZE sized correctly on the very first paint
     const wrapper = mountView(makeManyApps(25))
     await flushPromises()
 
-    // container 1350px / ROW_HEIGHT constant 90px = 15. If a second pass had
-    // remeasured against the mocked "real" 50px row, this would read 27 (clamped
-    // from floor(1350/50)) instead — proving there's only ever one sizing pass.
+    // container 2370px / ROW_HEIGHT constant 158px = 15. If a second pass had
+    // remeasured against the mocked "real" 50px row, this would read 47
+    // (floor(2370/50)) instead — proving there's only ever one sizing pass.
     expect(wrapper.find('.pagination-info').text()).toContain('1–15')
     expect(wrapper.findAll('.company-row')).toHaveLength(15)
   })
