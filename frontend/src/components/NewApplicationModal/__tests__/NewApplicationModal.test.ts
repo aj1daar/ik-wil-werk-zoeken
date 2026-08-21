@@ -92,6 +92,48 @@ describe('NewApplicationModal – rendering', () => {
   })
 })
 
+// ── job posting: link or email ──────────────────────────────────────────────────
+
+describe('NewApplicationModal – job posting link or email field', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders as free text, not constrained to URL format', () => {
+    expect(mountModal().find('#new-app-joburl').attributes('type')).toBe('text')
+  })
+
+  it('accepts an email address as the value', async () => {
+    const w = mountModal()
+    await w.find('#new-app-joburl').setValue('hr@company.com')
+    expect((w.find('#new-app-joburl').element as HTMLInputElement).value).toBe('hr@company.com')
+  })
+
+  it('submits an email value as jobUrl unchanged', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('#new-app-joburl').setValue('hr@company.com')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ jobUrl: 'hr@company.com' })
+    )
+  })
+
+  it('submits a URL value as jobUrl unchanged', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('#new-app-joburl').setValue('https://example.com/jobs/1')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ jobUrl: 'https://example.com/jobs/1' })
+    )
+  })
+})
+
 // ── close / cancel ────────────────────────────────────────────────────────────
 
 describe('NewApplicationModal – close / cancel', () => {

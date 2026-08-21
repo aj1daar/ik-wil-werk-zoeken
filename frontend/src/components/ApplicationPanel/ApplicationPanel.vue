@@ -6,6 +6,7 @@ import type { Application, ActivityLog, RejectionReason, SponsorCompany, StatusH
 import { api } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 import DatePicker from '../DatePicker/DatePicker.vue'
+import { detectContactLinkKind } from '../../utils/contactLink'
 
 interface JourneyEntry {
   id:         string | null
@@ -185,7 +186,10 @@ watch(() => props.application, (a) => {
 })
 
 onMounted(() => { companiesStore.load(); loadStatusHistory() })
-onUnmounted(() => { if (debounceTimer) clearTimeout(debounceTimer) })
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (copiedToastTimer) clearTimeout(copiedToastTimer)
+})
 
 function onCompanyInput() {
   highlightedIndex.value = -1
@@ -233,6 +237,22 @@ const isFollowUpOverdue = computed(() => {
   if (!followUpDate.value) return false
   return new Date(followUpDate.value) < new Date(new Date().toDateString())
 })
+
+const contactLinkKind = computed(() => detectContactLinkKind(jobUrl.value))
+
+const showCopiedToast = ref(false)
+let copiedToastTimer: ReturnType<typeof setTimeout> | null = null
+
+async function copyJobEmail() {
+  try {
+    await navigator.clipboard.writeText(jobUrl.value)
+  } catch {
+    return
+  }
+  showCopiedToast.value = true
+  if (copiedToastTimer) clearTimeout(copiedToastTimer)
+  copiedToastTimer = setTimeout(() => { showCopiedToast.value = false }, 2200)
+}
 
 const REJECTION_REASONS = Object.entries(REJECTION_REASON_LABELS) as [RejectionReason, string][]
 
@@ -634,13 +654,13 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 
       <div class="field">
         <label class="field-label" for="ap-joburl">
-          Job posting URL
+          Job posting link or email
           <span class="optional">(optional)</span>
         </label>
         <div class="joburl-row">
-          <input id="ap-joburl" v-model="jobUrl" type="url" class="field-input" placeholder="https://…" />
+          <input id="ap-joburl" v-model="jobUrl" type="text" class="field-input" placeholder="https://… or name@company.com" />
           <a
-            v-if="jobUrl && (jobUrl.startsWith('https://') || jobUrl.startsWith('http://'))"
+            v-if="contactLinkKind === 'url'"
             :href="jobUrl"
             target="_blank"
             rel="noopener noreferrer"
@@ -652,6 +672,18 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
+          <button
+            v-else-if="contactLinkKind === 'email'"
+            type="button"
+            @click="copyJobEmail"
+            class="joburl-open-btn btn-icon"
+            aria-label="Copy email to clipboard"
+            title="Copy email to clipboard"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -781,6 +813,14 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
     @confirm="deleteEntry"
     @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
   />
+
+  <teleport to="body">
+    <Transition name="toast">
+      <div v-if="showCopiedToast" class="toast-success" role="status" aria-live="polite">
+        <span>Copied to clipboard</span>
+      </div>
+    </Transition>
+  </teleport>
 </template>
 
 <style scoped>
@@ -837,6 +877,19 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .joburl-row .field-input { flex: 1; }
 .joburl-open-btn { flex-shrink: 0; color: var(--col-accent); }
 .clear-date-btn:hover { text-decoration: underline; }
+
+/* copy-to-clipboard toast */
+.toast-success {
+  position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+  background: var(--col-success); color: #fff;
+  padding: .75rem 1rem; border-radius: .5rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  display: flex; align-items: center; gap: .75rem;
+  font-size: .875rem; font-weight: 500; z-index: 200;
+  max-width: 480px; min-width: 280px; justify-content: center;
+}
+.toast-enter-active, .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
 
 /* shared history section */
 .history-section { border-top: 1px solid var(--col-border); margin-top: .25rem; padding-top: .75rem; }

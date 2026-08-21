@@ -123,6 +123,88 @@ describe('ApplicationPanel – rendering', () => {
   })
 })
 
+// ── job posting: link vs email ──────────────────────────────────────────────────
+
+describe('ApplicationPanel – job posting link or email', () => {
+  const originalClipboard = navigator.clipboard
+  let writeText: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+  })
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: originalClipboard, configurable: true })
+    document.body.innerHTML = ''
+  })
+
+  it('field accepts free text (not constrained to URL format)', () => {
+    const w = mountPanel(makeApp())
+    expect(w.find('#ap-joburl').attributes('type')).toBe('text')
+  })
+
+  it('shows the "open" link button when jobUrl is a URL', () => {
+    const w = mountPanel(makeApp({ jobUrl: 'https://example.com/jobs/1' }))
+    expect(w.find('.joburl-open-btn').exists()).toBe(true)
+    expect(w.find('a.joburl-open-btn').exists()).toBe(true)
+    expect(w.find('a.joburl-open-btn').attributes('href')).toBe('https://example.com/jobs/1')
+  })
+
+  it('shows the "copy" button (not a link) when jobUrl is an email', () => {
+    const w = mountPanel(makeApp({ jobUrl: 'hr@company.com' }))
+    expect(w.find('.joburl-open-btn').exists()).toBe(true)
+    expect(w.find('a.joburl-open-btn').exists()).toBe(false)
+    expect(w.find('button.joburl-open-btn').exists()).toBe(true)
+  })
+
+  it('shows no button when jobUrl is empty', () => {
+    const w = mountPanel(makeApp({ jobUrl: undefined }))
+    expect(w.find('.joburl-open-btn').exists()).toBe(false)
+  })
+
+  it('shows no button when jobUrl is neither a recognizable url nor an email', () => {
+    const w = mountPanel(makeApp({ jobUrl: 'ask the recruiter' }))
+    expect(w.find('.joburl-open-btn').exists()).toBe(false)
+  })
+
+  it('switches from the open-link button to the copy button as the field is edited from a URL to an email', async () => {
+    const w = mountPanel(makeApp({ jobUrl: 'https://example.com' }))
+    expect(w.find('a.joburl-open-btn').exists()).toBe(true)
+    await w.find('#ap-joburl').setValue('hr@company.com')
+    expect(w.find('a.joburl-open-btn').exists()).toBe(false)
+    expect(w.find('button.joburl-open-btn').exists()).toBe(true)
+  })
+
+  it('clicking the copy button copies the email to the clipboard', async () => {
+    const w = mountPanel(makeApp({ jobUrl: 'hr@company.com' }))
+    await w.find('button.joburl-open-btn').trigger('click')
+    expect(writeText).toHaveBeenCalledWith('hr@company.com')
+  })
+
+  it('shows a "Copied to clipboard" toast after copying', async () => {
+    // Toast is teleported to <body>, outside the mounted component tree —
+    // query the document directly, same pattern as ConfirmDialog below.
+    const w = mountPanel(makeApp({ jobUrl: 'hr@company.com' }))
+    expect(document.querySelector('.toast-success')).toBeNull()
+    await w.find('button.joburl-open-btn').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('.toast-success')).not.toBeNull()
+    expect(document.querySelector('.toast-success')!.textContent).toContain('Copied to clipboard')
+  })
+
+  it('does not show a toast if the clipboard write fails', async () => {
+    writeText.mockRejectedValue(new Error('denied'))
+    const w = mountPanel(makeApp({ jobUrl: 'hr@company.com' }))
+    await w.find('button.joburl-open-btn').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('.toast-success')).toBeNull()
+  })
+})
+
 // ── close ─────────────────────────────────────────────────────────────────────
 
 describe('ApplicationPanel – close', () => {

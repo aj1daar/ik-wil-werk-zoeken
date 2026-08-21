@@ -234,8 +234,8 @@ async function submit() {
         </div>
 
         <div class="field">
-          <label class="field-label">Job posting URL <span class="optional">(optional)</span></label>
-          <input v-model="jobUrl" type="url" class="field-input" placeholder="https://…" />
+          <label class="field-label" for="new-app-joburl">Job posting link or email <span class="optional">(optional)</span></label>
+          <input id="new-app-joburl" v-model="jobUrl" type="text" class="field-input" placeholder="https://… or name@company.com" />
         </div>
 
         <div class="field">
