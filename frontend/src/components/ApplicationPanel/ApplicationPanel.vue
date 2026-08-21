@@ -36,6 +36,7 @@ const locations        = ref<string[]>([...props.application.locations])
 const followUpDate     = ref(props.application.followUpDate?.slice(0, 10) ?? '')
 const jobUrl           = ref(props.application.jobUrl ?? '')
 const successRate      = ref(props.application.successRate?.toString() ?? '')
+const sponsorCompanyId = ref<string | undefined>(props.application.sponsorCompanyId)
 const deleting         = ref(false)
 const saveError        = ref('')
 const chipFlash        = ref(false)
@@ -101,6 +102,7 @@ const isDirty = computed(() => {
     followUpDate.value    !== (props.application.followUpDate?.slice(0, 10) ?? '') ||
     jobUrl.value          !== (props.application.jobUrl ?? '') ||
     String(successRate.value) !== (props.application.successRate?.toString() ?? '') ||
+    sponsorCompanyId.value !== props.application.sponsorCompanyId ||
     JSON.stringify(locations.value) !== JSON.stringify([...props.application.locations])
 
   const appliedEntry  = journeyEntries.value.find(e => e.isApplied)
@@ -176,6 +178,7 @@ watch(() => props.application, (a) => {
   followUpDate.value    = a.followUpDate?.slice(0, 10) ?? ''
   jobUrl.value          = a.jobUrl ?? ''
   successRate.value     = a.successRate?.toString() ?? ''
+  sponsorCompanyId.value = a.sponsorCompanyId
   saveError.value       = ''
   activityLogs.value    = []
   journeyEntries.value  = []
@@ -192,6 +195,11 @@ onUnmounted(() => {
 })
 
 function onCompanyInput() {
+  // Retyping the company name invalidates whatever sponsor was previously
+  // matched — without this, editing an unrelated field (or just retyping
+  // the same name) would silently keep stale sponsor data, or a save could
+  // send a sponsorCompanyId that no longer matches companyName.
+  sponsorCompanyId.value = undefined
   highlightedIndex.value = -1
   if (debounceTimer) clearTimeout(debounceTimer)
   const q = companyName.value
@@ -202,6 +210,7 @@ function onCompanyInput() {
 
 function selectCompany(company: SponsorCompany) {
   companyName.value      = company.name
+  sponsorCompanyId.value = company.id
   suggestions.value      = []
   highlightedIndex.value = -1
   if (company.city && !locations.value.includes(company.city)) {
@@ -283,6 +292,7 @@ function buildPayload() {
     followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
     jobUrl:             jobUrl.value || undefined,
     successRate:        successRate.value === '' ? undefined : Number(successRate.value),
+    sponsorCompanyId:   sponsorCompanyId.value,
   }
 }
 

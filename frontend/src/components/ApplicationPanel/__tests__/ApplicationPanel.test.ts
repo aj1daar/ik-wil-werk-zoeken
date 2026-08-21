@@ -282,6 +282,58 @@ describe('ApplicationPanel – save', () => {
     expect(payload.statusDate).toBeUndefined()
   })
 
+  // Regression: the panel never tracked sponsorCompanyId at all, so every
+  // save sent it as undefined — the backend trusts the payload as the full
+  // state of the field, so this silently wiped the sponsor link (surfacing
+  // as the HSM tag flipping to "Not HSM sponsor") on *any* save, most
+  // noticeably when marking an application Rejected.
+
+  it('preserves sponsorCompanyId when saving after only changing status to Rejected', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([])
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ status: 'Applied', sponsorCompanyId: 'co-1' }))
+    await flushPromises()
+    await w.find('.sh-add-btn').trigger('click')
+    await w.find('.sh-add-form .sh-edit-select').setValue('Rejected')
+    await w.find('.sh-add-form .sh-save-btn').trigger('click')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.updateApplication).toHaveBeenCalledWith('app-1',
+      expect.objectContaining({ status: 'Rejected', sponsorCompanyId: 'co-1' })
+    )
+  })
+
+  it('preserves sponsorCompanyId when saving after an unrelated field edit (notes)', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ sponsorCompanyId: 'co-1' }))
+    await w.find('#ap-notes').setValue('some notes')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.updateApplication).toHaveBeenCalledWith('app-1',
+      expect.objectContaining({ sponsorCompanyId: 'co-1' })
+    )
+  })
+
+  it('keeps sponsorCompanyId undefined on save when the application never had one', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ sponsorCompanyId: undefined }))
+    await w.find('#ap-notes').setValue('some notes')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    const payload = vi.mocked(api.updateApplication).mock.calls[0][1]
+    expect(payload.sponsorCompanyId).toBeUndefined()
+  })
+
+  it('clears sponsorCompanyId when the company name is retyped', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ sponsorCompanyId: 'co-1' }))
+    await w.find('#ap-company').setValue('A Totally Different Co')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    const payload = vi.mocked(api.updateApplication).mock.calls[0][1]
+    expect(payload.sponsorCompanyId).toBeUndefined()
+  })
+
   it('save closes the panel immediately (fire-and-forget)', async () => {
     vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
     const w = mountPanel(makeApp())
