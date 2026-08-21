@@ -336,3 +336,64 @@ describe('ApplicationsView – pagination survives PAGE_SIZE resize (Chrome iOS 
     }
   })
 })
+
+// ── PAGE_SIZE measured from real rows on load, not just on resize ──────────────
+//
+// Regression: adding the success-rate/sponsor badges made rows taller. The
+// ResizeObserver fires once immediately on observe() — before applications
+// have loaded and before any .company-row exists — so that first callback
+// falls back to the ROW_HEIGHT constant. If nothing ever re-measures against
+// the real (now taller) row once data loads, PAGE_SIZE overestimates how
+// many rows fit and the last row on a page spills out from under the
+// pagination bar (.app-list-wrapper clips with overflow: hidden).
+
+describe('ApplicationsView – PAGE_SIZE reflects actual row height once applications render', () => {
+  let restoreOffsetHeight: (() => void) | null = null
+  let restoreClientHeight: (() => void) | null = null
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // No resize ever fires in this scenario (mirrors production: the
+    // container's own size doesn't change just because content inside it
+    // got taller) — measurePageSize must be reached from the post-load path.
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+
+    const offsetDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+    const clientDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get(this: HTMLElement) { return this.classList.contains('company-row') ? 90 : 0 },
+    })
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get(this: HTMLElement) { return this.classList.contains('app-list-wrapper') ? 1350 : 0 },
+    })
+    restoreOffsetHeight = () => { if (offsetDesc) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetDesc) }
+    restoreClientHeight = () => { if (clientDesc) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientDesc) }
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    restoreOffsetHeight?.()
+    restoreClientHeight?.()
+  })
+
+  it('computes PAGE_SIZE from the real row height as soon as applications load (no resize needed)', async () => {
+    const wrapper = mountView(makeManyApps(25))
+    await flushPromises()
+
+    // container 1350px / real row 90px = 15 rows — not the stale default of 10.
+    expect(wrapper.find('.pagination-info').text()).toContain('1–15')
+    expect(wrapper.findAll('.company-row')).toHaveLength(15)
+  })
+
+  it('every row on the last page stays inside the clipped list — none get pushed under the pagination bar', async () => {
+    const wrapper = mountView(makeManyApps(20))
+    await flushPromises()
+
+    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
+    // Page size 15 -> page 2 holds the remaining 5, all rendered (none clipped/lost).
+    expect(wrapper.findAll('.company-row')).toHaveLength(5)
+    expect(wrapper.find('.pagination-info').text()).toContain('16–20')
+  })
+})

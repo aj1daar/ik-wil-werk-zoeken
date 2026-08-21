@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
@@ -8,10 +8,28 @@ import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const store = useApplicationsStore()
 
-const ROW_HEIGHT = 68
+// Fallback only — used the instant the ResizeObserver fires (immediately on
+// observe(), before applications have loaded and any .company-row exists).
+// Real rows are measured and override this as soon as they render below.
+const ROW_HEIGHT = 90
 const listEl = ref<HTMLElement | null>(null)
 const PAGE_SIZE = ref(10)
 let _ro: ResizeObserver | null = null
+
+function measurePageSize() {
+  if (!listEl.value) return
+  // Below 768px .dashboard switches to height:auto (the page scrolls
+  // instead of the list being clipped to fit the viewport) — the list
+  // container is then exactly as tall as its own rows, so measuring it
+  // is circular: it only ever reports back however many rows are already
+  // rendered, which ratchets PAGE_SIZE toward the full list or oscillates
+  // as row heights vary slightly between pages. Keep the stable default there.
+  if (window.matchMedia('(max-width: 767px)').matches) return
+  const h = listEl.value.clientHeight
+  const firstRow = listEl.value.querySelector<HTMLElement>('.company-row')
+  const rowH = firstRow ? firstRow.offsetHeight : ROW_HEIGHT
+  if (h > 0 && rowH > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / rowH))
+}
 
 type SortKey = 'newest' | 'oldest' | 'updated' | 'company' | 'followup'
 
@@ -40,24 +58,18 @@ function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') { selectedId.value = null; clearSelection() }
 }
 
-onMounted(() => {
-  store.load()
+onMounted(async () => {
   window.addEventListener('keydown', onKey)
-  _ro = new ResizeObserver(() => {
-    if (!listEl.value) return
-    // Below 768px .dashboard switches to height:auto (the page scrolls
-    // instead of the list being clipped to fit the viewport) — the list
-    // container is then exactly as tall as its own rows, so measuring it
-    // is circular: it only ever reports back however many rows are already
-    // rendered, which ratchets PAGE_SIZE toward the full list or oscillates
-    // as row heights vary slightly between pages. Keep the stable default there.
-    if (window.matchMedia('(max-width: 767px)').matches) return
-    const h = listEl.value.clientHeight
-    const firstRow = listEl.value.querySelector<HTMLElement>('.company-row')
-    const rowH = firstRow ? firstRow.offsetHeight : ROW_HEIGHT
-    if (h > 0 && rowH > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / rowH))
-  })
+  _ro = new ResizeObserver(measurePageSize)
   if (listEl.value) _ro.observe(listEl.value)
+
+  await store.load()
+  // The ResizeObserver's initial callback fires immediately on observe(),
+  // before any application has loaded — it measures against the ROW_HEIGHT
+  // fallback, not a real row. Re-measure now that actual rows (with their
+  // real content/height) exist in the DOM.
+  await nextTick()
+  measurePageSize()
 })
 onUnmounted(() => { window.removeEventListener('keydown', onKey); _ro?.disconnect() })
 
