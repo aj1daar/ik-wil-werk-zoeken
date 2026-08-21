@@ -337,17 +337,26 @@ describe('ApplicationsView – pagination survives PAGE_SIZE resize (Chrome iOS 
   })
 })
 
-// ── PAGE_SIZE measured from real rows on load, not just on resize ──────────────
+// ── PAGE_SIZE sized correctly on the very first paint (no second pass) ─────────
 //
-// Regression: adding the success-rate/sponsor badges made rows taller. The
-// ResizeObserver fires once immediately on observe() — before applications
-// have loaded and before any .company-row exists — so that first callback
-// falls back to the ROW_HEIGHT constant. If nothing ever re-measures against
-// the real (now taller) row once data loads, PAGE_SIZE overestimates how
-// many rows fit and the last row on a page spills out from under the
-// pagination bar (.app-list-wrapper clips with overflow: hidden).
+// Regression #1: adding the success-rate/sponsor badges made rows taller.
+// The ResizeObserver fires once immediately on observe() — before
+// applications have loaded and before any .company-row exists — so that
+// first callback falls back to the ROW_HEIGHT constant. If that constant is
+// stale (too small), PAGE_SIZE overestimates how many rows fit and the last
+// row on a page spills out from under the pagination bar (.app-list-wrapper
+// clips with overflow: hidden).
+//
+// Regression #2 (introduced by the first fix attempt): re-measuring against
+// a real row *after* the first batch had already painted and started its
+// TransitionGroup enter animation caused PAGE_SIZE to grow on a second pass.
+// The extra rows that popped in on that second pass could get stuck
+// mid-transition (opacity: 0) until something else forced a re-render —
+// e.g. changing page — matching the "last app is invisible until I switch
+// pages" report. The fix is to size correctly on the first paint (from the
+// ROW_HEIGHT constant, before any row exists) instead of correcting after.
 
-describe('ApplicationsView – PAGE_SIZE reflects actual row height once applications render', () => {
+describe('ApplicationsView – PAGE_SIZE sized correctly on the very first paint', () => {
   let restoreOffsetHeight: (() => void) | null = null
   let restoreClientHeight: (() => void) | null = null
 
@@ -355,14 +364,17 @@ describe('ApplicationsView – PAGE_SIZE reflects actual row height once applica
     vi.clearAllMocks()
     // No resize ever fires in this scenario (mirrors production: the
     // container's own size doesn't change just because content inside it
-    // got taller) — measurePageSize must be reached from the post-load path.
+    // got taller) — the first paint must already be sized correctly.
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
 
     const offsetDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
     const clientDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
+    // offsetHeight deliberately differs from the ROW_HEIGHT constant (90) —
+    // it stands in for "a real row, if one existed yet", so a passing test
+    // here can't be a coincidence of both numbers happening to match.
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
       configurable: true,
-      get(this: HTMLElement) { return this.classList.contains('company-row') ? 90 : 0 },
+      get(this: HTMLElement) { return this.classList.contains('company-row') ? 50 : 0 },
     })
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
       configurable: true,
@@ -378,11 +390,13 @@ describe('ApplicationsView – PAGE_SIZE reflects actual row height once applica
     restoreClientHeight?.()
   })
 
-  it('computes PAGE_SIZE from the real row height as soon as applications load (no resize needed)', async () => {
+  it('sizes the first paint from the ROW_HEIGHT constant, not a post-load remeasure against the real row', async () => {
     const wrapper = mountView(makeManyApps(25))
     await flushPromises()
 
-    // container 1350px / real row 90px = 15 rows — not the stale default of 10.
+    // container 1350px / ROW_HEIGHT constant 90px = 15. If a second pass had
+    // remeasured against the mocked "real" 50px row, this would read 27 (clamped
+    // from floor(1350/50)) instead — proving there's only ever one sizing pass.
     expect(wrapper.find('.pagination-info').text()).toContain('1–15')
     expect(wrapper.findAll('.company-row')).toHaveLength(15)
   })
@@ -395,5 +409,18 @@ describe('ApplicationsView – PAGE_SIZE reflects actual row height once applica
     // Page size 15 -> page 2 holds the remaining 5, all rendered (none clipped/lost).
     expect(wrapper.findAll('.company-row')).toHaveLength(5)
     expect(wrapper.find('.pagination-info').text()).toContain('16–20')
+  })
+
+  it('does not trigger a second PAGE_SIZE change after applications finish loading', async () => {
+    const wrapper = mountView(makeManyApps(25))
+    await flushPromises()
+    const afterFirstLoad = wrapper.find('.pagination-info').text()
+
+    // Give any lingering microtask/animation-frame-driven correction a
+    // chance to run, then confirm nothing shifted.
+    await flushPromises()
+    await new Promise(r => setTimeout(r, 0))
+
+    expect(wrapper.find('.pagination-info').text()).toBe(afterFirstLoad)
   })
 })

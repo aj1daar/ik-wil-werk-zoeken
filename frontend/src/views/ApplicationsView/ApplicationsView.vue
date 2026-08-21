@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
@@ -8,9 +8,10 @@ import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const store = useApplicationsStore()
 
-// Fallback only — used the instant the ResizeObserver fires (immediately on
-// observe(), before applications have loaded and any .company-row exists).
-// Real rows are measured and override this as soon as they render below.
+// Fallback only, used to size the very first paint — before any application
+// has loaded there's no real .company-row to measure yet. Once real rows
+// exist, later recalculations (e.g. on window resize) measure them directly
+// instead of trusting this constant.
 const ROW_HEIGHT = 90
 const listEl = ref<HTMLElement | null>(null)
 const PAGE_SIZE = ref(10)
@@ -60,16 +61,24 @@ function onKey(e: KeyboardEvent) {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKey)
+
+  // Size PAGE_SIZE synchronously, before anything async runs and before the
+  // TransitionGroup below has ever mounted (it's gated behind applications
+  // loading). This is the only measurement the very first paint gets — no
+  // row exists yet, so it necessarily uses the ROW_HEIGHT fallback, but that
+  // guarantees determinism: the first paint renders the right number of
+  // rows once and never resizes itself again a moment later.
+  //
+  // Recomputing again right after the load (even via nextTick, once real
+  // rows exist) was tried and reverted — it changes PAGE_SIZE a second time
+  // just as the first batch's TransitionGroup enter animation is still
+  // running, which can leave a row stuck mid-transition (opacity: 0) until
+  // something else forces a re-render, e.g. changing page.
+  measurePageSize()
   _ro = new ResizeObserver(measurePageSize)
   if (listEl.value) _ro.observe(listEl.value)
 
   await store.load()
-  // The ResizeObserver's initial callback fires immediately on observe(),
-  // before any application has loaded — it measures against the ROW_HEIGHT
-  // fallback, not a real row. Re-measure now that actual rows (with their
-  // real content/height) exist in the DOM.
-  await nextTick()
-  measurePageSize()
 })
 onUnmounted(() => { window.removeEventListener('keydown', onKey); _ro?.disconnect() })
 
