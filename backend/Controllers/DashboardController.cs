@@ -132,6 +132,7 @@ public sealed class DashboardController : ApiControllerBase
             FollowUpDate        = item.FollowUpDate,
             SponsorCompanyId    = item.SponsorCompanyId,
             JobUrl              = item.JobUrl,
+            SuccessRate         = item.SuccessRate,
             UpdatedAt           = DateTimeOffset.UtcNow,
         };
 
@@ -358,6 +359,8 @@ public sealed class DashboardController : ApiControllerBase
         { error = "locations must not exceed 20 entries"; return false; }
         if (s.Locations.Any(l => l.Length > 100))
         { error = "each location must not exceed 100 characters"; return false; }
+        if (s.SuccessRate is < 0 or > 100)
+        { error = "successRate must be between 0 and 100"; return false; }
         error = string.Empty; return true;
     }
 
@@ -391,6 +394,7 @@ public sealed class DashboardController : ApiControllerBase
         Check("ContactPersonName",   before.ContactPersonName,   after.ContactPersonName);
         Check("ContactPersonEmail",  before.ContactPersonEmail,  after.ContactPersonEmail);
         Check("JobUrl",              before.JobUrl,              after.JobUrl);
+        Check("SuccessRate",         before.SuccessRate?.ToString(), after.SuccessRate?.ToString());
         Check("FollowUpDate",
             before.FollowUpDate?.ToString("yyyy-MM-dd"),
             after.FollowUpDate?.ToString("yyyy-MM-dd"));

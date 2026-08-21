@@ -28,6 +28,7 @@ const appliedAt     = ref(new Date().toISOString().slice(0, 10))
 const locationInput = ref('')
 const locations     = ref<string[]>([])
 const jobUrl        = ref('')
+const successRate   = ref('')
 const saving        = ref(false)
 const error         = ref('')
 const showDiscardConfirm = ref(false)
@@ -126,6 +127,10 @@ async function submit() {
   if (!companyName.value.trim()) { error.value = 'Company name is required.'; return }
   if (!position.value.trim())    { error.value = 'Position is required.'; return }
   if (!appliedAt.value)          { error.value = 'Application date is required.'; return }
+  const successRateNum = successRate.value === '' ? undefined : Number(successRate.value)
+  if (successRateNum !== undefined && (successRateNum < 0 || successRateNum > 100)) {
+    error.value = 'Success rate must be between 0 and 100.'; return
+  }
 
   saving.value = true
   try {
@@ -136,6 +141,7 @@ async function submit() {
       locations:         locations.value,
       sponsorCompanyId:  sponsorCompanyId.value,
       jobUrl:            jobUrl.value.trim() || undefined,
+      successRate:       successRateNum,
     })
     emit('close')
   } catch (e: unknown) {
@@ -230,6 +236,19 @@ async function submit() {
         <div class="field">
           <label class="field-label">Job posting URL <span class="optional">(optional)</span></label>
           <input v-model="jobUrl" type="url" class="field-input" placeholder="https://…" />
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="success-rate">Success rate <span class="optional">(optional)</span></label>
+          <input
+            id="success-rate"
+            v-model="successRate"
+            type="number"
+            min="0"
+            max="100"
+            class="field-input"
+            placeholder="e.g. 60"
+          />
         </div>
 
         <div v-if="activeMatch" class="dup-warning" role="status" aria-live="polite">

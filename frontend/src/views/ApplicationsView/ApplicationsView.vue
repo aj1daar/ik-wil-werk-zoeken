@@ -365,6 +365,12 @@ function printPage() {
               <div class="row-meta">
                 <span v-if="store.savingIds.includes(app.id)" class="row-saving">Saving…</span>
                 <span v-else :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
+                <span class="row-badges">
+                  <span v-if="app.successRate != null" class="chip success-rate-chip" :title="`Success rate: ${app.successRate}%`">{{ app.successRate }}%</span>
+                  <span :class="['chip', 'sponsor-chip', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
+                    {{ app.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
+                  </span>
+                </span>
                 <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
                 <span v-if="isOverdue(app)" class="followup-badge followup-badge--overdue" title="Follow-up overdue">⚠ Follow up</span>
                 <span v-else-if="isDueToday(app)" class="followup-badge followup-badge--today" title="Follow-up due today">📅 Today</span>
@@ -478,6 +484,11 @@ function printPage() {
 .followup-badge { font-size: .65rem; font-weight: 700; padding: .1rem .4rem; border-radius: 9999px; white-space: nowrap; }
 .followup-badge--overdue { background: #fee2e2; color: #b91c1c; }
 .followup-badge--today   { background: #fef3c7; color: #92400e; }
+
+.row-badges { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; justify-content: flex-end; }
+.success-rate-chip { background: var(--col-raised); color: var(--col-muted); }
+.sponsor-chip--yes { background: color-mix(in srgb, var(--col-accent) 18%, transparent); color: var(--col-accent-dk); }
+.sponsor-chip--no { background: var(--col-raised); color: var(--col-subtle); }
 
 .bulk-bar {
   position: sticky;

@@ -34,6 +34,7 @@ const locationInput    = ref('')
 const locations        = ref<string[]>([...props.application.locations])
 const followUpDate     = ref(props.application.followUpDate?.slice(0, 10) ?? '')
 const jobUrl           = ref(props.application.jobUrl ?? '')
+const successRate      = ref(props.application.successRate?.toString() ?? '')
 const deleting         = ref(false)
 const saveError        = ref('')
 const chipFlash        = ref(false)
@@ -98,6 +99,7 @@ const isDirty = computed(() => {
     contactEmail.value    !== (props.application.contactPersonEmail ?? '') ||
     followUpDate.value    !== (props.application.followUpDate?.slice(0, 10) ?? '') ||
     jobUrl.value          !== (props.application.jobUrl ?? '') ||
+    String(successRate.value) !== (props.application.successRate?.toString() ?? '') ||
     JSON.stringify(locations.value) !== JSON.stringify([...props.application.locations])
 
   const appliedEntry  = journeyEntries.value.find(e => e.isApplied)
@@ -172,6 +174,7 @@ watch(() => props.application, (a) => {
   locations.value       = [...a.locations]
   followUpDate.value    = a.followUpDate?.slice(0, 10) ?? ''
   jobUrl.value          = a.jobUrl ?? ''
+  successRate.value     = a.successRate?.toString() ?? ''
   saveError.value       = ''
   activityLogs.value    = []
   journeyEntries.value  = []
@@ -259,6 +262,7 @@ function buildPayload() {
     locations:          locations.value,
     followUpDate:       followUpDate.value ? new Date(followUpDate.value).toISOString() : undefined,
     jobUrl:             jobUrl.value || undefined,
+    successRate:        successRate.value === '' ? undefined : Number(successRate.value),
   }
 }
 
@@ -294,6 +298,9 @@ function save() {
   saveError.value = ''
   if (!companyName.value.trim()) { saveError.value = 'Company name is required.'; return }
   if (!position.value.trim())    { saveError.value = 'Position is required.'; return }
+  if (successRate.value !== '' && (Number(successRate.value) < 0 || Number(successRate.value) > 100)) {
+    saveError.value = 'Success rate must be between 0 and 100.'; return
+  }
   emit('close')
   store.backgroundSave(props.application.id, buildPayload(), buildHistoryChanges())
 }
@@ -416,6 +423,7 @@ const FIELD_LABELS: Record<string, string> = {
   FollowUpDate:       'Follow-up date',
   Locations:          'Locations',
   JobUrl:             'Job posting URL',
+  SuccessRate:        'Success rate',
 }
 
 function formatLogDate(iso: string) {
@@ -441,6 +449,11 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         <p class="panel-subtitle">{{ application.position }}</p>
         <span :class="['chip', 'status-chip', STATUS_COLOR[status], { 'chip-updated': chipFlash }]">
           {{ STATUS_LABELS[status] }}
+        </span>
+        <span
+          :class="['chip', 'status-chip', 'sponsor-chip', application.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']"
+        >
+          {{ application.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
         </span>
       </div>
       <button @click="requestClose" class="btn-icon" aria-label="Close panel">
@@ -643,6 +656,22 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
       </div>
 
       <div class="field">
+        <label class="field-label" for="ap-success-rate">
+          Success rate
+          <span class="optional">(optional)</span>
+        </label>
+        <input
+          id="ap-success-rate"
+          v-model="successRate"
+          type="number"
+          min="0"
+          max="100"
+          class="field-input"
+          placeholder="e.g. 60"
+        />
+      </div>
+
+      <div class="field">
         <label class="field-label">Locations</label>
         <div class="tag-row mb-2">
           <span v-for="l in locations" :key="l" class="city-chip">
@@ -757,6 +786,9 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 <style scoped>
 .panel { display: flex; flex-direction: column; height: 100%; }
 .status-chip { display: inline-block; margin-top: .375rem; }
+.sponsor-chip { margin-left: .375rem; }
+.sponsor-chip--yes { background: color-mix(in srgb, var(--col-accent) 18%, transparent); color: var(--col-accent-dk); }
+.sponsor-chip--no { background: var(--col-raised); color: var(--col-subtle); }
 .panel-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border); flex-shrink: 0; }
 .panel-title-block { flex: 1; min-width: 0; }
 .panel-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

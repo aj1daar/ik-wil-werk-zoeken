@@ -94,6 +94,33 @@ describe('ApplicationPanel – rendering', () => {
     await flushPromises()
     expect(api.getStatusHistory).toHaveBeenCalledWith('app-1')
   })
+
+  it('renders success rate input', () => {
+    const w = mountPanel(makeApp())
+    expect(w.find('#ap-success-rate').exists()).toBe(true)
+  })
+
+  it('pre-fills success rate input from the application', () => {
+    const w = mountPanel(makeApp({ successRate: 75 }))
+    expect((w.find('#ap-success-rate').element as HTMLInputElement).value).toBe('75')
+  })
+
+  it('success rate input is empty when application has no successRate', () => {
+    const w = mountPanel(makeApp({ successRate: undefined }))
+    expect((w.find('#ap-success-rate').element as HTMLInputElement).value).toBe('')
+  })
+
+  it('shows "HSM sponsor" tag when application has a sponsorCompanyId', () => {
+    const w = mountPanel(makeApp({ sponsorCompanyId: 'co-1' }))
+    expect(w.find('.sponsor-chip').text()).toBe('HSM sponsor')
+    expect(w.find('.sponsor-chip').classes()).toContain('sponsor-chip--yes')
+  })
+
+  it('shows "Not HSM sponsor" tag when application has no sponsorCompanyId', () => {
+    const w = mountPanel(makeApp({ sponsorCompanyId: undefined }))
+    expect(w.find('.sponsor-chip').text()).toBe('Not HSM sponsor')
+    expect(w.find('.sponsor-chip').classes()).toContain('sponsor-chip--no')
+  })
 })
 
 // ── close ─────────────────────────────────────────────────────────────────────
@@ -187,6 +214,54 @@ describe('ApplicationPanel – save', () => {
     expect(w.find('.save-error').exists()).toBe(true)
     expect(w.text()).toContain('Company name is required')
     expect(w.emitted('close')).toBeFalsy()
+    expect(api.updateApplication).not.toHaveBeenCalled()
+  })
+
+  it('updated success rate is passed to the API', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp())
+    await w.find('#ap-success-rate').setValue('80')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.updateApplication).toHaveBeenCalledWith('app-1',
+      expect.objectContaining({ successRate: 80 })
+    )
+  })
+
+  it('clearing success rate sends undefined', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ successRate: 50 }))
+    await w.find('#ap-success-rate').setValue('')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    const payload = vi.mocked(api.updateApplication).mock.calls[0][1]
+    expect(payload.successRate).toBeUndefined()
+  })
+
+  it('success rate of 0 is passed through, not dropped as falsy', async () => {
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp())
+    await w.find('#ap-success-rate').setValue('0')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.updateApplication).toHaveBeenCalledWith('app-1',
+      expect.objectContaining({ successRate: 0 })
+    )
+  })
+
+  it('shows validation error and does not save when success rate exceeds 100', async () => {
+    const w = mountPanel(makeApp())
+    await w.find('#ap-success-rate').setValue('150')
+    await w.find('button.btn-primary').trigger('click')
+    expect(w.text()).toContain('Success rate must be between 0 and 100.')
+    expect(api.updateApplication).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error and does not save when success rate is negative', async () => {
+    const w = mountPanel(makeApp())
+    await w.find('#ap-success-rate').setValue('-10')
+    await w.find('button.btn-primary').trigger('click')
+    expect(w.text()).toContain('Success rate must be between 0 and 100.')
     expect(api.updateApplication).not.toHaveBeenCalled()
   })
 })

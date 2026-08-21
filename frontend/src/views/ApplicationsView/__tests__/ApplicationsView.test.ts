@@ -147,6 +147,57 @@ describe('ApplicationsView – application panel behaviour', () => {
   })
 })
 
+// ── row badges: success rate + HSM sponsor tag ────────────────────────────────
+
+describe('ApplicationsView – row badges', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows a success rate chip when successRate is set', async () => {
+    const wrapper = mountView([makeApp({ successRate: 65 })])
+    await flushPromises()
+    expect(wrapper.find('.success-rate-chip').exists()).toBe(true)
+    expect(wrapper.find('.success-rate-chip').text()).toBe('65%')
+  })
+
+  it('does not show a success rate chip when successRate is unset', async () => {
+    const wrapper = mountView([makeApp({ successRate: undefined })])
+    await flushPromises()
+    expect(wrapper.find('.success-rate-chip').exists()).toBe(false)
+  })
+
+  it('shows success rate chip for 0 without treating it as unset', async () => {
+    const wrapper = mountView([makeApp({ successRate: 0 })])
+    await flushPromises()
+    expect(wrapper.find('.success-rate-chip').exists()).toBe(true)
+    expect(wrapper.find('.success-rate-chip').text()).toBe('0%')
+  })
+
+  it('shows "HSM sponsor" tag when application has a sponsorCompanyId', async () => {
+    const wrapper = mountView([makeApp({ sponsorCompanyId: 'co-1' })])
+    await flushPromises()
+    expect(wrapper.find('.sponsor-chip').text()).toBe('HSM sponsor')
+    expect(wrapper.find('.sponsor-chip').classes()).toContain('sponsor-chip--yes')
+  })
+
+  it('shows "Not HSM sponsor" tag when application has no sponsorCompanyId', async () => {
+    const wrapper = mountView([makeApp({ sponsorCompanyId: undefined })])
+    await flushPromises()
+    expect(wrapper.find('.sponsor-chip').text()).toBe('Not HSM sponsor')
+    expect(wrapper.find('.sponsor-chip').classes()).toContain('sponsor-chip--no')
+  })
+
+  it('each row gets its own sponsor tag independent of other rows', async () => {
+    const wrapper = mountView([
+      makeApp({ id: 'a', companyName: 'Alpha', sponsorCompanyId: 'co-1' }),
+      makeApp({ id: 'b', companyName: 'Beta',  sponsorCompanyId: undefined }),
+    ])
+    await flushPromises()
+    const chips = wrapper.findAll('.sponsor-chip')
+    expect(chips[0].text()).toBe('HSM sponsor')
+    expect(chips[1].text()).toBe('Not HSM sponsor')
+  })
+})
+
 // ── list stagger transition ───────────────────────────────────────────────────
 
 describe('ApplicationsView – list stagger transition', () => {

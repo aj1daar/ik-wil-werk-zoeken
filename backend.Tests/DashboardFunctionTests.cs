@@ -374,4 +374,78 @@ public sealed class DashboardFunctionTests
         var logs = DashboardController.BuildActivityLogs(stage, stage, "u1");
         Assert.Empty(logs);
     }
+
+    // ── SuccessRate ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ValidateStage_SuccessRateNull_StillValid()
+    {
+        var s = ValidStage(); s.SuccessRate = null;
+        Assert.True(DashboardController.ValidateStage(s, out _));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(50)]
+    [InlineData(100)]
+    public void ValidateStage_SuccessRateInRange_ReturnsTrue(int rate)
+    {
+        var s = ValidStage(); s.SuccessRate = rate;
+        Assert.True(DashboardController.ValidateStage(s, out _));
+    }
+
+    [Fact]
+    public void ValidateStage_SuccessRateNegative_ReturnsFalse()
+    {
+        var s = ValidStage(); s.SuccessRate = -1;
+        Assert.False(DashboardController.ValidateStage(s, out var err));
+        Assert.Contains("successRate", err);
+    }
+
+    [Fact]
+    public void ValidateStage_SuccessRateOver100_ReturnsFalse()
+    {
+        var s = ValidStage(); s.SuccessRate = 101;
+        Assert.False(DashboardController.ValidateStage(s, out var err));
+        Assert.Contains("successRate", err);
+    }
+
+    [Fact]
+    public void ValidateStage_SuccessRateWayOutOfRange_ReturnsFalse()
+    {
+        // A hostile client sending an out-of-band integer shouldn't slip past validation.
+        var s = ValidStage(); s.SuccessRate = int.MaxValue;
+        Assert.False(DashboardController.ValidateStage(s, out var err));
+        Assert.Contains("successRate", err);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_SuccessRateChange_LogsSuccessRate()
+    {
+        var before = MakeStage(); before.SuccessRate = 40;
+        var after  = MakeStage(); after.SuccessRate  = 70;
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
+        var sr = Assert.Single(logs, l => l.Field == "SuccessRate");
+        Assert.Equal("40", sr.OldValue);
+        Assert.Equal("70", sr.NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_SuccessRateSetFromNull_LogsSuccessRate()
+    {
+        var before = MakeStage(); before.SuccessRate = null;
+        var after  = MakeStage(); after.SuccessRate  = 25;
+        var logs = DashboardController.BuildActivityLogs(before, after, "u1");
+        var sr = Assert.Single(logs, l => l.Field == "SuccessRate");
+        Assert.Null(sr.OldValue);
+        Assert.Equal("25", sr.NewValue);
+    }
+
+    [Fact]
+    public void BuildActivityLogs_SuccessRateUnchanged_NotLogged()
+    {
+        var stage = MakeStage(); stage.SuccessRate = 60;
+        var logs = DashboardController.BuildActivityLogs(stage, stage, "u1");
+        Assert.Empty(logs);
+    }
 }

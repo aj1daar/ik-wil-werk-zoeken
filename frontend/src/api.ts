@@ -170,6 +170,7 @@ export interface Application {
   updatedAt: string
   sponsorCompanyId?: string
   jobUrl?: string
+  successRate?: number
 }
 
 export interface ActivityLog {

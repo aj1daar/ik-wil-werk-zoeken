@@ -187,6 +187,88 @@ describe('NewApplicationModal – successful submission', () => {
   })
 })
 
+// ── success rate ────────────────────────────────────────────────────────────
+
+describe('NewApplicationModal – success rate', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders success rate input', () => {
+    expect(mountModal().find('#success-rate').exists()).toBe(true)
+  })
+
+  it('omits successRate from payload when left blank', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    const call = vi.mocked(api.createApplication).mock.calls[0][0]
+    expect(call.successRate).toBeUndefined()
+  })
+
+  it('includes successRate as a number when filled in', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('#success-rate').setValue('60')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ successRate: 60 })
+    )
+  })
+
+  it('shows error and does not submit when successRate is negative', async () => {
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('#success-rate').setValue('-5')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Success rate must be between 0 and 100.')
+    expect(api.createApplication).not.toHaveBeenCalled()
+  })
+
+  it('shows error and does not submit when successRate exceeds 100', async () => {
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('#success-rate').setValue('101')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Success rate must be between 0 and 100.')
+    expect(api.createApplication).not.toHaveBeenCalled()
+  })
+
+  it('accepts boundary value 0', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('#success-rate').setValue('0')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ successRate: 0 })
+    )
+  })
+
+  it('accepts boundary value 100', async () => {
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const w = mountModal()
+    await w.find('#company-name').setValue('Acme')
+    await w.find('#position').setValue('Engineer')
+    await w.find('#success-rate').setValue('100')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ successRate: 100 })
+    )
+  })
+})
+
 // ── location chips ────────────────────────────────────────────────────────────
 
 describe('NewApplicationModal – location chips', () => {
