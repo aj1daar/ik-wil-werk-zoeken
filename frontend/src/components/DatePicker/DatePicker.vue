@@ -13,6 +13,14 @@ const wrapperRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLButtonElement | null>(null)
 const panelRef   = ref<HTMLElement | null>(null)
 
+const MOBILE_QUERY = '(max-width: 767px)'
+// Computed synchronously at setup time (not onMounted) so the first render
+// already picks the right variant — no flash of the desktop calendar
+// before it flips to the native input on mobile.
+let mql: MediaQueryList | null = typeof window !== 'undefined' ? window.matchMedia(MOBILE_QUERY) : null
+const isMobile  = ref(mql?.matches ?? false)
+function updateIsMobile() { isMobile.value = mql?.matches ?? false }
+
 const open      = ref(false)
 const panelPos  = ref<Record<string, string>>({})
 const viewYear  = ref(new Date().getFullYear())
@@ -172,13 +180,35 @@ function onDocMousedown(e: MouseEvent) {
   closePanel()
 }
 
-onMounted(()  => document.addEventListener('mousedown', onDocMousedown))
-onUnmounted(() => document.removeEventListener('mousedown', onDocMousedown))
+function onNativeInput(e: Event) {
+  emit('update:modelValue', (e.target as HTMLInputElement).value)
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', onDocMousedown)
+  mql?.addEventListener('change', updateIsMobile)
+})
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onDocMousedown)
+  mql?.removeEventListener('change', updateIsMobile)
+})
 </script>
 
 <template>
   <div class="dp-wrap" ref="wrapperRef">
+    <!-- Mobile: the OS's own date picker (wheel/calendar sheet) — it is
+         chrome, not page content, so it can never overflow the viewport. -->
+    <input
+      v-if="isMobile"
+      :id="id"
+      type="date"
+      class="dp-trigger dp-native field-input"
+      :value="modelValue"
+      @input="onNativeInput"
+    />
+
     <button
+      v-else
       ref="triggerRef"
       type="button"
       :id="id"
@@ -197,7 +227,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onDocMousedown))
 
     <Teleport to="body">
       <div
-        v-if="open"
+        v-if="open && !isMobile"
         ref="panelRef"
         class="dp-panel"
         :style="panelPos"
@@ -274,6 +304,13 @@ onUnmounted(() => document.removeEventListener('mousedown', onDocMousedown))
 .dp-ph       { color: var(--col-subtle); }
 .dp-val      { color: var(--col-text); }
 .dp-cal-icon { width: 1.1rem; height: 1.1rem; color: var(--col-subtle); flex-shrink: 0; }
+
+/* Native mobile input — reset the flex/button layout above, it's a real <input> now */
+.dp-native {
+  display: block;
+  box-sizing: border-box;
+  color-scheme: light dark;
+}
 
 /* Panel */
 .dp-panel {
