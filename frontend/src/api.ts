@@ -91,6 +91,9 @@ export const api = {
   adminGetSyncLogs: () =>
     request<SyncLog[]>('GET', '/api/mgmt/sync-logs'),
 
+  adminUpdateCompanySummary: (id: string, summary: string) =>
+    request<SponsorCompany>('PUT', `/api/mgmt/companies/${id}/summary`, { summary }),
+
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 

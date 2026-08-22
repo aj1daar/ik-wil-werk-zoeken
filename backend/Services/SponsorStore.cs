@@ -102,6 +102,21 @@ public sealed class SponsorStore(AppDbContext db)
         }
     }
 
+    // A manual admin edit is treated as already-enriched (current version, timestamped
+    // now) so the automatic enrich/retry sweeps never silently overwrite it later.
+    public async Task<SponsorCompany?> UpdateSummaryAsync(string id, string? summary)
+    {
+        var company = await db.Sponsors.FindAsync(id);
+        if (company is null) return null;
+
+        company.Summary = summary;
+        company.EnrichedAt = DateTimeOffset.UtcNow;
+        company.EnrichmentVersion = CompanyEnricher.CurrentVersion;
+
+        await db.SaveChangesAsync();
+        return company;
+    }
+
     public async Task LogSyncAsync(SyncLog log)
     {
         db.SyncLogs.Add(log);

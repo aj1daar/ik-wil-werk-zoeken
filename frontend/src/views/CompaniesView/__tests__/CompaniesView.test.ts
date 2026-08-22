@@ -14,6 +14,7 @@ vi.mock('../../../api', () => ({
     deleteApplication: vi.fn(),
     getStats:          vi.fn(),
     getCompanies:      vi.fn(),
+    adminUpdateCompanySummary: vi.fn(),
   },
 }))
 
@@ -536,5 +537,144 @@ describe('CompaniesView – pagination survives PAGE_SIZE resize (Chrome iOS too
     } finally {
       ;(window as any).happyDOM.setViewport({ width: 1024 })
     }
+  })
+})
+
+// ── admin: edit company description ─────────────────────────────────────────
+
+function makeJwt(payload: Record<string, unknown>): string {
+  const b64 = (o: unknown) => btoa(JSON.stringify(o))
+  return `${b64({ alg: 'HS256' })}.${b64(payload)}.sig`
+}
+
+const ADMIN_JWT = makeJwt({ sub: 'admin-1', email: 'admin@iwwz.nl', role: 'admin', exp: 9999999999 })
+const USER_JWT  = makeJwt({ sub: 'user-1',  email: 'user@iwwz.nl',  role: 'user',  exp: 9999999999 })
+
+describe('CompaniesView – admin: edit company description', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(() => sessionStorage.removeItem('token'))
+
+  it('shows no Edit button for a non-admin user', async () => {
+    sessionStorage.setItem('token', USER_JWT)
+    const wrapper = mountView([makeSponsor({ summary: 'A great company.' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.find('.summary-edit-btn').exists()).toBe(false)
+  })
+
+  it('shows no Edit button for a logged-out session', async () => {
+    const wrapper = mountView([makeSponsor({ summary: 'A great company.' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.find('.summary-edit-btn').exists()).toBe(false)
+  })
+
+  it('shows an Edit button for an admin user', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    const wrapper = mountView([makeSponsor({ summary: 'A great company.' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.find('.summary-edit-btn').exists()).toBe(true)
+  })
+
+  it('admin sees an "About" section (with an Edit affordance) even when there is no summary yet', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    const wrapper = mountView([makeSponsor({ summary: undefined })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.find('.summary-edit-btn').exists()).toBe(true)
+    expect(wrapper.text()).toContain('No description yet.')
+  })
+
+  it('non-admin sees no "About" section at all when there is no summary', async () => {
+    sessionStorage.setItem('token', USER_JWT)
+    const wrapper = mountView([makeSponsor({ summary: undefined })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    expect(wrapper.text()).not.toContain('No description yet.')
+  })
+
+  it('clicking Edit opens a textarea pre-filled with the current summary', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    await wrapper.find('.summary-edit-btn').trigger('click')
+    const textarea = wrapper.find('.summary-textarea')
+    expect(textarea.exists()).toBe(true)
+    expect((textarea.element as HTMLTextAreaElement).value).toBe('Original text.')
+  })
+
+  it('Cancel discards changes and hides the textarea without saving', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    await wrapper.find('.summary-edit-btn').trigger('click')
+    await wrapper.find('.summary-textarea').setValue('Edited but not saved.')
+    await wrapper.findAll('button').find(b => b.text() === 'Cancel')!.trigger('click')
+    expect(wrapper.find('.summary-textarea').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Original text.')
+    expect(api.adminUpdateCompanySummary).not.toHaveBeenCalled()
+  })
+
+  it('Save calls store.updateSummary with the edited text and re-renders it', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
+      makeSponsor({ summary: 'Edited and saved.' })
+    )
+    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    await wrapper.find('.summary-edit-btn').trigger('click')
+    await wrapper.find('.summary-textarea').setValue('Edited and saved.')
+    await wrapper.findAll('button').find(b => b.text() === 'Save')!.trigger('click')
+    await flushPromises()
+    expect(api.adminUpdateCompanySummary).toHaveBeenCalledWith('sp-1', 'Edited and saved.')
+    expect(wrapper.find('.summary-textarea').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Edited and saved.')
+  })
+
+  it('trims whitespace before saving', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(makeSponsor({ summary: 'trimmed' }))
+    const wrapper = mountView([makeSponsor({ summary: 'x' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    await wrapper.find('.summary-edit-btn').trigger('click')
+    await wrapper.find('.summary-textarea').setValue('  trimmed  ')
+    await wrapper.findAll('button').find(b => b.text() === 'Save')!.trigger('click')
+    await flushPromises()
+    expect(api.adminUpdateCompanySummary).toHaveBeenCalledWith('sp-1', 'trimmed')
+  })
+
+  it('shows an error and keeps editing open when the save fails', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    vi.mocked(api.adminUpdateCompanySummary).mockRejectedValue(new Error('403 Forbidden'))
+    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
+    await flushPromises()
+    await wrapper.find('.company-row').trigger('click')
+    await wrapper.find('.summary-edit-btn').trigger('click')
+    await wrapper.find('.summary-textarea').setValue('New text.')
+    await wrapper.findAll('button').find(b => b.text() === 'Save')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('403 Forbidden')
+    expect(wrapper.find('.summary-textarea').exists()).toBe(true)
+  })
+
+  it('closes editing mode when a different company is selected', async () => {
+    sessionStorage.setItem('token', ADMIN_JWT)
+    const wrapper = mountView([
+      makeSponsor({ id: 'sp-1', name: 'Alpha', summary: 'Alpha summary' }),
+      makeSponsor({ id: 'sp-2', name: 'Beta',  summary: 'Beta summary' }),
+    ])
+    await flushPromises()
+    const rows = wrapper.findAll('.company-row')
+    await rows[0].trigger('click')
+    await wrapper.find('.summary-edit-btn').trigger('click')
+    expect(wrapper.find('.summary-textarea').exists()).toBe(true)
+
+    await rows[1].trigger('click')
+    expect(wrapper.find('.summary-textarea').exists()).toBe(false)
   })
 })

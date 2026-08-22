@@ -212,6 +212,28 @@ public sealed class AdminController : ApiControllerBase
         }
     }
 
+    [HttpPut("companies/{id}/summary")]
+    public async Task<IActionResult> UpdateCompanySummary(string id, [FromBody] UpdateCompanySummaryRequest? body)
+    {
+        if (CheckAdmin() is { } err) return err;
+        try
+        {
+            if (body?.Summary?.Length > 2000)
+                return Error(400, "summary must not exceed 2000 characters");
+
+            var summary = string.IsNullOrWhiteSpace(body?.Summary) ? null : body.Summary.Trim();
+            var updated = await _sponsorStore.UpdateSummaryAsync(id, summary);
+            if (updated is null) return Error(404, "Company not found");
+
+            return Ok(updated);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in UpdateCompanySummary");
+            return Error(500, $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     [HttpGet("sync-logs")]
     public async Task<IActionResult> GetSyncLogs()
     {

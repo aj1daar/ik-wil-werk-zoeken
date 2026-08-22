@@ -88,6 +88,12 @@ export const useCompaniesStore = defineStore('companies', {
       }
     },
 
+    async updateSummary(id: string, summary: string) {
+      const updated = await api.adminUpdateCompanySummary(id, summary)
+      const idx = this.companies.findIndex(c => c.id === id)
+      if (idx !== -1) this.companies[idx] = updated
+    },
+
     search(query: string): SponsorCompany[] {
       const q = query.trim().toLowerCase()
       if (!q) return []

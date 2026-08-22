@@ -2,11 +2,15 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
+import { useAuthStore } from '../../stores/auth'
 import type { SponsorCompany, Application } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
 
 const store    = useCompaniesStore()
 const appsStore = useApplicationsStore()
+const auth      = useAuthStore()
+
+const isAdmin = computed(() => auth.user?.role === 'admin')
 
 const search              = ref('')
 const filterCity          = ref('')
@@ -247,6 +251,41 @@ const selectedCompany = computed<SponsorCompany | null>(() =>
 const selectedCompanyApp = computed<Application | null>(() =>
   selectedId.value ? (mostRecentForCompany.value.get(selectedId.value) ?? null) : null
 )
+
+const editingSummary = ref(false)
+const summaryDraft   = ref('')
+const savingSummary  = ref(false)
+const summaryError   = ref('')
+
+watch(selectedId, () => {
+  editingSummary.value = false
+  summaryError.value   = ''
+})
+
+function startEditSummary() {
+  summaryDraft.value    = selectedCompany.value?.summary ?? ''
+  summaryError.value    = ''
+  editingSummary.value  = true
+}
+
+function cancelEditSummary() {
+  editingSummary.value = false
+  summaryError.value   = ''
+}
+
+async function saveSummary() {
+  if (!selectedCompany.value) return
+  savingSummary.value = true
+  summaryError.value  = ''
+  try {
+    await store.updateSummary(selectedCompany.value.id, summaryDraft.value.trim())
+    editingSummary.value = false
+  } catch (e: unknown) {
+    summaryError.value = e instanceof Error ? e.message : 'Failed to save. Please try again.'
+  } finally {
+    savingSummary.value = false
+  }
+}
 
 watch(rows, (newRows) => {
   if (selectedId.value && !newRows.find(c => c.id === selectedId.value))
@@ -563,9 +602,35 @@ const activeDropdownCount = computed(() =>
                 </div>
               </div>
 
-              <div v-if="selectedCompany.summary" class="field">
-                <label class="field-label">About</label>
-                <p class="panel-body-text">{{ selectedCompany.summary }}</p>
+              <div v-if="selectedCompany.summary || isAdmin" class="field">
+                <div class="field-label-row">
+                  <label class="field-label">About</label>
+                  <button
+                    v-if="isAdmin && !editingSummary"
+                    type="button"
+                    class="summary-edit-btn"
+                    @click="startEditSummary"
+                  >Edit</button>
+                </div>
+
+                <template v-if="editingSummary">
+                  <textarea
+                    v-model="summaryDraft"
+                    class="field-input summary-textarea"
+                    rows="4"
+                    maxlength="2000"
+                    placeholder="Write a short description of this company…"
+                  />
+                  <p v-if="summaryError" class="summary-error" role="alert">{{ summaryError }}</p>
+                  <div class="summary-edit-actions">
+                    <button type="button" class="btn-primary" :disabled="savingSummary" @click="saveSummary">
+                      {{ savingSummary ? 'Saving…' : 'Save' }}
+                    </button>
+                    <button type="button" class="btn-ghost" :disabled="savingSummary" @click="cancelEditSummary">Cancel</button>
+                  </div>
+                </template>
+                <p v-else-if="selectedCompany.summary" class="panel-body-text">{{ selectedCompany.summary }}</p>
+                <p v-else class="panel-body-text panel-body-text--empty">No description yet.</p>
               </div>
 
               <div v-if="selectedCompany.coreIndustry || (selectedCompany.techStackTags?.length || selectedCompany.functionalTags?.length)" class="field">
@@ -712,6 +777,17 @@ const activeDropdownCount = computed(() =>
 .panel-subtitle { font-size: .75rem; color: var(--col-subtle); margin-top: .125rem; }
 .panel-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .panel-body-text { font-size: .875rem; color: var(--col-muted); line-height: 1.6; }
+.panel-body-text--empty { font-style: italic; color: var(--col-subtle); }
+.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.summary-edit-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--col-accent); font-size: .72rem; font-weight: 600;
+  padding: 0; text-transform: uppercase; letter-spacing: .05em;
+}
+.summary-edit-btn:hover { text-decoration: underline; }
+.summary-textarea { resize: vertical; width: 100%; font-family: inherit; }
+.summary-edit-actions { display: flex; gap: .5rem; }
+.summary-error { color: var(--col-error); font-size: .8rem; margin: 0; }
 .meta-chips { display: flex; flex-wrap: wrap; gap: .375rem; }
 .meta-chip {
   display: inline-flex; align-items: center;

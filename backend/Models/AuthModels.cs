@@ -107,6 +107,11 @@ public sealed class BulkStatusRequest
     [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
 }
 
+public sealed class UpdateCompanySummaryRequest
+{
+    [JsonPropertyName("summary")] public string? Summary { get; set; }
+}
+
 public sealed class AdminUserSummary
 {
     [JsonPropertyName("userId")] public string UserId { get; set; } = string.Empty;

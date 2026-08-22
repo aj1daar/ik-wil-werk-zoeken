@@ -6,6 +6,7 @@ import type { SponsorCompany } from '../../api'
 vi.mock('../../api', () => ({
   api: {
     getCompanies: vi.fn(),
+    adminUpdateCompanySummary: vi.fn(),
   }
 }))
 
@@ -531,5 +532,50 @@ describe('useCompaniesStore – companies array (load-more source)', () => {
     const store = seedStore(companies)
     const displayCount = 60
     expect(displayCount < store.companies.length).toBe(false)
+  })
+})
+
+// ── updateSummary ────────────────────────────────────────────────────────────
+
+describe('useCompaniesStore – updateSummary', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('calls api.adminUpdateCompanySummary with the given id and summary', async () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'Acme', summary: 'old' })])
+    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
+      makeCompany({ id: 'c1', name: 'Acme', summary: 'new summary' })
+    )
+    await store.updateSummary('c1', 'new summary')
+    expect(api.adminUpdateCompanySummary).toHaveBeenCalledWith('c1', 'new summary')
+  })
+
+  it('replaces the matching company in the local array with the API response', async () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'Acme', summary: 'old' }),
+      makeCompany({ id: 'c2', name: 'Beta', summary: 'unrelated' }),
+    ])
+    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
+      makeCompany({ id: 'c1', name: 'Acme', summary: 'new summary' })
+    )
+    await store.updateSummary('c1', 'new summary')
+    expect(store.companies.find(c => c.id === 'c1')?.summary).toBe('new summary')
+    expect(store.companies.find(c => c.id === 'c2')?.summary).toBe('unrelated')
+  })
+
+  it('does not touch the array when the id is not found locally', async () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'Acme', summary: 'old' })])
+    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
+      makeCompany({ id: 'ghost', name: 'Ghost', summary: 'new' })
+    )
+    await store.updateSummary('ghost', 'new')
+    expect(store.companies).toHaveLength(1)
+    expect(store.companies[0].summary).toBe('old')
+  })
+
+  it('propagates an error from the API without mutating the array', async () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'Acme', summary: 'old' })])
+    vi.mocked(api.adminUpdateCompanySummary).mockRejectedValue(new Error('403 Forbidden'))
+    await expect(store.updateSummary('c1', 'new')).rejects.toThrow('403 Forbidden')
+    expect(store.companies[0].summary).toBe('old')
   })
 })
