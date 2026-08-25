@@ -679,6 +679,49 @@ function printPage() {
 @media (max-width: 767px) {
   /* Apple HIG minimum 44x44pt tap target */
   .page-btn { min-width: 2.75rem; height: 2.75rem; }
+
+  /* Desktop row is a single flex line: checkbox, body, meta, chevron. On
+     phones (320–767px) that squeezes row-meta (status chip, success-rate
+     chip, sponsor chip, date, follow-up badge — all white-space: nowrap)
+     into an intrinsic-width flex item with no bound, which either crushes
+     row-body's company name to nothing or overflows the row horizontally.
+     Grid gives row-meta a real track — width: 100% of the content column —
+     so it wraps its chips onto extra lines instead of pushing past the
+     viewport. Content column width = deviceWidth - 92px (padding + checkbox
+     + chevron + gaps); worst case (320px phones) that's 228px, comfortably
+     more than the ~150px a wrapped chip line needs. */
+  .company-row {
+    display: grid;
+    grid-template-columns: 1.25rem 1fr 1.25rem;
+    grid-template-areas:
+      "checkbox body    chevron"
+      "checkbox meta     chevron";
+    align-items: start;
+    column-gap: .625rem;
+    row-gap: .35rem;
+    padding: .75rem 1rem;
+  }
+  .row-checkbox { grid-area: checkbox; margin-top: .15rem; }
+  .row-body     { grid-area: body; }
+  .row-chevron  { grid-area: chevron; align-self: center; }
+
+  .row-meta {
+    grid-area: meta;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .3rem;
+    width: 100%;
+  }
+  .row-badges { justify-content: flex-start; gap: .3rem; }
+
+  /* The invisible placeholder that reserves the follow-up badge's slot only
+     matters for desktop's fixed-row-height PAGE_SIZE math (see
+     measurePageSize, which bails out before ever reading it on mobile).
+     On mobile it just leaves an empty space-shaped hole in the packed chip
+     row — drop it so chips sit flush with no gap when there's no badge. */
+  .followup-badge--none { display: none; }
 }
 
 .row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
