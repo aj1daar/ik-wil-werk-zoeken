@@ -384,7 +384,12 @@ function printPage() {
                 :aria-label="`Select ${app.companyName}`"
               />
               <div class="row-body">
-                <p class="row-name">{{ app.companyName }}</p>
+                <p class="row-name">
+                  <span class="row-name-text">{{ app.companyName }}</span>
+                  <span :class="['chip', 'sponsor-chip', 'sponsor-chip--inline', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
+                    {{ app.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
+                  </span>
+                </p>
                 <p class="row-industry">{{ app.position }}</p>
               </div>
               <div class="row-meta">
@@ -392,9 +397,6 @@ function printPage() {
                 <span v-else :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
                 <span class="row-badges">
                   <span v-if="app.successRate != null" class="chip success-rate-chip" :title="`Success rate: ${app.successRate}%`">{{ app.successRate }}%</span>
-                  <span :class="['chip', 'sponsor-chip', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
-                    {{ app.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
-                  </span>
                 </span>
                 <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
                 <!-- Always rendered (invisible when neither applies) so every row
@@ -522,6 +524,27 @@ function printPage() {
 .success-rate-chip { background: var(--col-raised); color: var(--col-muted); }
 .sponsor-chip--yes { background: color-mix(in srgb, var(--col-accent) 18%, transparent); color: var(--col-accent-dk); }
 .sponsor-chip--no { background: var(--col-raised); color: var(--col-subtle); }
+
+/* Sponsor status lives next to the company name, not buried in the meta
+   column — overrides split-panel.css's plain-text .row-name so the name
+   still ellipsizes on its own while the chip stays a fixed-size sibling. */
+.row-name {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+}
+.row-name-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sponsor-chip--inline {
+  flex-shrink: 0;
+  font-size: .6rem;
+  padding: .05rem .4rem;
+}
 
 .bulk-bar {
   position: sticky;
