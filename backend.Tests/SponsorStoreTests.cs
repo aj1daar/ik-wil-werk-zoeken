@@ -87,6 +87,57 @@ public sealed class SponsorStoreTests : IDisposable
         Assert.Equal(0, await _db.Sponsors.CountAsync());
     }
 
+    // ── FindByNameAsync ──────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task FindByNameAsync_ExactMatch_ReturnsCompany()
+    {
+        _db.Sponsors.Add(MakeCompany("co-1"));
+        await _db.SaveChangesAsync();
+
+        var result = await _store.FindByNameAsync("Acme B.V.");
+        Assert.NotNull(result);
+        Assert.Equal("co-1", result!.Id);
+    }
+
+    [Fact]
+    public async Task FindByNameAsync_IsCaseInsensitive()
+    {
+        _db.Sponsors.Add(MakeCompany("co-1"));
+        await _db.SaveChangesAsync();
+
+        Assert.NotNull(await _store.FindByNameAsync("acme b.v."));
+    }
+
+    [Fact]
+    public async Task FindByNameAsync_TrimsWhitespace()
+    {
+        _db.Sponsors.Add(MakeCompany("co-1"));
+        await _db.SaveChangesAsync();
+
+        Assert.NotNull(await _store.FindByNameAsync("  Acme B.V.  "));
+    }
+
+    [Fact]
+    public async Task FindByNameAsync_NoMatch_ReturnsNull()
+    {
+        _db.Sponsors.Add(MakeCompany("co-1"));
+        await _db.SaveChangesAsync();
+
+        Assert.Null(await _store.FindByNameAsync("Totally Different Co"));
+    }
+
+    [Fact]
+    public async Task FindByNameAsync_IgnoresRemovedSponsors()
+    {
+        var removed = MakeCompany("co-1");
+        removed.RemovedAt = DateTimeOffset.UtcNow;
+        _db.Sponsors.Add(removed);
+        await _db.SaveChangesAsync();
+
+        Assert.Null(await _store.FindByNameAsync("Acme B.V."));
+    }
+
     [Fact]
     public async Task UpdateSummaryAsync_NullSummary_ClearsIt()
     {

@@ -15,6 +15,13 @@ public sealed class SponsorStore(AppDbContext db)
     public async Task<SponsorCompany?> GetAsync(string id) =>
         await db.Sponsors.FindAsync(id);
 
+    public async Task<SponsorCompany?> FindByNameAsync(string name)
+    {
+        var trimmed = name.Trim().ToLower();
+        return await db.Sponsors.FirstOrDefaultAsync(c =>
+            c.RemovedAt == null && c.Name.ToLower() == trimmed);
+    }
+
     public async Task UpsertAsync(SponsorCompany company)
     {
         var existing = await db.Sponsors.FindAsync(company.Id);

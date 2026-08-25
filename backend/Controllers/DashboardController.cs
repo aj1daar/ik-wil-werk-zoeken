@@ -68,7 +68,7 @@ public sealed class DashboardController : ApiControllerBase
     public async Task<IActionResult> GetApplications()
     {
         if (CheckAuth(out var userId) is { } err) return err;
-        return Ok((await _stages.GetByUserIdAsync(userId)).ToArray());
+        return Ok(await WithLiveSponsorLink(await _stages.GetByUserIdAsync(userId)));
     }
 
     [HttpPost("applications")]
@@ -78,9 +78,10 @@ public sealed class DashboardController : ApiControllerBase
         if (item is null) return Error(400, "Invalid payload");
         if (!ValidateStage(item, out var validErr)) return Error(400, validErr);
 
-        item.UserId    = userId;
-        item.Status    = "Applied";
-        item.UpdatedAt = DateTimeOffset.UtcNow;
+        item.UserId          = userId;
+        item.Status          = "Applied";
+        item.UpdatedAt       = DateTimeOffset.UtcNow;
+        item.SponsorCompanyId = await ResolveSponsorId(item.CompanyName, item.SponsorCompanyId);
         await _stages.UpsertAsync(item);
 
         _db.StatusHistories.Add(new StatusHistory
@@ -92,6 +93,7 @@ public sealed class DashboardController : ApiControllerBase
         });
         await _db.SaveChangesAsync();
 
+        await WithLiveSponsorLink([item]);
         return StatusCode(201, item);
     }
 
@@ -130,7 +132,7 @@ public sealed class DashboardController : ApiControllerBase
             ContactPersonEmail  = item.ContactPersonEmail,
             Locations           = item.Locations,
             FollowUpDate        = item.FollowUpDate,
-            SponsorCompanyId    = item.SponsorCompanyId,
+            SponsorCompanyId    = await ResolveSponsorId(item.CompanyName, item.SponsorCompanyId),
             JobUrl              = item.JobUrl,
             SuccessRate         = item.SuccessRate,
             UpdatedAt           = DateTimeOffset.UtcNow,
@@ -153,6 +155,7 @@ public sealed class DashboardController : ApiControllerBase
         if (logs.Count > 0) _db.ActivityLogs.AddRange(logs);
         if (logs.Count > 0 || existing.Status != updated.Status) await _db.SaveChangesAsync();
 
+        await WithLiveSponsorLink([updated]);
         return Ok(updated);
     }
 
@@ -208,7 +211,7 @@ public sealed class DashboardController : ApiControllerBase
         if (historyEntries.Count > 0) _db.StatusHistories.AddRange(historyEntries);
         await _db.SaveChangesAsync();
 
-        return Ok(stages.ToArray());
+        return Ok(await WithLiveSponsorLink(stages));
     }
 
     [HttpDelete("applications/{id}")]
@@ -314,6 +317,30 @@ public sealed class DashboardController : ApiControllerBase
         _db.StatusHistories.Remove(entry);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    // If the form's autocomplete wasn't used to pick a sponsor (typed the name
+    // manually, or the record predates the link), fall back to a name match
+    // against the sponsor register — otherwise two applications to the same
+    // company can silently disagree on "HSM sponsor" depending only on which
+    // one happened to be saved through the dropdown. Never overrides a link
+    // the user already made or cleared on purpose.
+    private async Task<string?> ResolveSponsorId(string companyName, string? provided)
+    {
+        if (!string.IsNullOrEmpty(provided)) return provided;
+        return (await _sponsors.FindByNameAsync(companyName))?.Id;
+    }
+
+    // The "HSM sponsor" tag is a live fact about the company, not the application —
+    // it must reflect the current sponsor register regardless of the stored link,
+    // the application's status, or whether that specific record was ever saved
+    // through the autocomplete. Overwrites SponsorCompanyId on the way out of every
+    // endpoint that returns applications; never persisted from here.
+    private async Task<ApplicationStage[]> WithLiveSponsorLink(IReadOnlyCollection<ApplicationStage> stages)
+    {
+        foreach (var stage in stages)
+            stage.SponsorCompanyId = (await _sponsors.FindByNameAsync(stage.CompanyName))?.Id;
+        return stages as ApplicationStage[] ?? stages.ToArray();
     }
 
     // ── validation ────────────────────────────────────────────────────────────
