@@ -395,9 +395,15 @@ function printPage() {
               <div class="row-meta">
                 <span v-if="store.savingIds.includes(app.id)" class="row-saving">Saving…</span>
                 <span v-else :class="['chip', STATUS_COLOR[app.status]]">{{ STATUS_LABELS[app.status] }}</span>
-                <span class="row-badges">
-                  <span v-if="app.successRate != null" class="chip success-rate-chip" :title="`Success rate: ${app.successRate}%`">{{ app.successRate }}%</span>
-                </span>
+                <!-- Always rendered (invisible when unset), same reasoning as the
+                     follow-up badge below: a row height that depends on which
+                     badges happen to be present breaks the desktop list's
+                     PAGE_SIZE math (it assumes one fixed row height) and can clip
+                     or hide rows near the bottom of the page. -->
+                <span
+                  :class="['chip', 'success-rate-chip', { 'success-rate-chip--none': app.successRate == null }]"
+                  :title="app.successRate != null ? `Success rate: ${app.successRate}%` : undefined"
+                >{{ app.successRate != null ? `${app.successRate}%` : ' ' }}</span>
                 <span class="row-date">{{ formatDate(app.appliedAt) }}</span>
                 <!-- Always rendered (invisible when neither applies) so every row
                      reserves the same vertical space — a row height that depends on
@@ -520,8 +526,8 @@ function printPage() {
 .followup-badge--today   { background: #fef3c7; color: #92400e; }
 .followup-badge--none    { visibility: hidden; }
 
-.row-badges { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; justify-content: flex-end; }
 .success-rate-chip { background: var(--col-raised); color: var(--col-muted); }
+.success-rate-chip--none { visibility: hidden; }
 .sponsor-chip--yes { background: color-mix(in srgb, var(--col-accent) 18%, transparent); color: var(--col-accent-dk); }
 .sponsor-chip--no { background: var(--col-raised); color: var(--col-subtle); }
 
@@ -737,8 +743,6 @@ function printPage() {
     gap: .3rem;
     width: 100%;
   }
-  .row-badges { justify-content: flex-start; gap: .3rem; }
-
   /* The invisible placeholder that reserves the follow-up badge's slot only
      matters for desktop's fixed-row-height PAGE_SIZE math (see
      measurePageSize, which bails out before ever reading it on mobile).

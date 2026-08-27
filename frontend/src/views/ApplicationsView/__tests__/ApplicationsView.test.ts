@@ -159,10 +159,15 @@ describe('ApplicationsView – row badges', () => {
     expect(wrapper.find('.success-rate-chip').text()).toBe('65%')
   })
 
-  it('does not show a success rate chip when successRate is unset', async () => {
+  it('reserves the success rate chip slot (hidden, not removed) when successRate is unset', async () => {
+    // Same reasoning as the follow-up badge below: an absent chip must not
+    // remove its line, or rows with/without a success rate end up different
+    // heights and break the desktop list's fixed-row-height PAGE_SIZE math.
     const wrapper = mountView([makeApp({ successRate: undefined })])
     await flushPromises()
-    expect(wrapper.find('.success-rate-chip').exists()).toBe(false)
+    const chip = wrapper.find('.success-rate-chip')
+    expect(chip.exists()).toBe(true)
+    expect(chip.classes()).toContain('success-rate-chip--none')
   })
 
   it('shows success rate chip for 0 without treating it as unset', async () => {
