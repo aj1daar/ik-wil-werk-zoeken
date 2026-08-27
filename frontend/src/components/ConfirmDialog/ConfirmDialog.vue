@@ -29,7 +29,7 @@ useBodyScrollLock()
 <template>
   <Teleport to="body">
     <div class="cd-backdrop" @mousedown.self="emit('cancel')">
-      <div class="cd-dialog" role="alertdialog" aria-modal="true" :aria-labelledby="'cd-title'" :aria-describedby="'cd-msg'">
+      <div class="cd-dialog modal-box" role="alertdialog" aria-modal="true" :aria-labelledby="'cd-title'" :aria-describedby="'cd-msg'">
         <h3 id="cd-title" class="cd-title">{{ title }}</h3>
         <p id="cd-msg" class="cd-message">{{ message }}</p>
         <div class="cd-actions">

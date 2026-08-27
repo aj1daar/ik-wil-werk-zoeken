@@ -61,6 +61,10 @@
 .filter-drop-leave-active { transition: opacity .15s ease, transform .15s ease; }
 .filter-drop-enter-from,
 .filter-drop-leave-to { opacity: 0; transform: translateY(-4px); }
+@media (prefers-reduced-motion: reduce) {
+  .filter-drop-enter-active,
+  .filter-drop-leave-active { transition: none; }
+}
 
 .filter-input {
   width: 100%;
@@ -151,4 +155,11 @@
   /* max-width animation doesn't work with none; use fade only */
   .panel-enter-active,
   .panel-leave-active { transition: opacity 0.2s ease; }
+}
+
+/* Comes after the mobile override above (same selector, same specificity —
+   source order decides) so it wins at any width once reduced-motion is on. */
+@media (prefers-reduced-motion: reduce) {
+  .panel-enter-active,
+  .panel-leave-active { transition: none; }
 }

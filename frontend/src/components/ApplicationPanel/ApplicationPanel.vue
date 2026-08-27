@@ -794,35 +794,41 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
     </div>
   </div>
 
-  <ConfirmDialog
-    v-if="showDiscardConfirm"
-    title="Discard changes?"
-    message="You have unsaved changes. They will be lost."
-    confirm-label="Discard"
-    confirm-class="btn-danger"
-    @confirm="emit('close')"
-    @cancel="showDiscardConfirm = false"
-  />
+  <Transition name="modal">
+    <ConfirmDialog
+      v-if="showDiscardConfirm"
+      title="Discard changes?"
+      message="You have unsaved changes. They will be lost."
+      confirm-label="Discard"
+      confirm-class="btn-danger"
+      @confirm="emit('close')"
+      @cancel="showDiscardConfirm = false"
+    />
+  </Transition>
 
-  <ConfirmDialog
-    v-if="showDeleteConfirm"
-    title="Delete application?"
-    message="This cannot be undone."
-    confirm-label="Delete"
-    confirm-class="btn-danger"
-    @confirm="() => { showDeleteConfirm = false; remove() }"
-    @cancel="showDeleteConfirm = false"
-  />
+  <Transition name="modal">
+    <ConfirmDialog
+      v-if="showDeleteConfirm"
+      title="Delete application?"
+      message="This cannot be undone."
+      confirm-label="Delete"
+      confirm-class="btn-danger"
+      @confirm="() => { showDeleteConfirm = false; remove() }"
+      @cancel="showDeleteConfirm = false"
+    />
+  </Transition>
 
-  <ConfirmDialog
-    v-if="showDeleteHistoryConfirm"
-    title="Delete status entry?"
-    message="This change will be applied when you save."
-    confirm-label="Remove"
-    confirm-class="btn-danger"
-    @confirm="deleteEntry"
-    @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
-  />
+  <Transition name="modal">
+    <ConfirmDialog
+      v-if="showDeleteHistoryConfirm"
+      title="Delete status entry?"
+      message="This change will be applied when you save."
+      confirm-label="Remove"
+      confirm-class="btn-danger"
+      @confirm="deleteEntry"
+      @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
+    />
+  </Transition>
 
   <teleport to="body">
     <Transition name="toast">
@@ -898,8 +904,8 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
   font-size: .875rem; font-weight: 500; z-index: 200;
   max-width: 480px; min-width: 280px; justify-content: center;
 }
-.toast-enter-active, .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+/* .toast-enter/leave-* transition now lives in style.css (was duplicated
+   verbatim here and in ApplicationsView.vue). */
 
 /* shared history section */
 .history-section { border-top: 1px solid var(--col-border); margin-top: .25rem; padding-top: .75rem; }

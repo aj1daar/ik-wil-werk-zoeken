@@ -268,15 +268,17 @@ async function submit() {
     </div>
   </div>
 
-  <ConfirmDialog
-    v-if="showDiscardConfirm"
-    title="Discard application?"
-    message="Your data will be lost."
-    confirm-label="Discard"
-    confirm-class="btn-danger"
-    @confirm="emit('close')"
-    @cancel="showDiscardConfirm = false"
-  />
+  <Transition name="modal">
+    <ConfirmDialog
+      v-if="showDiscardConfirm"
+      title="Discard application?"
+      message="Your data will be lost."
+      confirm-label="Discard"
+      confirm-class="btn-danger"
+      @confirm="emit('close')"
+      @cancel="showDiscardConfirm = false"
+    />
+  </Transition>
 </template>
 
 <style scoped>

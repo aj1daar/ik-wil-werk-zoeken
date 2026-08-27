@@ -544,6 +544,9 @@ function printPage() {
 .bulk-error { font-size: .8rem; color: #fca5a5; }
 .bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
 .bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .bulk-bar-enter-active, .bulk-bar-leave-active { transition: none; }
+}
 
 .modal-backdrop {
   position: fixed;
@@ -631,7 +634,10 @@ function printPage() {
   width: 100%;
 }
 .row-date { font-size: .7rem; color: var(--col-subtle); }
-.chip { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
+.chip { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; transition: background-color 150ms ease, color 150ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .chip { transition: none; }
+}
 .add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
 .btn-filter-toggle {
   display: inline-flex; align-items: center; gap: .375rem;
@@ -717,22 +723,30 @@ function printPage() {
      grows to fit its (at most 5) rows and scrolls normally. Scoped to this
      component only: CompaniesView keeps the fixed-height/clip shell for
      its own still-dynamic PAGE_SIZE. */
-  .dashboard { height: auto; overflow: visible; }
+  /* height: auto (not overflow: visible) — .dashboard keeps its inherited
+     overflow: clip from split-panel.css. That clip isn't doing viewport-fit
+     row-clipping anymore (nothing to fix that at auto height), but it's
+     still what rounds the sticky .filter-bar's square corners into the
+     dashboard's rounded card as the page scrolls under it; dropping it
+     entirely let the header pop outside the card. */
+  .dashboard { height: auto; min-height: calc(100vh - 86px); }
   .list-area, .list-col, .app-list-wrapper { overflow: visible; }
 
   .app-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: .875rem;
+    gap: 1.25rem;
   }
   .company-row {
-    padding: 1rem 1.25rem;
+    padding: 1.125rem 1.5rem;
     border: 1px solid var(--col-border-lt);
     border-radius: .75rem;
     background: var(--col-surface);
   }
   .company-row:hover   { background: var(--col-raised); border-color: var(--col-border); }
   .company-row--active { border-color: var(--col-accent); }
+
+  .pagination { padding-top: 1rem; }
 }
 
 .row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
@@ -749,8 +763,8 @@ function printPage() {
 }
 .toast-close { background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
 .toast-close:hover { opacity: .75; }
-.toast-enter-active, .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+/* .toast-enter/leave-* transition now lives in style.css (was duplicated
+   verbatim here and in ApplicationPanel.vue). */
 
 @media print {
   .filter-bar, .dropdown-filters-panel, .select-bar, .bulk-bar, .btn-export, .btn-new, .pagination { display: none !important; }

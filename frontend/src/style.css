@@ -300,6 +300,18 @@ textarea::placeholder { color: var(--col-subtle); }
     .modal-leave-active .modal-box { transition: none; }
   }
 
+  /* Toast notification transition — was defined identically in both
+     ApplicationsView.vue and ApplicationPanel.vue; consolidated here so
+     every toast (present or future) gets it for free. */
+  .toast-enter-active,
+  .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
+  .toast-enter-from,
+  .toast-leave-to     { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  @media (prefers-reduced-motion: reduce) {
+    .toast-enter-active,
+    .toast-leave-active { transition: none; }
+  }
+
   /* Stop iOS Safari's double-tap-to-zoom from firing on rapid button taps
      (pagination, filter toggles, etc.) */
   button { touch-action: manipulation; }
@@ -344,6 +356,10 @@ textarea::placeholder { color: var(--col-subtle); }
     font-size: 0.75rem;
     border: 1px solid;
     white-space: nowrap;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chip { transition: none; }
   }
 
   .status-bookmarked   { background:#FFF4E8; color:#8A450A; border-color:#DDB580; }
