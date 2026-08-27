@@ -8,33 +8,10 @@ import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const store = useApplicationsStore()
 
-// Fallback only, used to size the very first paint — before any application
-// has loaded there's no real .company-row to measure yet. Once real rows
-// exist, later recalculations (e.g. on window resize) measure them directly
-// instead of trusting this constant. Measured empirically at 157.5px
-// (desktop, 768px+ wide). Rows are a fixed height regardless of content —
-// see followup-badge--none, which reserves the badge's line even when no
-// badge applies — so this constant can't drift out of sync with a subset
-// of taller/shorter rows the way it did before.
-const ROW_HEIGHT = 158
-const listEl = ref<HTMLElement | null>(null)
-const PAGE_SIZE = ref(10)
-let _ro: ResizeObserver | null = null
-
-function measurePageSize() {
-  if (!listEl.value) return
-  // Below 768px .dashboard switches to height:auto (the page scrolls
-  // instead of the list being clipped to fit the viewport) — the list
-  // container is then exactly as tall as its own rows, so measuring it
-  // is circular: it only ever reports back however many rows are already
-  // rendered, which ratchets PAGE_SIZE toward the full list or oscillates
-  // as row heights vary slightly between pages. Keep the stable default there.
-  if (window.matchMedia('(max-width: 767px)').matches) return
-  const h = listEl.value.clientHeight
-  const firstRow = listEl.value.querySelector<HTMLElement>('.company-row')
-  const rowH = firstRow ? firstRow.offsetHeight : ROW_HEIGHT
-  if (h > 0 && rowH > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / rowH))
-}
+// Fixed page size: the list renders as a 2-column card grid on desktop (5
+// rows × 2 cards) and a single-column list on mobile — either way, exactly
+// 10 applications per page, no viewport-fitting math needed.
+const PAGE_SIZE = 10
 
 type SortKey = 'newest' | 'oldest' | 'updated' | 'company' | 'followup'
 
@@ -65,26 +42,9 @@ function onKey(e: KeyboardEvent) {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKey)
-
-  // Size PAGE_SIZE synchronously, before anything async runs and before the
-  // TransitionGroup below has ever mounted (it's gated behind applications
-  // loading). This is the only measurement the very first paint gets — no
-  // row exists yet, so it necessarily uses the ROW_HEIGHT fallback, but that
-  // guarantees determinism: the first paint renders the right number of
-  // rows once and never resizes itself again a moment later.
-  //
-  // Recomputing again right after the load (even via nextTick, once real
-  // rows exist) was tried and reverted — it changes PAGE_SIZE a second time
-  // just as the first batch's TransitionGroup enter animation is still
-  // running, which can leave a row stuck mid-transition (opacity: 0) until
-  // something else forces a re-render, e.g. changing page.
-  measurePageSize()
-  _ro = new ResizeObserver(measurePageSize)
-  if (listEl.value) _ro.observe(listEl.value)
-
   await store.load()
 })
-onUnmounted(() => { window.removeEventListener('keydown', onKey); _ro?.disconnect() })
+onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 const filtered = computed<Application[]>(() => {
   let list = [...store.applications]
@@ -115,11 +75,11 @@ const filtered = computed<Application[]>(() => {
   return list
 })
 
-const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE.value))
+const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))
 
 const pagedFiltered = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE.value
-  return filtered.value.slice(start, start + PAGE_SIZE.value)
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filtered.value.slice(start, start + PAGE_SIZE)
 })
 
 const visiblePages = computed((): (number | null)[] => {
@@ -137,10 +97,10 @@ const visiblePages = computed((): (number | null)[] => {
 })
 
 watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
-// Chrome iOS collapses/expands its bottom toolbar on tap, which resizes the
-// list container and re-fires the ResizeObserver above — clamp instead of
-// always jumping to page 1, or a tap on "page 2" gets silently undone.
-watch(PAGE_SIZE, () => {
+// Deleting or bulk-updating applications can shrink the page count out from
+// under whatever page the user is on (e.g. deleting the last item on the
+// last page) — clamp instead of leaving currentPage pointing past the end.
+watch(pageCount, () => {
   if (currentPage.value > pageCount.value) currentPage.value = Math.max(1, pageCount.value)
 })
 
@@ -352,7 +312,7 @@ function printPage() {
           </label>
         </div>
 
-        <div ref="listEl" class="app-list-wrapper">
+        <div class="app-list-wrapper">
           <div v-if="store.loading" class="state-msg">Loading…</div>
           <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
           <div v-else-if="filtered.length === 0" class="state-msg">
@@ -363,7 +323,7 @@ function printPage() {
             <template v-else>No applications match your filters.</template>
           </div>
 
-          <TransitionGroup v-else tag="ul" name="list">
+          <TransitionGroup v-else tag="ul" name="list" class="app-grid">
             <li
               v-for="(app, index) in pagedFiltered"
               :key="app.id"
@@ -641,7 +601,35 @@ function printPage() {
 }
 .btn-new:hover { opacity: .85; }
 .btn-new-icon { width: 1rem; height: 1rem; }
-.row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; flex-shrink: 0; }
+/* Every row is a 2-row grid — checkbox/name/chevron on top, meta chips
+   spanning the full width underneath — instead of split-panel.css's single
+   flex line. Same layout at every size: a single-column list on mobile, or
+   a card in the 2-column desktop grid below (see .app-grid). Overrides
+   split-panel.css's .company-row/.row-body/.row-chevron here, scoped to
+   this component only, so CompaniesView keeps its own single-line rows. */
+.company-row {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr 1.25rem;
+  grid-template-areas:
+    "checkbox body    chevron"
+    "checkbox meta     chevron";
+  align-items: start;
+  column-gap: .625rem;
+  row-gap: .35rem;
+}
+.row-checkbox { grid-area: checkbox; margin-top: .15rem; }
+.row-body     { grid-area: body; }
+.row-chevron  { grid-area: chevron; align-self: center; }
+.row-meta {
+  grid-area: meta;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: .3rem;
+  width: 100%;
+}
 .row-date { font-size: .7rem; color: var(--col-subtle); }
 .chip { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
 .add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
@@ -709,46 +697,42 @@ function printPage() {
   /* Apple HIG minimum 44x44pt tap target */
   .page-btn { min-width: 2.75rem; height: 2.75rem; }
 
-  /* Desktop row is a single flex line: checkbox, body, meta, chevron. On
-     phones (320–767px) that squeezes row-meta (status chip, success-rate
-     chip, sponsor chip, date, follow-up badge — all white-space: nowrap)
-     into an intrinsic-width flex item with no bound, which either crushes
-     row-body's company name to nothing or overflows the row horizontally.
-     Grid gives row-meta a real track — width: 100% of the content column —
-     so it wraps its chips onto extra lines instead of pushing past the
-     viewport. Content column width = deviceWidth - 92px (padding + checkbox
-     + chevron + gaps); worst case (320px phones) that's 228px, comfortably
-     more than the ~150px a wrapped chip line needs. */
-  .company-row {
-    display: grid;
-    grid-template-columns: 1.25rem 1fr 1.25rem;
-    grid-template-areas:
-      "checkbox body    chevron"
-      "checkbox meta     chevron";
-    align-items: start;
-    column-gap: .625rem;
-    row-gap: .35rem;
-    padding: .75rem 1rem;
-  }
-  .row-checkbox { grid-area: checkbox; margin-top: .15rem; }
-  .row-body     { grid-area: body; }
-  .row-chevron  { grid-area: chevron; align-self: center; }
+  .company-row { padding: .75rem 1rem; }
 
-  .row-meta {
-    grid-area: meta;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: .3rem;
-    width: 100%;
+  /* The invisible reserved-slot placeholders (follow-up badge, success
+     rate — see .row-meta above) exist to keep card heights matched within
+     each row of the desktop grid below. On the single-column mobile list
+     they'd just leave an empty space-shaped hole in the packed chip row,
+     so drop them here instead. */
+  .followup-badge--none,
+  .success-rate-chip--none { display: none; }
+}
+
+@media (min-width: 768px) {
+  /* Two-column card grid, capped at 10 applications per page (PAGE_SIZE) —
+     up to 5 rows of 2 cards. Overrides split-panel.css's fixed-height,
+     clipped .dashboard shell: that existed only to fit however many rows
+     the old dynamic PAGE_SIZE measured into the viewport, which no longer
+     applies now that the page size is a flat constant — the page just
+     grows to fit its (at most 5) rows and scrolls normally. Scoped to this
+     component only: CompaniesView keeps the fixed-height/clip shell for
+     its own still-dynamic PAGE_SIZE. */
+  .dashboard { height: auto; overflow: visible; }
+  .list-area, .list-col, .app-list-wrapper { overflow: visible; }
+
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: .875rem;
   }
-  /* The invisible placeholder that reserves the follow-up badge's slot only
-     matters for desktop's fixed-row-height PAGE_SIZE math (see
-     measurePageSize, which bails out before ever reading it on mobile).
-     On mobile it just leaves an empty space-shaped hole in the packed chip
-     row — drop it so chips sit flush with no gap when there's no badge. */
-  .followup-badge--none { display: none; }
+  .company-row {
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--col-border-lt);
+    border-radius: .75rem;
+    background: var(--col-surface);
+  }
+  .company-row:hover   { background: var(--col-raised); border-color: var(--col-border); }
+  .company-row--active { border-color: var(--col-accent); }
 }
 
 .row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }

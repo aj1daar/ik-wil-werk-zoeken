@@ -2,8 +2,9 @@ import { mount, flushPromises } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { Transition, TransitionGroup } from 'vue'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ApplicationsView from '../ApplicationsView.vue'
+import { useApplicationsStore } from '../../../stores/applications'
 
 vi.mock('../../../api', () => ({
   api: {
@@ -319,23 +320,15 @@ describe('ApplicationsView – list stagger transition', () => {
   })
 })
 
-// ── pagination / PAGE_SIZE resize ───────────────────────────────────────────────
-
-class MockResizeObserver {
-  static latest: MockResizeObserver | null = null
-  cb: ResizeObserverCallback
-  constructor(cb: ResizeObserverCallback) { this.cb = cb; MockResizeObserver.latest = this }
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-function fireResize(clientHeight: number, rowHeight: number, listEl: HTMLElement) {
-  Object.defineProperty(listEl, 'clientHeight', { value: clientHeight, configurable: true })
-  const firstRow = listEl.querySelector<HTMLElement>('.company-row')
-  if (firstRow) Object.defineProperty(firstRow, 'offsetHeight', { value: rowHeight, configurable: true })
-  MockResizeObserver.latest!.cb([] as unknown as ResizeObserverEntry[], MockResizeObserver.latest as unknown as ResizeObserver)
-}
+// ── pagination: fixed PAGE_SIZE of 10 (2-column desktop grid, 5 rows) ──────────
+//
+// PAGE_SIZE used to be measured dynamically against the viewport (a
+// ResizeObserver on the list, sized against a real row's height) so that
+// desktop's fixed-height, clipped list always showed exactly as many rows as
+// fit. That measurement was a repeat source of bugs — clipped rows, stale
+// row-height constants, resize-driven page resets. The list is now a 2-col
+// x 5-row card grid (desktop) / single-column list (mobile) that always
+// holds up to 10 applications per page, full stop — no measurement at all.
 
 function makeManyApps(n: number): Application[] {
   return Array.from({ length: n }, (_, i) => makeApp({ id: `app-${i}`, companyName: `Company ${i}` }))
@@ -345,147 +338,43 @@ function activePageLabel(wrapper: ReturnType<typeof mount>): string | undefined 
   return wrapper.findAll('.page-btn--active')[0]?.text()
 }
 
-describe('ApplicationsView – pagination survives PAGE_SIZE resize (Chrome iOS toolbar collapse)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.stubGlobal('ResizeObserver', MockResizeObserver)
-  })
-  afterEach(() => vi.unstubAllGlobals())
+describe('ApplicationsView – fixed page size', () => {
+  beforeEach(() => vi.clearAllMocks())
 
-  it('stays on page 2 when a resize fires but page 2 is still in range', async () => {
+  it('shows exactly 10 applications on the first page when more than 10 exist', async () => {
     const wrapper = mountView(makeManyApps(25))
     await flushPromises()
-
-    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
-    expect(activePageLabel(wrapper)).toBe('2')
-
-    const listEl = wrapper.find('.app-list-wrapper').element as HTMLElement
-    fireResize(600, 50, listEl) // -> PAGE_SIZE 12, pageCount ceil(25/12)=3, page 2 still valid
-    await flushPromises()
-
-    expect(activePageLabel(wrapper)).toBe('2')
+    expect(wrapper.findAll('.company-row')).toHaveLength(10)
+    expect(wrapper.find('.pagination-info').text()).toContain('1–10 of 25')
   })
 
-  it('clamps down to the last page when a resize makes page 2 go out of range', async () => {
+  it('shows the remainder on the last page', async () => {
+    const wrapper = mountView(makeManyApps(25))
+    await flushPromises()
+    await wrapper.findAll('.page-btn').find(b => b.text() === '3')!.trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(5)
+    expect(wrapper.find('.pagination-info').text()).toContain('21–25 of 25')
+  })
+
+  it('renders all applications on one page when there are 10 or fewer', async () => {
+    const wrapper = mountView(makeManyApps(7))
+    await flushPromises()
+    expect(wrapper.findAll('.company-row')).toHaveLength(7)
+    expect(wrapper.findAll('.page-btn').filter(b => /^\d+$/.test(b.text()))).toHaveLength(1)
+  })
+
+  it('clamps the current page down when the page count shrinks (e.g. bulk delete) out from under it', async () => {
     const wrapper = mountView(makeManyApps(15))
     await flushPromises()
-
     await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
     expect(activePageLabel(wrapper)).toBe('2')
 
-    const listEl = wrapper.find('.app-list-wrapper').element as HTMLElement
-    fireResize(680, 34, listEl) // -> PAGE_SIZE 20, pageCount ceil(15/20)=1, page 2 no longer valid
+    // Simulate the list shrinking under the current filter (e.g. after a
+    // delete) so page 2 no longer exists.
+    const store = useApplicationsStore()
+    store.applications = store.applications.slice(0, 5)
     await flushPromises()
 
-    expect(wrapper.find('.pagination-info').text()).toContain('1–15')
-  })
-
-  it('ignores resize-driven PAGE_SIZE recalculation on mobile widths, where .dashboard is height:auto and the measurement is circular', async () => {
-    // window.innerWidth alone doesn't drive happy-dom's matchMedia — the
-    // viewport has to be set through its dedicated API for `(max-width)"
-    // queries (what the production guard uses) to actually match.
-    ;(window as any).happyDOM.setViewport({ width: 375 })
-    try {
-      const wrapper = mountView(makeManyApps(25))
-      await flushPromises()
-      expect(wrapper.find('.pagination-info').text()).toContain('1–10') // stable default PAGE_SIZE=10
-
-      const listEl = wrapper.find('.app-list-wrapper').element as HTMLElement
-      fireResize(680, 34, listEl) // would otherwise push PAGE_SIZE to 20
-      await flushPromises()
-
-      expect(wrapper.find('.pagination-info').text()).toContain('1–10') // unchanged
-    } finally {
-      ;(window as any).happyDOM.setViewport({ width: 1024 })
-    }
-  })
-})
-
-// ── PAGE_SIZE sized correctly on the very first paint (no second pass) ─────────
-//
-// Regression #1: adding the success-rate/sponsor badges made rows taller.
-// The ResizeObserver fires once immediately on observe() — before
-// applications have loaded and before any .company-row exists — so that
-// first callback falls back to the ROW_HEIGHT constant. If that constant is
-// stale (too small), PAGE_SIZE overestimates how many rows fit and the last
-// row on a page spills out from under the pagination bar (.app-list-wrapper
-// clips with overflow: hidden).
-//
-// Regression #2 (introduced by the first fix attempt): re-measuring against
-// a real row *after* the first batch had already painted and started its
-// TransitionGroup enter animation caused PAGE_SIZE to grow on a second pass.
-// The extra rows that popped in on that second pass could get stuck
-// mid-transition (opacity: 0) until something else forced a re-render —
-// e.g. changing page — matching the "last app is invisible until I switch
-// pages" report. The fix is to size correctly on the first paint (from the
-// ROW_HEIGHT constant, before any row exists) instead of correcting after.
-
-describe('ApplicationsView – PAGE_SIZE sized correctly on the very first paint', () => {
-  let restoreOffsetHeight: (() => void) | null = null
-  let restoreClientHeight: (() => void) | null = null
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    // No resize ever fires in this scenario (mirrors production: the
-    // container's own size doesn't change just because content inside it
-    // got taller) — the first paint must already be sized correctly.
-    vi.stubGlobal('ResizeObserver', MockResizeObserver)
-
-    const offsetDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
-    const clientDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
-    // offsetHeight deliberately differs from the ROW_HEIGHT constant (158) —
-    // it stands in for "a real row, if one existed yet", so a passing test
-    // here can't be a coincidence of both numbers happening to match.
-    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-      configurable: true,
-      get(this: HTMLElement) { return this.classList.contains('company-row') ? 50 : 0 },
-    })
-    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
-      configurable: true,
-      // 158 * 15, so "fits 15 rows" is an exact, easy-to-read expectation.
-      get(this: HTMLElement) { return this.classList.contains('app-list-wrapper') ? 2370 : 0 },
-    })
-    restoreOffsetHeight = () => { if (offsetDesc) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetDesc) }
-    restoreClientHeight = () => { if (clientDesc) Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientDesc) }
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    restoreOffsetHeight?.()
-    restoreClientHeight?.()
-  })
-
-  it('sizes the first paint from the ROW_HEIGHT constant, not a post-load remeasure against the real row', async () => {
-    const wrapper = mountView(makeManyApps(25))
-    await flushPromises()
-
-    // container 2370px / ROW_HEIGHT constant 158px = 15. If a second pass had
-    // remeasured against the mocked "real" 50px row, this would read 47
-    // (floor(2370/50)) instead — proving there's only ever one sizing pass.
-    expect(wrapper.find('.pagination-info').text()).toContain('1–15')
-    expect(wrapper.findAll('.company-row')).toHaveLength(15)
-  })
-
-  it('every row on the last page stays inside the clipped list — none get pushed under the pagination bar', async () => {
-    const wrapper = mountView(makeManyApps(20))
-    await flushPromises()
-
-    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
-    // Page size 15 -> page 2 holds the remaining 5, all rendered (none clipped/lost).
-    expect(wrapper.findAll('.company-row')).toHaveLength(5)
-    expect(wrapper.find('.pagination-info').text()).toContain('16–20')
-  })
-
-  it('does not trigger a second PAGE_SIZE change after applications finish loading', async () => {
-    const wrapper = mountView(makeManyApps(25))
-    await flushPromises()
-    const afterFirstLoad = wrapper.find('.pagination-info').text()
-
-    // Give any lingering microtask/animation-frame-driven correction a
-    // chance to run, then confirm nothing shifted.
-    await flushPromises()
-    await new Promise(r => setTimeout(r, 0))
-
-    expect(wrapper.find('.pagination-info').text()).toBe(afterFirstLoad)
+    expect(wrapper.find('.pagination-info').text()).toContain('1–5')
   })
 })
