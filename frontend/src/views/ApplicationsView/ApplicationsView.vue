@@ -732,6 +732,14 @@ function printPage() {
   .dashboard { height: auto; min-height: calc(100vh - 86px); }
   .list-area, .list-col, .app-list-wrapper { overflow: visible; }
 
+  /* Cards are their own bordered boxes now, not full-width list rows — the
+     grid needs its own inset from the panel edge (rows never did, since a
+     row's background/border ran edge-to-edge on purpose). Matches
+     .filter-bar's 1.5rem side padding so the grid lines up under it
+     instead of the last column sitting flush against the panel border. */
+  .app-list-wrapper { padding: 1.25rem 1.5rem; }
+  .select-bar { padding-left: 1.5rem; padding-right: 1.5rem; }
+
   .app-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -742,12 +750,33 @@ function printPage() {
     border: 1px solid var(--col-border-lt);
     border-radius: .75rem;
     background: var(--col-surface);
+    transition: background .12s, border-color .12s, transform .15s ease, box-shadow .15s ease;
   }
-  .company-row:hover   { background: var(--col-raised); border-color: var(--col-border); }
+  .company-row:hover {
+    background: var(--col-raised);
+    border-color: var(--col-border);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--col-text) 10%, transparent);
+  }
   .company-row--active { border-color: var(--col-accent); }
+  @media (prefers-reduced-motion: reduce) {
+    .company-row:hover { transform: none; }
+  }
 
   .pagination { padding-top: 1rem; }
 }
+
+/* Changing page (or filtering) swaps the whole set of keys at once — every
+   old card leaves while every new one enters in the same tick. .list-leave
+   (style.css) keeps leaving cards in normal grid flow for their 150ms
+   fade-out, so for that window both batches occupy the 2-col grid
+   together: the entering batch gets pushed below the still-present leaving
+   one, then jumps up as it's removed — the "cards jump/misalign" glitch.
+   Cutting the leave transition removes the overlap instead of shortening
+   it: Vue detects no transition and unmounts the old batch on the same
+   tick, so the new batch never shares the grid with it. Compound selector
+   for specificity over style.css's plain .list-leave-active. */
+.app-grid .list-leave-active { transition: none; }
 
 .row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
