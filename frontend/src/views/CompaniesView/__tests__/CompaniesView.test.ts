@@ -459,22 +459,6 @@ describe('CompaniesView – parent company grouping', () => {
 
 // ── pagination / PAGE_SIZE resize ───────────────────────────────────────────────
 
-class MockResizeObserver {
-  static latest: MockResizeObserver | null = null
-  cb: ResizeObserverCallback
-  constructor(cb: ResizeObserverCallback) { this.cb = cb; MockResizeObserver.latest = this }
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-function fireResize(clientHeight: number, rowHeight: number, listEl: HTMLElement) {
-  Object.defineProperty(listEl, 'clientHeight', { value: clientHeight, configurable: true })
-  const firstRow = listEl.querySelector<HTMLElement>('.company-row')
-  if (firstRow) Object.defineProperty(firstRow, 'offsetHeight', { value: rowHeight, configurable: true })
-  MockResizeObserver.latest!.cb([] as unknown as ResizeObserverEntry[], MockResizeObserver.latest as unknown as ResizeObserver)
-}
-
 function makeManySponsors(n: number): SponsorCompany[] {
   return Array.from({ length: n }, (_, i) => makeSponsor({ id: `sp-${i}`, name: `Company ${i}` }))
 }
@@ -483,60 +467,93 @@ function activePageLabel(wrapper: ReturnType<typeof mount>): string | undefined 
   return wrapper.findAll('.page-btn--active')[0]?.text()
 }
 
-describe('CompaniesView – pagination survives PAGE_SIZE resize (Chrome iOS toolbar collapse)', () => {
+describe('CompaniesView – fixed page size of 10', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.getApplications).mockResolvedValue([])
-    vi.stubGlobal('ResizeObserver', MockResizeObserver)
   })
-  afterEach(() => vi.unstubAllGlobals())
 
-  it('stays on page 2 when a resize fires but page 2 is still in range', async () => {
+  it('shows exactly 10 companies per page', async () => {
     const wrapper = mountView(makeManySponsors(25))
     await flushPromises()
-
-    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
-    expect(activePageLabel(wrapper)).toBe('2')
-
-    const listEl = wrapper.find('.company-list').element as HTMLElement
-    fireResize(600, 50, listEl) // -> PAGE_SIZE 12, pageCount ceil(25/12)=3, page 2 still valid
-    await flushPromises()
-
-    expect(activePageLabel(wrapper)).toBe('2')
+    expect(wrapper.findAll('.company-row')).toHaveLength(10)
+    expect(wrapper.find('.pagination-info').text()).toContain('1–10 of 25')
   })
 
-  it('clamps down to the last page when a resize makes page 2 go out of range', async () => {
-    const wrapper = mountView(makeManySponsors(15))
+  it('shows the remainder on the last page', async () => {
+    const wrapper = mountView(makeManySponsors(25))
     await flushPromises()
-
-    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
-    expect(activePageLabel(wrapper)).toBe('2')
-
-    const listEl = wrapper.find('.company-list').element as HTMLElement
-    fireResize(680, 34, listEl) // -> PAGE_SIZE 20, pageCount ceil(15/20)=1, page 2 no longer valid
-    await flushPromises()
-
-    expect(wrapper.find('.pagination-info').text()).toContain('1–15')
+    await wrapper.findAll('.page-btn').find(b => b.text() === '3')!.trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(5)
+    expect(wrapper.find('.pagination-info').text()).toContain('21–25 of 25')
   })
 
-  it('ignores resize-driven PAGE_SIZE recalculation on mobile widths, where .dashboard is height:auto and the measurement is circular', async () => {
-    // window.innerWidth alone doesn't drive happy-dom's matchMedia — the
-    // viewport has to be set through its dedicated API for `(max-width)"
-    // queries (what the production guard uses) to actually match.
-    ;(window as any).happyDOM.setViewport({ width: 375 })
-    try {
-      const wrapper = mountView(makeManySponsors(25))
-      await flushPromises()
-      expect(wrapper.find('.pagination-info').text()).toContain('1–10') // stable default PAGE_SIZE=10
+  it('renders a single page when there are 10 or fewer companies', async () => {
+    const wrapper = mountView(makeManySponsors(8))
+    await flushPromises()
+    expect(wrapper.findAll('.page-btn').filter(b => /^\d+$/.test(b.text()))).toHaveLength(1)
+  })
 
-      const listEl = wrapper.find('.company-list').element as HTMLElement
-      fireResize(680, 34, listEl) // would otherwise push PAGE_SIZE to 20
-      await flushPromises()
+  it('clamps the current page down when the filtered list shrinks under it', async () => {
+    const wrapper = mountView(makeManySponsors(25))
+    await flushPromises()
+    await wrapper.findAll('.page-btn').find(b => b.text() === '3')!.trigger('click')
+    expect(activePageLabel(wrapper)).toBe('3')
 
-      expect(wrapper.find('.pagination-info').text()).toContain('1–10') // unchanged
-    } finally {
-      ;(window as any).happyDOM.setViewport({ width: 1024 })
-    }
+    // "Company 2" matches Company 2, 20, 21, 22, 23, 24 → 6 rows, one page.
+    await wrapper.find('input[aria-label="Search companies"]').setValue('Company 2')
+    await flushPromises()
+    expect(wrapper.find('.pagination-info').text()).toContain('1–6 of 6')
+  })
+})
+
+// ── company row content: website link + locations ────────────────────────────
+
+describe('CompaniesView – company row content', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.getApplications).mockResolvedValue([])
+  })
+
+  it('shows a website link when the company has a websiteUrl', async () => {
+    const wrapper = mountView([makeSponsor({ websiteUrl: 'https://acme.example' })])
+    await flushPromises()
+    const link = wrapper.find('.company-row .row-website')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('href')).toBe('https://acme.example')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toContain('noopener')
+  })
+
+  it('omits the website link when there is no websiteUrl', async () => {
+    const wrapper = mountView([makeSponsor({})])
+    await flushPromises()
+    expect(wrapper.find('.company-row .row-website').exists()).toBe(false)
+  })
+
+  it('the website link is a sibling of the row body content, not the row-select target', async () => {
+    const wrapper = mountView([makeSponsor({ websiteUrl: 'https://acme.example' })])
+    await flushPromises()
+    // link lives inside the row but carries @click.stop, so a normal row click
+    // (on the name) still opens the panel while the link stays independent.
+    expect(wrapper.find('.company-row .row-website').exists()).toBe(true)
+    await wrapper.find('.company-row .row-name').trigger('click')
+    expect(wrapper.find('.detail-panel').exists()).toBe(true)
+  })
+
+  it('lists the primary city followed by any extra locations', async () => {
+    const wrapper = mountView([makeSponsor({ city: 'Amsterdam', locations: ['Utrecht', 'Rotterdam'] })])
+    await flushPromises()
+    const text = wrapper.find('.company-row .row-industry').text()
+    expect(text).toContain('Amsterdam')
+    expect(text).toContain('Utrecht')
+    expect(text).toContain('Rotterdam')
+  })
+
+  it('shows just the city when there are no extra locations', async () => {
+    const wrapper = mountView([makeSponsor({ city: 'Delft' })])
+    await flushPromises()
+    expect(wrapper.find('.company-row .row-industry').text()).toContain('Delft')
   })
 })
 

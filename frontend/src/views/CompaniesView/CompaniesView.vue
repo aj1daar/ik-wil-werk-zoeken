@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
 import { useAuthStore } from '../../stores/auth'
@@ -43,32 +43,16 @@ const hiddenIds           = ref<Set<string>>((() => {
 const showHidden          = ref(false)
 const currentPage = ref(1)
 
-const ROW_HEIGHT = 68
-const listEl = ref<HTMLElement | null>(null)
-const PAGE_SIZE = ref(10)
-let _ro: ResizeObserver | null = null
+// Flat page size. The desktop list scrolls the page normally (see the
+// min-width:768px block in <style>) rather than being clipped to a
+// viewport-fitted row count, so there's nothing to measure — matches
+// ApplicationsView.
+const PAGE_SIZE = 10
 
 onMounted(() => {
   store.load()
   appsStore.load()
-  _ro = new ResizeObserver(() => {
-    if (!listEl.value) return
-    // Below 768px .dashboard switches to height:auto (the page scrolls
-    // instead of the list being clipped to fit the viewport) — the list
-    // container is then exactly as tall as its own rows, so measuring it
-    // is circular: it only ever reports back however many rows are already
-    // rendered, which ratchets PAGE_SIZE toward the full list or oscillates
-    // as row heights vary slightly between pages. Keep the stable default there.
-    if (window.matchMedia('(max-width: 767px)').matches) return
-    const h = listEl.value.clientHeight
-    const firstRow = listEl.value.querySelector<HTMLElement>('.company-row')
-    const rowH = firstRow ? firstRow.offsetHeight : ROW_HEIGHT
-    if (h > 0 && rowH > 0) PAGE_SIZE.value = Math.max(5, Math.floor(h / rowH))
-  })
-  if (listEl.value) _ro.observe(listEl.value)
 })
-
-onUnmounted(() => _ro?.disconnect())
 
 const mostRecentForCompany = computed((): Map<string, Application> => {
   const byId   = new Map<string, Application>()
@@ -133,11 +117,11 @@ const filteredRows = computed<SponsorCompany[]>(() => {
 })
 
 const rows = computed<SponsorCompany[]>(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE.value
-  return filteredRows.value.slice(start, start + PAGE_SIZE.value)
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredRows.value.slice(start, start + PAGE_SIZE)
 })
 
-const pageCount = computed(() => Math.ceil(filteredRows.value.length / PAGE_SIZE.value))
+const pageCount = computed(() => Math.ceil(filteredRows.value.length / PAGE_SIZE))
 
 const visiblePages = computed((): (number | null)[] => {
   const total = pageCount.value
@@ -156,10 +140,9 @@ const visiblePages = computed((): (number | null)[] => {
 watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden], () => {
   currentPage.value = 1
 })
-// Chrome iOS collapses/expands its bottom toolbar on tap, which resizes the
-// list container and re-fires the ResizeObserver above — clamp instead of
-// always jumping to page 1, or a tap on "page 2" gets silently undone.
-watch(PAGE_SIZE, () => {
+// Hiding a company or narrowing a filter can drop the page count below the
+// page the user is on — clamp instead of leaving them on an empty page.
+watch(pageCount, () => {
   if (currentPage.value > pageCount.value) currentPage.value = Math.max(1, pageCount.value)
 })
 
@@ -369,6 +352,11 @@ function startApplication(company: SponsorCompany) {
   modalOpen.value = true
 }
 
+// Primary location (city) followed by any extra office locations.
+function locationText(c: SponsorCompany): string {
+  return [c.city, ...(c.locations ?? [])].filter(Boolean).join(' · ')
+}
+
 function formatSyncDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-NL', { day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -560,7 +548,7 @@ const activeDropdownCount = computed(() =>
     </div>
 
     <div class="main-split">
-      <div ref="listEl" :class="['company-list', selectedCompany ? 'hidden md:block' : '']">
+      <div :class="['company-list', selectedCompany ? 'hidden md:block' : '']">
         <div v-if="store.loading" class="state-msg">Loading…</div>
         <div v-else-if="store.error" class="state-msg state-msg--error" role="alert">{{ store.error }}</div>
         <div v-else-if="rows.length === 0" class="state-msg">
@@ -607,10 +595,23 @@ const activeDropdownCount = computed(() =>
                   >{{ STATUS_LABELS[mostRecentForCompany.get(item.company!.id)!.status] }}</span>
                 </div>
                 <p class="row-industry">
-                  <span v-if="item.company!.city" class="row-city">{{ item.company!.city }}</span>
-                  <span v-if="item.company!.city && item.company!.coreIndustry"> · </span>
+                  <span v-if="locationText(item.company!)" class="row-city">{{ locationText(item.company!) }}</span>
+                  <span v-if="locationText(item.company!) && item.company!.coreIndustry"> · </span>
                   <span v-if="item.company!.coreIndustry">{{ item.company!.coreIndustry }}</span>
                 </p>
+                <a
+                  v-if="item.company!.websiteUrl"
+                  :href="item.company!.websiteUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="row-website"
+                  @click.stop
+                >
+                  <svg class="row-website-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Website
+                </a>
               </div>
               <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -978,6 +979,14 @@ const activeDropdownCount = computed(() =>
 .ext-icon { width: .7rem; height: .7rem; }
 .row-city { color: var(--col-accent-dk); }
 
+.row-website {
+  display: inline-flex; align-items: center; gap: .25rem;
+  margin-top: .25rem;
+  font-size: .72rem; color: var(--col-accent); text-decoration: none;
+}
+.row-website:hover { text-decoration: underline; }
+.row-website-icon { width: .7rem; height: .7rem; flex-shrink: 0; }
+
 .row-name-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 
 .status-chip {
@@ -1032,6 +1041,22 @@ const activeDropdownCount = computed(() =>
 
   /* Apple HIG minimum 44x44pt tap target */
   .page-btn { min-width: 2.75rem; height: 2.75rem; }
+}
+
+@media (min-width: 768px) {
+  /* Flat PAGE_SIZE (10): let the list grow and the page scroll, instead of
+     split-panel.css clipping it to a viewport-fitted row count (that shell
+     existed only for the old dynamic PAGE_SIZE measurement). height:auto
+     keeps .dashboard's inherited overflow:clip, which still rounds the
+     sticky filter bar's corners into the card. Mirrors ApplicationsView. */
+  .dashboard { height: auto; min-height: calc(100vh - 86px); }
+  .main-split { overflow: visible; align-items: flex-start; }
+  .company-list { overflow: visible; }
+  /* Bound the panel to one viewport so its body keeps its own scrollbar for
+     long content — the page itself now scrolls the list. (No sticky: the
+     dashboard's overflow:clip defeats it, and with ≤10 rows the list barely
+     scrolls anyway.) */
+  .detail-panel { height: calc(100vh - 86px); }
 }
 
 .pagination {
