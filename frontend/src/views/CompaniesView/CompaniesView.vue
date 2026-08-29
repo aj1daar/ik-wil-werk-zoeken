@@ -43,11 +43,10 @@ const hiddenIds           = ref<Set<string>>((() => {
 const showHidden          = ref(false)
 const currentPage = ref(1)
 
-// Flat page size. The desktop list scrolls the page normally (see the
-// min-width:768px block in <style>) rather than being clipped to a
-// viewport-fitted row count, so there's nothing to measure — matches
-// ApplicationsView.
-const PAGE_SIZE = 10
+// Flat page size. Kept small enough that a full page of rows plus the
+// (inline, header-level) pagination control fits one viewport without the
+// page scrolling — matches ApplicationsView.
+const PAGE_SIZE = 8
 
 onMounted(() => {
   store.load()
@@ -422,6 +421,23 @@ const activeDropdownCount = computed(() =>
 
       <!-- Row 2: compact controls -->
       <div class="filter-controls-row">
+        <!-- Pagination — inline in the header, not a bottom bar that grows
+             the page and forces a scroll. Mirrors ApplicationsView. -->
+        <div v-if="filteredRows.length > 0" class="pagination">
+          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filteredRows.length) }} of {{ filteredRows.length }}</span>
+          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
+          <template v-for="(p, i) in visiblePages" :key="i">
+            <span v-if="p === null" class="page-ellipsis">…</span>
+            <button
+              v-else
+              :class="['page-btn', p === currentPage && 'page-btn--active']"
+              @click="goToPage(p)"
+              :aria-current="p === currentPage ? 'page' : undefined"
+            >{{ p }}</button>
+          </template>
+          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
+        </div>
+
         <!-- Dropdown filters toggle -->
         <button
           :class="['btn-filter-toggle', (showDropdownFilters || activeDropdownCount > 0) && 'btn-filter-toggle--active']"
@@ -812,21 +828,6 @@ const activeDropdownCount = computed(() =>
       </transition>
     </div>
 
-    <div v-if="filteredRows.length > 0" class="pagination">
-      <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filteredRows.length) }} of {{ filteredRows.length }}</span>
-      <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
-      <template v-for="(p, i) in visiblePages" :key="i">
-        <span v-if="p === null" class="page-ellipsis">…</span>
-        <button
-          v-else
-          :class="['page-btn', p === currentPage && 'page-btn--active']"
-          @click="goToPage(p)"
-          :aria-current="p === currentPage ? 'page' : undefined"
-        >{{ p }}</button>
-      </template>
-      <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
-    </div>
-
     <Transition name="modal">
       <NewApplicationModal
         v-if="modalOpen"
@@ -1044,39 +1045,32 @@ const activeDropdownCount = computed(() =>
 }
 
 @media (min-width: 768px) {
-  /* Flat PAGE_SIZE (10): let the list grow and the page scroll, instead of
-     split-panel.css clipping it to a viewport-fitted row count (that shell
-     existed only for the old dynamic PAGE_SIZE measurement). height:auto
-     keeps .dashboard's inherited overflow:clip, which still rounds the
-     sticky filter bar's corners into the card. Mirrors ApplicationsView. */
+  /* Flat PAGE_SIZE (8), pagination inline in the header: a full page of
+     rows fits one viewport, so the page doesn't scroll — same as
+     ApplicationsView. height:auto replaces split-panel.css's fixed-height,
+     viewport-fit-clipped shell (that existed only for the old dynamic
+     PAGE_SIZE measurement) while keeping .dashboard's inherited
+     overflow:clip, which still rounds the filter bar's corners into the
+     card. */
   .dashboard { height: auto; min-height: calc(100vh - 86px); }
   .main-split { overflow: visible; align-items: flex-start; }
   .company-list { overflow: visible; }
   /* Bound the panel to one viewport so its body keeps its own scrollbar for
-     long content — the page itself now scrolls the list. (No sticky: the
-     dashboard's overflow:clip defeats it, and with ≤10 rows the list barely
-     scrolls anyway.) */
+     long content. */
   .detail-panel { height: calc(100vh - 86px); }
 }
 
 .pagination {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: .25rem;
-  padding: .625rem 1rem;
-  padding-bottom: calc(.625rem + env(safe-area-inset-bottom));
   flex-wrap: wrap;
-  border-top: 1px solid var(--col-border-lt);
-  background: var(--col-bg);
-  flex-shrink: 0;
 }
 .pagination-info {
-  width: 100%;
-  text-align: center;
   font-size: .72rem;
   color: var(--col-subtle);
-  margin-bottom: .2rem;
+  margin-right: .4rem;
+  white-space: nowrap;
 }
 .page-btn {
   min-width: 2rem;

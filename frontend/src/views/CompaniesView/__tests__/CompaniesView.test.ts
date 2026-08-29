@@ -467,28 +467,29 @@ function activePageLabel(wrapper: ReturnType<typeof mount>): string | undefined 
   return wrapper.findAll('.page-btn--active')[0]?.text()
 }
 
-describe('CompaniesView – fixed page size of 10', () => {
+describe('CompaniesView – fixed page size of 8', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.getApplications).mockResolvedValue([])
   })
 
-  it('shows exactly 10 companies per page', async () => {
+  it('shows exactly 8 companies per page', async () => {
     const wrapper = mountView(makeManySponsors(25))
     await flushPromises()
-    expect(wrapper.findAll('.company-row')).toHaveLength(10)
-    expect(wrapper.find('.pagination-info').text()).toContain('1–10 of 25')
+    expect(wrapper.findAll('.company-row')).toHaveLength(8)
+    expect(wrapper.find('.pagination-info').text()).toContain('1–8 of 25')
   })
 
   it('shows the remainder on the last page', async () => {
     const wrapper = mountView(makeManySponsors(25))
     await flushPromises()
-    await wrapper.findAll('.page-btn').find(b => b.text() === '3')!.trigger('click')
-    expect(wrapper.findAll('.company-row')).toHaveLength(5)
-    expect(wrapper.find('.pagination-info').text()).toContain('21–25 of 25')
+    // 25 / 8 → 4 pages: 8, 8, 8, 1
+    await wrapper.findAll('.page-btn').find(b => b.text() === '4')!.trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(1)
+    expect(wrapper.find('.pagination-info').text()).toContain('25–25 of 25')
   })
 
-  it('renders a single page when there are 10 or fewer companies', async () => {
+  it('renders a single page when there are 8 or fewer companies', async () => {
     const wrapper = mountView(makeManySponsors(8))
     await flushPromises()
     expect(wrapper.findAll('.page-btn').filter(b => /^\d+$/.test(b.text()))).toHaveLength(1)
