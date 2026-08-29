@@ -14,7 +14,7 @@ vi.mock('../../../api', () => ({
     deleteApplication: vi.fn(),
     getStats:          vi.fn(),
     getCompanies:      vi.fn(),
-    adminUpdateCompanySummary: vi.fn(),
+    adminUpdateCompany: vi.fn(),
   },
 }))
 
@@ -540,7 +540,7 @@ describe('CompaniesView – pagination survives PAGE_SIZE resize (Chrome iOS too
   })
 })
 
-// ── admin: edit company description ─────────────────────────────────────────
+// ── admin: edit the company detail panel ───────────────────────────────────
 
 function makeJwt(payload: Record<string, unknown>): string {
   const b64 = (o: unknown) => btoa(JSON.stringify(o))
@@ -550,119 +550,146 @@ function makeJwt(payload: Record<string, unknown>): string {
 const ADMIN_JWT = makeJwt({ sub: 'admin-1', email: 'admin@iwwz.nl', role: 'admin', exp: 9999999999 })
 const USER_JWT  = makeJwt({ sub: 'user-1',  email: 'user@iwwz.nl',  role: 'user',  exp: 9999999999 })
 
-describe('CompaniesView – admin: edit company description', () => {
+const clickBtn = (w: ReturnType<typeof mount>, text: string) =>
+  w.findAll('button').find(b => b.text() === text)!.trigger('click')
+
+describe('CompaniesView – admin: edit company panel', () => {
   beforeEach(() => vi.clearAllMocks())
   afterEach(() => sessionStorage.removeItem('token'))
 
-  it('shows no Edit button for a non-admin user', async () => {
-    sessionStorage.setItem('token', USER_JWT)
-    const wrapper = mountView([makeSponsor({ summary: 'A great company.' })])
+  async function openPanel(sponsors: SponsorCompany[], token?: string) {
+    if (token) sessionStorage.setItem('token', token)
+    const wrapper = mountView(sponsors)
     await flushPromises()
     await wrapper.find('.company-row').trigger('click')
-    expect(wrapper.find('.summary-edit-btn').exists()).toBe(false)
+    return wrapper
+  }
+
+  it('shows no Edit button for a non-admin user', async () => {
+    const wrapper = await openPanel([makeSponsor({ summary: 'A great company.' })], USER_JWT)
+    expect(wrapper.find('.panel-edit-btn').exists()).toBe(false)
   })
 
   it('shows no Edit button for a logged-out session', async () => {
-    const wrapper = mountView([makeSponsor({ summary: 'A great company.' })])
-    await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    expect(wrapper.find('.summary-edit-btn').exists()).toBe(false)
+    const wrapper = await openPanel([makeSponsor({ summary: 'A great company.' })])
+    expect(wrapper.find('.panel-edit-btn').exists()).toBe(false)
   })
 
   it('shows an Edit button for an admin user', async () => {
-    sessionStorage.setItem('token', ADMIN_JWT)
-    const wrapper = mountView([makeSponsor({ summary: 'A great company.' })])
-    await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    expect(wrapper.find('.summary-edit-btn').exists()).toBe(true)
+    const wrapper = await openPanel([makeSponsor({ summary: 'A great company.' })], ADMIN_JWT)
+    expect(wrapper.find('.panel-edit-btn').exists()).toBe(true)
   })
 
-  it('admin sees an "About" section (with an Edit affordance) even when there is no summary yet', async () => {
-    sessionStorage.setItem('token', ADMIN_JWT)
-    const wrapper = mountView([makeSponsor({ summary: undefined })])
-    await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    expect(wrapper.find('.summary-edit-btn').exists()).toBe(true)
+  it('admin sees the "About" placeholder even when there is no summary yet', async () => {
+    const wrapper = await openPanel([makeSponsor({ summary: undefined })], ADMIN_JWT)
+    expect(wrapper.find('.panel-edit-btn').exists()).toBe(true)
     expect(wrapper.text()).toContain('No description yet.')
   })
 
   it('non-admin sees no "About" section at all when there is no summary', async () => {
-    sessionStorage.setItem('token', USER_JWT)
-    const wrapper = mountView([makeSponsor({ summary: undefined })])
-    await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
+    const wrapper = await openPanel([makeSponsor({ summary: undefined })], USER_JWT)
     expect(wrapper.text()).not.toContain('No description yet.')
   })
 
-  it('clicking Edit opens a textarea pre-filled with the current summary', async () => {
-    sessionStorage.setItem('token', ADMIN_JWT)
-    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
-    await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    await wrapper.find('.summary-edit-btn').trigger('click')
-    const textarea = wrapper.find('.summary-textarea')
-    expect(textarea.exists()).toBe(true)
-    expect((textarea.element as HTMLTextAreaElement).value).toBe('Original text.')
+  it('clicking Edit opens the form pre-filled with the current fields', async () => {
+    const wrapper = await openPanel(
+      [makeSponsor({ summary: 'Original text.', city: 'Amsterdam', websiteUrl: 'https://acme.example', techStackTags: ['Go'] })],
+      ADMIN_JWT,
+    )
+    await wrapper.find('.panel-edit-btn').trigger('click')
+    expect((wrapper.find('.summary-textarea').element as HTMLTextAreaElement).value).toBe('Original text.')
+    expect((wrapper.find('#ce-city').element as HTMLInputElement).value).toBe('Amsterdam')
+    expect((wrapper.find('#ce-website').element as HTMLInputElement).value).toBe('https://acme.example')
+    expect(wrapper.text()).toContain('Go')
   })
 
-  it('Cancel discards changes and hides the textarea without saving', async () => {
-    sessionStorage.setItem('token', ADMIN_JWT)
-    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
-    await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    await wrapper.find('.summary-edit-btn').trigger('click')
+  it('the Edit button disappears while the form is open', async () => {
+    const wrapper = await openPanel([makeSponsor({ summary: 'x' })], ADMIN_JWT)
+    await wrapper.find('.panel-edit-btn').trigger('click')
+    expect(wrapper.find('.panel-edit-btn').exists()).toBe(false)
+  })
+
+  it('Cancel discards changes and closes the form without saving', async () => {
+    const wrapper = await openPanel([makeSponsor({ summary: 'Original text.' })], ADMIN_JWT)
+    await wrapper.find('.panel-edit-btn').trigger('click')
     await wrapper.find('.summary-textarea').setValue('Edited but not saved.')
-    await wrapper.findAll('button').find(b => b.text() === 'Cancel')!.trigger('click')
+    await clickBtn(wrapper, 'Cancel')
     expect(wrapper.find('.summary-textarea').exists()).toBe(false)
     expect(wrapper.text()).toContain('Original text.')
-    expect(api.adminUpdateCompanySummary).not.toHaveBeenCalled()
+    expect(api.adminUpdateCompany).not.toHaveBeenCalled()
   })
 
-  it('Save calls store.updateSummary with the edited text and re-renders it', async () => {
-    sessionStorage.setItem('token', ADMIN_JWT)
-    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
-      makeSponsor({ summary: 'Edited and saved.' })
+  it('Save sends every field, trimmed, and re-renders the result', async () => {
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(
+      makeSponsor({ summary: 'Edited and saved.', city: 'Delft' }),
     )
-    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
+    const wrapper = await openPanel([makeSponsor({ summary: 'Original text.' })], ADMIN_JWT)
+    await wrapper.find('.panel-edit-btn').trigger('click')
+    await wrapper.find('.summary-textarea').setValue('  Edited and saved.  ')
+    await wrapper.find('#ce-city').setValue('  Delft ')
+    await clickBtn(wrapper, 'Save changes')
     await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    await wrapper.find('.summary-edit-btn').trigger('click')
-    await wrapper.find('.summary-textarea').setValue('Edited and saved.')
-    await wrapper.findAll('button').find(b => b.text() === 'Save')!.trigger('click')
-    await flushPromises()
-    expect(api.adminUpdateCompanySummary).toHaveBeenCalledWith('sp-1', 'Edited and saved.')
+
+    expect(api.adminUpdateCompany).toHaveBeenCalledWith('sp-1', expect.objectContaining({
+      summary: 'Edited and saved.',
+      city: 'Delft',
+      websiteUrl: null,
+      locations: null,
+    }))
     expect(wrapper.find('.summary-textarea').exists()).toBe(false)
     expect(wrapper.text()).toContain('Edited and saved.')
   })
 
-  it('trims whitespace before saving', async () => {
-    sessionStorage.setItem('token', ADMIN_JWT)
-    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(makeSponsor({ summary: 'trimmed' }))
-    const wrapper = mountView([makeSponsor({ summary: 'x' })])
+  it('added location / tag chips are included in the save payload', async () => {
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(makeSponsor({ locations: ['Delft'] }))
+    const wrapper = await openPanel([makeSponsor({ summary: 'x' })], ADMIN_JWT)
+    await wrapper.find('.panel-edit-btn').trigger('click')
+
+    const locInput = wrapper.findAll('input').find(i => (i.element as HTMLInputElement).placeholder.startsWith('Add a location'))!
+    await locInput.setValue('Delft')
+    await locInput.trigger('keydown', { key: 'Enter' })
+    await clickBtn(wrapper, 'Save changes')
     await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    await wrapper.find('.summary-edit-btn').trigger('click')
-    await wrapper.find('.summary-textarea').setValue('  trimmed  ')
-    await wrapper.findAll('button').find(b => b.text() === 'Save')!.trigger('click')
-    await flushPromises()
-    expect(api.adminUpdateCompanySummary).toHaveBeenCalledWith('sp-1', 'trimmed')
+
+    expect(api.adminUpdateCompany).toHaveBeenCalledWith('sp-1', expect.objectContaining({
+      locations: ['Delft'],
+    }))
   })
 
-  it('shows an error and keeps editing open when the save fails', async () => {
-    sessionStorage.setItem('token', ADMIN_JWT)
-    vi.mocked(api.adminUpdateCompanySummary).mockRejectedValue(new Error('403 Forbidden'))
-    const wrapper = mountView([makeSponsor({ summary: 'Original text.' })])
+  it('a half-typed chip left in the input is still saved', async () => {
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(makeSponsor({}))
+    const wrapper = await openPanel([makeSponsor({ summary: 'x' })], ADMIN_JWT)
+    await wrapper.find('.panel-edit-btn').trigger('click')
+    const techInput = wrapper.findAll('input').find(i => (i.element as HTMLInputElement).placeholder.startsWith('Add a tag'))!
+    await techInput.setValue('Rust')
+    await clickBtn(wrapper, 'Save changes')
     await flushPromises()
-    await wrapper.find('.company-row').trigger('click')
-    await wrapper.find('.summary-edit-btn').trigger('click')
+    expect(api.adminUpdateCompany).toHaveBeenCalledWith('sp-1', expect.objectContaining({
+      techStackTags: ['Rust'],
+    }))
+  })
+
+  it('duplicate chips (case-insensitive) are not added twice', async () => {
+    const wrapper = await openPanel([makeSponsor({ summary: 'x', techStackTags: ['Go'] })], ADMIN_JWT)
+    await wrapper.find('.panel-edit-btn').trigger('click')
+    const techInput = wrapper.findAll('input').find(i => (i.element as HTMLInputElement).placeholder.startsWith('Add a tag'))!
+    await techInput.setValue('go')
+    await techInput.trigger('keydown', { key: 'Enter' })
+    expect(wrapper.findAll('.city-chip').filter(c => /go/i.test(c.text()))).toHaveLength(1)
+  })
+
+  it('shows an error and keeps the form open when the save fails', async () => {
+    vi.mocked(api.adminUpdateCompany).mockRejectedValue(new Error('403 Forbidden'))
+    const wrapper = await openPanel([makeSponsor({ summary: 'Original text.' })], ADMIN_JWT)
+    await wrapper.find('.panel-edit-btn').trigger('click')
     await wrapper.find('.summary-textarea').setValue('New text.')
-    await wrapper.findAll('button').find(b => b.text() === 'Save')!.trigger('click')
+    await clickBtn(wrapper, 'Save changes')
     await flushPromises()
     expect(wrapper.text()).toContain('403 Forbidden')
     expect(wrapper.find('.summary-textarea').exists()).toBe(true)
   })
 
-  it('closes editing mode when a different company is selected', async () => {
+  it('closes edit mode when a different company is selected', async () => {
     sessionStorage.setItem('token', ADMIN_JWT)
     const wrapper = mountView([
       makeSponsor({ id: 'sp-1', name: 'Alpha', summary: 'Alpha summary' }),
@@ -671,7 +698,7 @@ describe('CompaniesView – admin: edit company description', () => {
     await flushPromises()
     const rows = wrapper.findAll('.company-row')
     await rows[0].trigger('click')
-    await wrapper.find('.summary-edit-btn').trigger('click')
+    await wrapper.find('.panel-edit-btn').trigger('click')
     expect(wrapper.find('.summary-textarea').exists()).toBe(true)
 
     await rows[1].trigger('click')

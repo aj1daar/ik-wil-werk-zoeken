@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
 import { useAuthStore } from '../../stores/auth'
@@ -252,38 +252,107 @@ const selectedCompanyApp = computed<Application | null>(() =>
   selectedId.value ? (mostRecentForCompany.value.get(selectedId.value) ?? null) : null
 )
 
-const editingSummary = ref(false)
-const summaryDraft   = ref('')
-const savingSummary  = ref(false)
-const summaryError   = ref('')
+// ── admin: edit the whole company detail panel ───────────────────────────────
+
+type ChipField = 'locations' | 'techStackTags' | 'functionalTags'
+
+function blankForm() {
+  return {
+    summary: '', city: '', websiteUrl: '',
+    coreIndustry: '', workingLanguage: '', companySize: '', remotePolicy: '',
+    targetMarket: '', parentCompanyName: '',
+    locations: [] as string[], techStackTags: [] as string[], functionalTags: [] as string[],
+  }
+}
+
+const chipFields: { field: ChipField; label: string; placeholder: string }[] = [
+  { field: 'locations',      label: 'Other locations', placeholder: 'Add a location and press Enter…' },
+  { field: 'techStackTags',  label: 'Tech-stack tags', placeholder: 'Add a tag and press Enter…' },
+  { field: 'functionalTags', label: 'Functional tags', placeholder: 'Add a tag and press Enter…' },
+]
+
+const editing    = ref(false)
+const savingEdit = ref(false)
+const editError  = ref('')
+const form       = reactive(blankForm())
+const chipInput  = reactive<Record<ChipField, string>>({ locations: '', techStackTags: '', functionalTags: '' })
 
 watch(selectedId, () => {
-  editingSummary.value = false
-  summaryError.value   = ''
+  editing.value   = false
+  editError.value = ''
 })
 
-function startEditSummary() {
-  summaryDraft.value    = selectedCompany.value?.summary ?? ''
-  summaryError.value    = ''
-  editingSummary.value  = true
+function startEdit() {
+  const c = selectedCompany.value
+  if (!c) return
+  Object.assign(form, blankForm(), {
+    summary:           c.summary ?? '',
+    city:              c.city ?? '',
+    websiteUrl:        c.websiteUrl ?? '',
+    coreIndustry:      c.coreIndustry ?? '',
+    workingLanguage:   c.workingLanguage ?? '',
+    companySize:       c.companySize ?? '',
+    remotePolicy:      c.remotePolicy ?? '',
+    targetMarket:      c.targetMarket ?? '',
+    parentCompanyName: c.parentCompanyName ?? '',
+    locations:         [...(c.locations ?? [])],
+    techStackTags:     [...(c.techStackTags ?? [])],
+    functionalTags:    [...(c.functionalTags ?? [])],
+  })
+  chipInput.locations = chipInput.techStackTags = chipInput.functionalTags = ''
+  editError.value = ''
+  editing.value   = true
 }
 
-function cancelEditSummary() {
-  editingSummary.value = false
-  summaryError.value   = ''
+function cancelEdit() {
+  editing.value   = false
+  editError.value = ''
 }
 
-async function saveSummary() {
-  if (!selectedCompany.value) return
-  savingSummary.value = true
-  summaryError.value  = ''
+function addChip(field: ChipField, raw: string) {
+  const v = raw.trim()
+  if (v && !form[field].some(x => x.toLowerCase() === v.toLowerCase())) form[field].push(v)
+  chipInput[field] = ''
+}
+
+function removeChip(field: ChipField, i: number) {
+  form[field].splice(i, 1)
+}
+
+function onChipKey(e: KeyboardEvent, field: ChipField) {
+  if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addChip(field, chipInput[field]) }
+}
+
+async function saveEdit() {
+  const c = selectedCompany.value
+  if (!c) return
+  // Fold any half-typed chip text in so a user who typed a tag but didn't press
+  // Enter doesn't silently lose it.
+  ;(['locations', 'techStackTags', 'functionalTags'] as ChipField[])
+    .forEach(f => { if (chipInput[f].trim()) addChip(f, chipInput[f]) })
+
+  savingEdit.value = true
+  editError.value  = ''
   try {
-    await store.updateSummary(selectedCompany.value.id, summaryDraft.value.trim())
-    editingSummary.value = false
+    await store.updateCompany(c.id, {
+      summary:           form.summary.trim()           || null,
+      city:              form.city.trim()              || null,
+      websiteUrl:        form.websiteUrl.trim()         || null,
+      coreIndustry:      form.coreIndustry.trim()       || null,
+      workingLanguage:   form.workingLanguage.trim()    || null,
+      companySize:       form.companySize.trim()        || null,
+      remotePolicy:      form.remotePolicy.trim()       || null,
+      targetMarket:      form.targetMarket.trim()       || null,
+      parentCompanyName: form.parentCompanyName.trim()  || null,
+      locations:         form.locations.length      ? [...form.locations]      : null,
+      techStackTags:     form.techStackTags.length   ? [...form.techStackTags]  : null,
+      functionalTags:    form.functionalTags.length  ? [...form.functionalTags] : null,
+    })
+    editing.value = false
   } catch (e: unknown) {
-    summaryError.value = e instanceof Error ? e.message : 'Failed to save. Please try again.'
+    editError.value = e instanceof Error ? e.message : 'Failed to save. Please try again.'
   } finally {
-    savingSummary.value = false
+    savingEdit.value = false
   }
 }
 
@@ -570,11 +639,19 @@ const activeDropdownCount = computed(() =>
                   </template>
                 </p>
               </div>
-              <button @click="selectedId = null" class="btn-icon" aria-label="Close panel">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div class="panel-header-actions">
+                <button
+                  v-if="isAdmin && !editing"
+                  type="button"
+                  class="panel-edit-btn"
+                  @click="startEdit"
+                >Edit</button>
+                <button @click="selectedId = null" class="btn-icon" aria-label="Close panel">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div class="panel-body">
@@ -588,80 +665,146 @@ const activeDropdownCount = computed(() =>
                 </div>
               </div>
 
-              <div
-                v-if="selectedCompany.workingLanguage || selectedCompany.remotePolicy || selectedCompany.companySize || selectedCompany.targetMarket || selectedCompany.parentCompanyName"
-                class="field"
-              >
-                <label class="field-label">Details</label>
-                <div class="meta-chips">
-                  <span v-if="selectedCompany.workingLanguage" class="meta-chip meta-chip--lang">{{ selectedCompany.workingLanguage }}</span>
-                  <span v-if="selectedCompany.remotePolicy" class="meta-chip meta-chip--remote">{{ selectedCompany.remotePolicy }}</span>
-                  <span v-if="selectedCompany.companySize" class="meta-chip meta-chip--size">{{ selectedCompany.companySize }}</span>
-                  <span v-if="selectedCompany.targetMarket" class="meta-chip meta-chip--market">{{ selectedCompany.targetMarket }}</span>
-                  <span v-if="selectedCompany.parentCompanyName" class="meta-chip meta-chip--parent" :title="`Part of ${selectedCompany.parentCompanyName}`">↑ {{ selectedCompany.parentCompanyName }}</span>
+              <!-- ── read-only view ────────────────────────────────────────── -->
+              <template v-if="!editing">
+                <div
+                  v-if="selectedCompany.workingLanguage || selectedCompany.remotePolicy || selectedCompany.companySize || selectedCompany.targetMarket || selectedCompany.parentCompanyName"
+                  class="field"
+                >
+                  <label class="field-label">Details</label>
+                  <div class="meta-chips">
+                    <span v-if="selectedCompany.workingLanguage" class="meta-chip meta-chip--lang">{{ selectedCompany.workingLanguage }}</span>
+                    <span v-if="selectedCompany.remotePolicy" class="meta-chip meta-chip--remote">{{ selectedCompany.remotePolicy }}</span>
+                    <span v-if="selectedCompany.companySize" class="meta-chip meta-chip--size">{{ selectedCompany.companySize }}</span>
+                    <span v-if="selectedCompany.targetMarket" class="meta-chip meta-chip--market">{{ selectedCompany.targetMarket }}</span>
+                    <span v-if="selectedCompany.parentCompanyName" class="meta-chip meta-chip--parent" :title="`Part of ${selectedCompany.parentCompanyName}`">↑ {{ selectedCompany.parentCompanyName }}</span>
+                  </div>
                 </div>
-              </div>
 
-              <div v-if="selectedCompany.summary || isAdmin" class="field">
-                <div class="field-label-row">
+                <div v-if="selectedCompany.locations?.length" class="field">
+                  <label class="field-label">Other locations</label>
+                  <div class="tag-row">
+                    <span v-for="l in selectedCompany.locations" :key="l" class="tag--muted">{{ l }}</span>
+                  </div>
+                </div>
+
+                <div v-if="selectedCompany.summary || isAdmin" class="field">
                   <label class="field-label">About</label>
-                  <button
-                    v-if="isAdmin && !editingSummary"
-                    type="button"
-                    class="summary-edit-btn"
-                    @click="startEditSummary"
-                  >Edit</button>
+                  <p v-if="selectedCompany.summary" class="panel-body-text">{{ selectedCompany.summary }}</p>
+                  <p v-else class="panel-body-text panel-body-text--empty">No description yet.</p>
                 </div>
 
-                <template v-if="editingSummary">
+                <div v-if="selectedCompany.coreIndustry || (selectedCompany.techStackTags?.length || selectedCompany.functionalTags?.length)" class="field">
+                  <label class="field-label">Tags</label>
+                  <div class="tag-row">
+                    <span v-if="selectedCompany.coreIndustry" class="tag">{{ selectedCompany.coreIndustry }}</span>
+                    <span v-for="t in selectedCompany.techStackTags" :key="t" class="tag--muted">{{ t }}</span>
+                    <span v-for="t in selectedCompany.functionalTags" :key="t" class="tag--muted">{{ t }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- ── admin edit form ──────────────────────────────────────── -->
+              <template v-else>
+                <div class="field">
+                  <label class="field-label" for="ce-summary">About</label>
                   <textarea
-                    v-model="summaryDraft"
+                    id="ce-summary"
+                    v-model="form.summary"
                     class="field-input summary-textarea"
                     rows="4"
                     maxlength="2000"
                     placeholder="Write a short description of this company…"
                   />
-                  <p v-if="summaryError" class="summary-error" role="alert">{{ summaryError }}</p>
-                  <div class="summary-edit-actions">
-                    <button type="button" class="btn-primary" :disabled="savingSummary" @click="saveSummary">
-                      {{ savingSummary ? 'Saving…' : 'Save' }}
-                    </button>
-                    <button type="button" class="btn-ghost" :disabled="savingSummary" @click="cancelEditSummary">Cancel</button>
-                  </div>
-                </template>
-                <p v-else-if="selectedCompany.summary" class="panel-body-text">{{ selectedCompany.summary }}</p>
-                <p v-else class="panel-body-text panel-body-text--empty">No description yet.</p>
-              </div>
-
-              <div v-if="selectedCompany.coreIndustry || (selectedCompany.techStackTags?.length || selectedCompany.functionalTags?.length)" class="field">
-                <label class="field-label">Tags</label>
-                <div class="tag-row">
-                  <span v-if="selectedCompany.coreIndustry" class="tag">{{ selectedCompany.coreIndustry }}</span>
-                  <span v-for="t in selectedCompany.techStackTags" :key="t" class="tag--muted">{{ t }}</span>
-                  <span v-for="t in selectedCompany.functionalTags" :key="t" class="tag--muted">{{ t }}</span>
                 </div>
-              </div>
+
+                <div class="ce-grid">
+                  <div class="field">
+                    <label class="field-label" for="ce-city">City</label>
+                    <input id="ce-city" v-model="form.city" class="field-input" maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ce-website">Website URL</label>
+                    <input id="ce-website" v-model="form.websiteUrl" type="url" class="field-input" placeholder="https://…" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ce-lang">Working language</label>
+                    <input id="ce-lang" v-model="form.workingLanguage" class="field-input" maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ce-size">Company size</label>
+                    <input id="ce-size" v-model="form.companySize" class="field-input" maxlength="200" placeholder="startup / scaleup / mid / large / enterprise" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ce-remote">Remote policy</label>
+                    <input id="ce-remote" v-model="form.remotePolicy" class="field-input" maxlength="200" placeholder="remote / hybrid / office" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ce-market">Target market</label>
+                    <input id="ce-market" v-model="form.targetMarket" class="field-input" maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ce-parent">Parent company</label>
+                    <input id="ce-parent" v-model="form.parentCompanyName" class="field-input" maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ce-industry">Core industry</label>
+                    <input id="ce-industry" v-model="form.coreIndustry" class="field-input" maxlength="200" />
+                  </div>
+                </div>
+
+                <div
+                  v-for="chip in chipFields"
+                  :key="chip.field"
+                  class="field"
+                >
+                  <label class="field-label">{{ chip.label }}</label>
+                  <div v-if="form[chip.field].length" class="tag-row ce-chip-row">
+                    <span v-for="(v, i) in form[chip.field]" :key="v" class="city-chip">
+                      {{ v }}
+                      <button type="button" class="city-remove" :aria-label="`Remove ${v}`" @click="removeChip(chip.field, i)">×</button>
+                    </span>
+                  </div>
+                  <input
+                    v-model="chipInput[chip.field]"
+                    class="field-input"
+                    :placeholder="chip.placeholder"
+                    @keydown="onChipKey($event, chip.field)"
+                    @blur="addChip(chip.field, chipInput[chip.field])"
+                  />
+                </div>
+
+                <p v-if="editError" class="summary-error" role="alert">{{ editError }}</p>
+              </template>
             </div>
 
             <div class="panel-footer">
-              <a
-                v-if="selectedCompany.websiteUrl"
-                :href="selectedCompany.websiteUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="btn-ghost footer-website"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Visit website
-              </a>
-              <button @click="toggleHidden(selectedCompany.id)" class="btn-hide-company">
-                {{ hiddenIds.has(selectedCompany.id) ? 'Unhide' : 'Not interested' }}
-              </button>
-              <button @click="startApplication(selectedCompany)" class="btn-primary footer-primary">
-                {{ selectedCompanyApp ? 'Add Another Application' : 'Start Application' }}
-              </button>
+              <template v-if="editing">
+                <button type="button" class="btn-ghost" :disabled="savingEdit" @click="cancelEdit">Cancel</button>
+                <button type="button" class="btn-primary footer-primary" :disabled="savingEdit" @click="saveEdit">
+                  {{ savingEdit ? 'Saving…' : 'Save changes' }}
+                </button>
+              </template>
+              <template v-else>
+                <a
+                  v-if="selectedCompany.websiteUrl"
+                  :href="selectedCompany.websiteUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn-ghost footer-website"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Visit website
+                </a>
+                <button @click="toggleHidden(selectedCompany.id)" class="btn-hide-company">
+                  {{ hiddenIds.has(selectedCompany.id) ? 'Unhide' : 'Not interested' }}
+                </button>
+                <button @click="startApplication(selectedCompany)" class="btn-primary footer-primary">
+                  {{ selectedCompanyApp ? 'Add Another Application' : 'Start Application' }}
+                </button>
+              </template>
             </div>
           </div>
         </div>
@@ -778,16 +921,31 @@ const activeDropdownCount = computed(() =>
 .panel-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .panel-body-text { font-size: .875rem; color: var(--col-muted); line-height: 1.6; }
 .panel-body-text--empty { font-style: italic; color: var(--col-subtle); }
-.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.summary-edit-btn {
-  background: none; border: none; cursor: pointer;
+.panel-header-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+.panel-edit-btn {
+  background: none; border: 1px solid var(--col-border); cursor: pointer;
   color: var(--col-accent); font-size: .72rem; font-weight: 600;
-  padding: 0; text-transform: uppercase; letter-spacing: .05em;
+  padding: .25rem .6rem; border-radius: .375rem;
+  text-transform: uppercase; letter-spacing: .05em;
 }
-.summary-edit-btn:hover { text-decoration: underline; }
+.panel-edit-btn:hover { background: var(--col-raised); }
 .summary-textarea { resize: vertical; width: 100%; font-family: inherit; }
-.summary-edit-actions { display: flex; gap: .5rem; }
 .summary-error { color: var(--col-error); font-size: .8rem; margin: 0; }
+
+/* admin edit form */
+.ce-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+@media (max-width: 520px) { .ce-grid { grid-template-columns: 1fr; } }
+.ce-chip-row { margin-bottom: .375rem; }
+.city-chip {
+  display: inline-flex; align-items: center; gap: .25rem;
+  background: var(--col-raised); border-radius: 9999px;
+  padding: .2rem .6rem; font-size: .8rem; color: var(--col-muted);
+}
+.city-remove {
+  background: none; border: none; cursor: pointer; color: var(--col-subtle);
+  font-size: 1rem; line-height: 1; padding: 0;
+}
+.city-remove:hover { color: var(--col-error); }
 .meta-chips { display: flex; flex-wrap: wrap; gap: .375rem; }
 .meta-chip {
   display: inline-flex; align-items: center;

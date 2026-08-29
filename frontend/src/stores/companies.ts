@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { api, type SponsorCompany } from '../api'
+import { api, type SponsorCompany, type CompanyEditPatch } from '../api'
 
 export const useCompaniesStore = defineStore('companies', {
   state: () => ({
@@ -88,8 +88,8 @@ export const useCompaniesStore = defineStore('companies', {
       }
     },
 
-    async updateSummary(id: string, summary: string) {
-      const updated = await api.adminUpdateCompanySummary(id, summary)
+    async updateCompany(id: string, patch: CompanyEditPatch) {
+      const updated = await api.adminUpdateCompany(id, patch)
       const idx = this.companies.findIndex(c => c.id === id)
       if (idx !== -1) this.companies[idx] = updated
     },

@@ -6,7 +6,7 @@ import type { SponsorCompany } from '../../api'
 vi.mock('../../api', () => ({
   api: {
     getCompanies: vi.fn(),
-    adminUpdateCompanySummary: vi.fn(),
+    adminUpdateCompany: vi.fn(),
   }
 }))
 
@@ -535,47 +535,51 @@ describe('useCompaniesStore – companies array (load-more source)', () => {
   })
 })
 
-// ── updateSummary ────────────────────────────────────────────────────────────
+// ── updateCompany ────────────────────────────────────────────────────────────
 
-describe('useCompaniesStore – updateSummary', () => {
+describe('useCompaniesStore – updateCompany', () => {
   beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
 
-  it('calls api.adminUpdateCompanySummary with the given id and summary', async () => {
+  it('calls api.adminUpdateCompany with the given id and patch', async () => {
     const store = seedStore([makeCompany({ id: 'c1', name: 'Acme', summary: 'old' })])
-    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(
       makeCompany({ id: 'c1', name: 'Acme', summary: 'new summary' })
     )
-    await store.updateSummary('c1', 'new summary')
-    expect(api.adminUpdateCompanySummary).toHaveBeenCalledWith('c1', 'new summary')
+    const patch = { summary: 'new summary', city: 'Delft', locations: ['Delft'] }
+    await store.updateCompany('c1', patch)
+    expect(api.adminUpdateCompany).toHaveBeenCalledWith('c1', patch)
   })
 
   it('replaces the matching company in the local array with the API response', async () => {
     const store = seedStore([
-      makeCompany({ id: 'c1', name: 'Acme', summary: 'old' }),
+      makeCompany({ id: 'c1', name: 'Acme', summary: 'old', city: 'Amsterdam' }),
       makeCompany({ id: 'c2', name: 'Beta', summary: 'unrelated' }),
     ])
-    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
-      makeCompany({ id: 'c1', name: 'Acme', summary: 'new summary' })
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(
+      makeCompany({ id: 'c1', name: 'Acme', summary: 'new summary', city: 'Delft', locations: ['Delft', 'Rijswijk'] })
     )
-    await store.updateSummary('c1', 'new summary')
-    expect(store.companies.find(c => c.id === 'c1')?.summary).toBe('new summary')
+    await store.updateCompany('c1', { summary: 'new summary', city: 'Delft' })
+    const c1 = store.companies.find(c => c.id === 'c1')
+    expect(c1?.summary).toBe('new summary')
+    expect(c1?.city).toBe('Delft')
+    expect(c1?.locations).toEqual(['Delft', 'Rijswijk'])
     expect(store.companies.find(c => c.id === 'c2')?.summary).toBe('unrelated')
   })
 
   it('does not touch the array when the id is not found locally', async () => {
     const store = seedStore([makeCompany({ id: 'c1', name: 'Acme', summary: 'old' })])
-    vi.mocked(api.adminUpdateCompanySummary).mockResolvedValue(
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(
       makeCompany({ id: 'ghost', name: 'Ghost', summary: 'new' })
     )
-    await store.updateSummary('ghost', 'new')
+    await store.updateCompany('ghost', { summary: 'new' })
     expect(store.companies).toHaveLength(1)
     expect(store.companies[0].summary).toBe('old')
   })
 
   it('propagates an error from the API without mutating the array', async () => {
     const store = seedStore([makeCompany({ id: 'c1', name: 'Acme', summary: 'old' })])
-    vi.mocked(api.adminUpdateCompanySummary).mockRejectedValue(new Error('403 Forbidden'))
-    await expect(store.updateSummary('c1', 'new')).rejects.toThrow('403 Forbidden')
+    vi.mocked(api.adminUpdateCompany).mockRejectedValue(new Error('403 Forbidden'))
+    await expect(store.updateCompany('c1', { summary: 'new' })).rejects.toThrow('403 Forbidden')
     expect(store.companies[0].summary).toBe('old')
   })
 })

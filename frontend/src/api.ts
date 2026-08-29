@@ -91,8 +91,8 @@ export const api = {
   adminGetSyncLogs: () =>
     request<SyncLog[]>('GET', '/api/mgmt/sync-logs'),
 
-  adminUpdateCompanySummary: (id: string, summary: string) =>
-    request<SponsorCompany>('PUT', `/api/mgmt/companies/${id}/summary`, { summary }),
+  adminUpdateCompany: (id: string, patch: CompanyEditPatch) =>
+    request<SponsorCompany>('PUT', `/api/mgmt/companies/${id}`, patch),
 
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
@@ -141,6 +141,7 @@ export interface SponsorCompany {
   name: string
   kvKNumber: string
   city?: string
+  locations?: string[]
   lastVerifiedAt: string
   summary?: string
   coreIndustry?: string
@@ -154,6 +155,23 @@ export interface SponsorCompany {
   targetMarket?: string
   enrichedAt?: string
   enrichmentVersion?: number
+}
+
+// Admin manual override of company fields. Every key is optional; null / omitted
+// / blank clears the field on the server.
+export interface CompanyEditPatch {
+  summary?: string | null
+  city?: string | null
+  locations?: string[] | null
+  websiteUrl?: string | null
+  coreIndustry?: string | null
+  techStackTags?: string[] | null
+  functionalTags?: string[] | null
+  workingLanguage?: string | null
+  companySize?: string | null
+  remotePolicy?: string | null
+  parentCompanyName?: string | null
+  targetMarket?: string | null
 }
 
 export interface Application {
