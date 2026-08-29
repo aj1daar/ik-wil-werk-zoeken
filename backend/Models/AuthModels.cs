@@ -107,10 +107,40 @@ public sealed class BulkStatusRequest
     [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
 }
 
-public sealed class UpdateCompanySummaryRequest
+// Admin manual override of company fields. Every property is optional; a null
+// value clears the field, a whitespace-only string clears it too. Array fields
+// are trimmed, de-duplicated (case-insensitive, first wins) and empty-filtered.
+public sealed class UpdateCompanyRequest
 {
-    [JsonPropertyName("summary")] public string? Summary { get; set; }
+    [JsonPropertyName("summary")]           public string? Summary { get; set; }
+    [JsonPropertyName("city")]              public string? City { get; set; }
+    [JsonPropertyName("locations")]         public string[]? Locations { get; set; }
+    [JsonPropertyName("websiteUrl")]        public string? WebsiteUrl { get; set; }
+    [JsonPropertyName("coreIndustry")]      public string? CoreIndustry { get; set; }
+    [JsonPropertyName("techStackTags")]     public string[]? TechStackTags { get; set; }
+    [JsonPropertyName("functionalTags")]    public string[]? FunctionalTags { get; set; }
+    [JsonPropertyName("workingLanguage")]   public string? WorkingLanguage { get; set; }
+    [JsonPropertyName("companySize")]       public string? CompanySize { get; set; }
+    [JsonPropertyName("remotePolicy")]      public string? RemotePolicy { get; set; }
+    [JsonPropertyName("parentCompanyName")] public string? ParentCompanyName { get; set; }
+    [JsonPropertyName("targetMarket")]      public string? TargetMarket { get; set; }
 }
+
+// Normalized, validated result of an UpdateCompanyRequest — every value is the
+// final value to persist (null = clear the column).
+public sealed record CompanyEdit(
+    string? Summary,
+    string? City,
+    string[]? Locations,
+    string? WebsiteUrl,
+    string? CoreIndustry,
+    string[]? TechStackTags,
+    string[]? FunctionalTags,
+    string? WorkingLanguage,
+    string? CompanySize,
+    string? RemotePolicy,
+    string? ParentCompanyName,
+    string? TargetMarket);
 
 public sealed class AdminUserSummary
 {

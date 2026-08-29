@@ -212,26 +212,123 @@ public sealed class AdminController : ApiControllerBase
         }
     }
 
-    [HttpPut("companies/{id}/summary")]
-    public async Task<IActionResult> UpdateCompanySummary(string id, [FromBody] UpdateCompanySummaryRequest? body)
+    [HttpPut("companies/{id}")]
+    public async Task<IActionResult> UpdateCompany(string id, [FromBody] UpdateCompanyRequest? body)
     {
         if (CheckAdmin() is { } err) return err;
         try
         {
-            if (body?.Summary?.Length > 2000)
-                return Error(400, "summary must not exceed 2000 characters");
+            if (body is null) return Error(400, "request body is required");
 
-            var summary = string.IsNullOrWhiteSpace(body?.Summary) ? null : body.Summary.Trim();
-            var updated = await _sponsorStore.UpdateSummaryAsync(id, summary);
+            var (edit, validationError) = NormalizeCompanyEdit(body);
+            if (validationError is not null) return Error(400, validationError);
+
+            var updated = await _sponsorStore.UpdateCompanyAsync(id, edit!);
             if (updated is null) return Error(404, "Company not found");
 
             return Ok(updated);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception in UpdateCompanySummary");
+            _logger.LogError(ex, "Unhandled exception in UpdateCompany");
             return Error(500, $"Internal error: {ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    private const int TextFieldMax  = 200;
+    private const int SummaryMax     = 2000;
+    private const int WebsiteUrlMax  = 2048;
+    private const int TagMax         = 100;
+    private const int MaxListItems   = 50;
+
+    // Trims, validates and de-duplicates an admin company edit. Returns
+    // (null, message) on the first validation failure, otherwise (edit, null).
+    internal static (CompanyEdit? edit, string? error) NormalizeCompanyEdit(UpdateCompanyRequest body)
+    {
+        static string? Clean(string? v)
+        {
+            if (string.IsNullOrWhiteSpace(v)) return null;
+            return v.Trim();
+        }
+
+        static (string? value, string? error) Bounded(string? v, string field, int max)
+        {
+            var cleaned = Clean(v);
+            if (cleaned is not null && cleaned.Length > max)
+                return (null, $"{field} must not exceed {max} characters");
+            return (cleaned, null);
+        }
+
+        static (string[]? value, string? error) CleanList(string[]? raw, string field)
+        {
+            if (raw is null) return (null, null);
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<string>();
+            foreach (var item in raw)
+            {
+                var trimmed = item?.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+                if (trimmed.Length > TagMax)
+                    return (null, $"{field} entries must not exceed {TagMax} characters");
+                if (seen.Add(trimmed)) result.Add(trimmed);
+            }
+            if (result.Count == 0) return (null, null);
+            if (result.Count > MaxListItems)
+                return (null, $"{field} must not exceed {MaxListItems} entries");
+            return (result.ToArray(), null);
+        }
+
+        static (string? value, string? error) CleanUrl(string? v)
+        {
+            var cleaned = Clean(v);
+            if (cleaned is null) return (null, null);
+            if (cleaned.Length > WebsiteUrlMax)
+                return (null, $"websiteUrl must not exceed {WebsiteUrlMax} characters");
+            if (!Uri.TryCreate(cleaned, UriKind.Absolute, out var uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                return (null, "websiteUrl must be a valid http(s) URL");
+            return (uri.ToString(), null);
+        }
+
+        var (summary, e1) = Bounded(body.Summary, "summary", SummaryMax);
+        if (e1 is not null) return (null, e1);
+        var (city, e2) = Bounded(body.City, "city", TextFieldMax);
+        if (e2 is not null) return (null, e2);
+        var (websiteUrl, e3) = CleanUrl(body.WebsiteUrl);
+        if (e3 is not null) return (null, e3);
+        var (coreIndustry, e4) = Bounded(body.CoreIndustry, "coreIndustry", TextFieldMax);
+        if (e4 is not null) return (null, e4);
+        var (workingLanguage, e5) = Bounded(body.WorkingLanguage, "workingLanguage", TextFieldMax);
+        if (e5 is not null) return (null, e5);
+        var (companySize, e6) = Bounded(body.CompanySize, "companySize", TextFieldMax);
+        if (e6 is not null) return (null, e6);
+        var (remotePolicy, e7) = Bounded(body.RemotePolicy, "remotePolicy", TextFieldMax);
+        if (e7 is not null) return (null, e7);
+        var (parentCompanyName, e8) = Bounded(body.ParentCompanyName, "parentCompanyName", TextFieldMax);
+        if (e8 is not null) return (null, e8);
+        var (targetMarket, e9) = Bounded(body.TargetMarket, "targetMarket", TextFieldMax);
+        if (e9 is not null) return (null, e9);
+        var (locations, e10) = CleanList(body.Locations, "locations");
+        if (e10 is not null) return (null, e10);
+        var (techStackTags, e11) = CleanList(body.TechStackTags, "techStackTags");
+        if (e11 is not null) return (null, e11);
+        var (functionalTags, e12) = CleanList(body.FunctionalTags, "functionalTags");
+        if (e12 is not null) return (null, e12);
+
+        return (new CompanyEdit(
+            Summary:           summary,
+            City:              city,
+            Locations:         locations,
+            WebsiteUrl:        websiteUrl,
+            CoreIndustry:      coreIndustry,
+            TechStackTags:     techStackTags,
+            FunctionalTags:    functionalTags,
+            WorkingLanguage:   workingLanguage,
+            CompanySize:       companySize,
+            RemotePolicy:      remotePolicy,
+            ParentCompanyName: parentCompanyName,
+            TargetMarket:      targetMarket), null);
     }
 
     [HttpGet("sync-logs")]

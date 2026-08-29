@@ -43,15 +43,31 @@ public sealed class SponsorStoreTests : IDisposable
         EnrichedAt = DateTimeOffset.UtcNow.AddDays(-30),
     };
 
-    // ── UpdateSummaryAsync ───────────────────────────────────────────────────
+    // ── UpdateCompanyAsync ───────────────────────────────────────────────────
+
+    private static CompanyEdit Edit(
+        string? summary = null,
+        string? city = null,
+        string[]? locations = null,
+        string? websiteUrl = null,
+        string? coreIndustry = null,
+        string[]? techStackTags = null,
+        string[]? functionalTags = null,
+        string? workingLanguage = null,
+        string? companySize = null,
+        string? remotePolicy = null,
+        string? parentCompanyName = null,
+        string? targetMarket = null) =>
+        new(summary, city, locations, websiteUrl, coreIndustry, techStackTags, functionalTags,
+            workingLanguage, companySize, remotePolicy, parentCompanyName, targetMarket);
 
     [Fact]
-    public async Task UpdateSummaryAsync_ExistingCompany_UpdatesSummary()
+    public async Task UpdateCompanyAsync_ExistingCompany_UpdatesSummary()
     {
         _db.Sponsors.Add(MakeCompany("co-1"));
         await _db.SaveChangesAsync();
 
-        var result = await _store.UpdateSummaryAsync("co-1", "A hand-written description.");
+        var result = await _store.UpdateCompanyAsync("co-1", Edit(summary: "A hand-written description."));
 
         Assert.NotNull(result);
         Assert.Equal("A hand-written description.", result!.Summary);
@@ -60,12 +76,73 @@ public sealed class SponsorStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateSummaryAsync_MarksAsCurrentlyEnriched_SoAutoEnrichmentDoesNotOverwriteIt()
+    public async Task UpdateCompanyAsync_PersistsEveryField()
     {
         _db.Sponsors.Add(MakeCompany("co-1"));
         await _db.SaveChangesAsync();
 
-        await _store.UpdateSummaryAsync("co-1", "Manual description.");
+        await _store.UpdateCompanyAsync("co-1", Edit(
+            summary: "S", city: "Rotterdam",
+            locations: ["Rotterdam", "Delft"],
+            websiteUrl: "https://acme.example/",
+            coreIndustry: "Logistics",
+            techStackTags: ["Go", "Kafka"],
+            functionalTags: ["B2B"],
+            workingLanguage: "English", companySize: "scaleup", remotePolicy: "hybrid",
+            parentCompanyName: "Acme Holding", targetMarket: "EU"));
+
+        var stored = await _db.Sponsors.FindAsync("co-1");
+        Assert.Equal("Rotterdam", stored!.City);
+        Assert.Equal(["Rotterdam", "Delft"], stored.Locations!);
+        Assert.Equal("https://acme.example/", stored.WebsiteUrl);
+        Assert.Equal("Logistics", stored.CoreIndustry);
+        Assert.Equal(["Go", "Kafka"], stored.TechStackTags!);
+        Assert.Equal(["B2B"], stored.FunctionalTags!);
+        Assert.Equal("English", stored.WorkingLanguage);
+        Assert.Equal("scaleup", stored.CompanySize);
+        Assert.Equal("hybrid", stored.RemotePolicy);
+        Assert.Equal("Acme Holding", stored.ParentCompanyName);
+        Assert.Equal("EU", stored.TargetMarket);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyAsync_NullFields_ClearThoseColumns()
+    {
+        var seeded = MakeCompany("co-1");
+        seeded.City = "Amsterdam";
+        seeded.TechStackTags = ["Java"];
+        _db.Sponsors.Add(seeded);
+        await _db.SaveChangesAsync();
+
+        await _store.UpdateCompanyAsync("co-1", Edit());
+
+        var stored = await _db.Sponsors.FindAsync("co-1");
+        Assert.Null(stored!.Summary);
+        Assert.Null(stored.City);
+        Assert.Null(stored.TechStackTags);
+        Assert.Null(stored.Locations);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyAsync_DoesNotChangeIdentityColumns()
+    {
+        _db.Sponsors.Add(MakeCompany("co-1"));
+        await _db.SaveChangesAsync();
+
+        await _store.UpdateCompanyAsync("co-1", Edit(summary: "New."));
+
+        var stored = await _db.Sponsors.FindAsync("co-1");
+        Assert.Equal("Acme B.V.", stored!.Name);
+        Assert.Equal("12345678", stored.KvKNumber);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyAsync_MarksAsCurrentlyEnriched_SoAutoEnrichmentDoesNotOverwriteIt()
+    {
+        _db.Sponsors.Add(MakeCompany("co-1"));
+        await _db.SaveChangesAsync();
+
+        await _store.UpdateCompanyAsync("co-1", Edit(summary: "Manual description."));
 
         var stored = await _db.Sponsors.FindAsync("co-1");
         Assert.Equal(CompanyEnricher.CurrentVersion, stored!.EnrichmentVersion);
@@ -74,16 +151,16 @@ public sealed class SponsorStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateSummaryAsync_UnknownId_ReturnsNull()
+    public async Task UpdateCompanyAsync_UnknownId_ReturnsNull()
     {
-        var result = await _store.UpdateSummaryAsync("no-such-id", "text");
+        var result = await _store.UpdateCompanyAsync("no-such-id", Edit(summary: "text"));
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task UpdateSummaryAsync_UnknownId_DoesNotCreateARow()
+    public async Task UpdateCompanyAsync_UnknownId_DoesNotCreateARow()
     {
-        await _store.UpdateSummaryAsync("no-such-id", "text");
+        await _store.UpdateCompanyAsync("no-such-id", Edit(summary: "text"));
         Assert.Equal(0, await _db.Sponsors.CountAsync());
     }
 
@@ -139,38 +216,12 @@ public sealed class SponsorStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateSummaryAsync_NullSummary_ClearsIt()
-    {
-        _db.Sponsors.Add(MakeCompany("co-1"));
-        await _db.SaveChangesAsync();
-
-        var result = await _store.UpdateSummaryAsync("co-1", null);
-
-        Assert.NotNull(result);
-        Assert.Null(result!.Summary);
-    }
-
-    [Fact]
-    public async Task UpdateSummaryAsync_DoesNotChangeOtherFields()
-    {
-        _db.Sponsors.Add(MakeCompany("co-1"));
-        await _db.SaveChangesAsync();
-
-        await _store.UpdateSummaryAsync("co-1", "New summary.");
-
-        var stored = await _db.Sponsors.FindAsync("co-1");
-        Assert.Equal("Acme B.V.", stored!.Name);
-        Assert.Equal("12345678", stored.KvKNumber);
-        Assert.Equal("Amsterdam", stored.City);
-    }
-
-    [Fact]
-    public async Task UpdateSummaryAsync_OnlyUpdatesTargetedCompany()
+    public async Task UpdateCompanyAsync_OnlyUpdatesTargetedCompany()
     {
         _db.Sponsors.AddRange(MakeCompany("co-1"), MakeCompany("co-2"));
         await _db.SaveChangesAsync();
 
-        await _store.UpdateSummaryAsync("co-1", "Edited.");
+        await _store.UpdateCompanyAsync("co-1", Edit(summary: "Edited."));
 
         var other = await _db.Sponsors.FindAsync("co-2");
         Assert.Equal("Original LLM-generated summary.", other!.Summary);

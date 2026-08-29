@@ -36,6 +36,7 @@ public sealed class AppDbContext : DbContext
         modelBuilder.Entity<SponsorCompany>(e =>
         {
             e.HasKey(s => s.Id);
+            e.Property(s => s.Locations).HasColumnType("text[]");
             e.Property(s => s.TechStackTags).HasColumnType("text[]");
             e.Property(s => s.FunctionalTags).HasColumnType("text[]");
         });

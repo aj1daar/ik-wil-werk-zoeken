@@ -17,7 +17,7 @@ namespace backend;
 [JsonSerializable(typeof(ChangeEmailRequest))]
 [JsonSerializable(typeof(PromoteRequest))]
 [JsonSerializable(typeof(BulkStatusRequest))]
-[JsonSerializable(typeof(UpdateCompanySummaryRequest))]
+[JsonSerializable(typeof(UpdateCompanyRequest))]
 [JsonSerializable(typeof(AdminUserSummary))]
 [JsonSerializable(typeof(AdminUserSummary[]), TypeInfoPropertyName = "AdminUserSummaryArray")]
 [JsonSerializable(typeof(ActivityLog))]
