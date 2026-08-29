@@ -230,27 +230,44 @@ function printPage() {
       </div>
 
       <div class="filter-controls-row">
-        <button
-          :class="['btn-filter-toggle', (showFiltersPanel || activeFilterCount > 0) && 'btn-filter-toggle--active']"
-          @click="showFiltersPanel = !showFiltersPanel"
-          :aria-expanded="showFiltersPanel"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
-          </svg>
-          Filters
-          <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+        <div v-if="filtered.length > 0" class="pagination">
+          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
+          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
+          <template v-for="(p, i) in visiblePages" :key="i">
+            <span v-if="p === null" class="page-ellipsis">…</span>
+            <button
+              v-else
+              :class="['page-btn', p === currentPage && 'page-btn--active']"
+              @click="goToPage(p)"
+              :aria-current="p === currentPage ? 'page' : undefined"
+            >{{ p }}</button>
+          </template>
+          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
+        </div>
 
-        <button @click="modalOpen = true" class="btn-new" title="New application (N)">
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          New Application
-        </button>
+        <div class="filter-actions">
+          <button
+            :class="['btn-filter-toggle', (showFiltersPanel || activeFilterCount > 0) && 'btn-filter-toggle--active']"
+            @click="showFiltersPanel = !showFiltersPanel"
+            :aria-expanded="showFiltersPanel"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
+            </svg>
+            Filters
+            <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <button @click="modalOpen = true" class="btn-new" title="New application (N)">
+            <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Application
+          </button>
+        </div>
       </div>
     </div>
 
@@ -380,21 +397,6 @@ function printPage() {
               </svg>
             </li>
           </TransitionGroup>
-        </div>
-
-        <div v-if="filtered.length > 0" class="pagination">
-          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
-          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
-          <template v-for="(p, i) in visiblePages" :key="i">
-            <span v-if="p === null" class="page-ellipsis">…</span>
-            <button
-              v-else
-              :class="['page-btn', p === currentPage && 'page-btn--active']"
-              @click="goToPage(p)"
-              :aria-current="p === currentPage ? 'page' : undefined"
-            >{{ p }}</button>
-          </template>
-          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
         </div>
       </div>
     </div>
@@ -663,24 +665,24 @@ function printPage() {
 }
 .btn-export:hover { background: var(--col-raised); }
 
+/* Pagination now lives inline in .filter-controls-row, next to Filters /
+   New Application — not as a bottom bar that grew the page and forced a
+   scroll. Compact row: count text + prev / pages / next, no border or
+   full-width wrapping. */
+.filter-controls-row { justify-content: space-between; }
+.filter-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
+
 .pagination {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: .25rem;
-  padding: .625rem 1rem;
-  padding-bottom: calc(.625rem + env(safe-area-inset-bottom));
   flex-wrap: wrap;
-  border-top: 1px solid var(--col-border-lt);
-  background: var(--col-bg);
-  flex-shrink: 0;
 }
 .pagination-info {
-  width: 100%;
-  text-align: center;
   font-size: .72rem;
   color: var(--col-subtle);
-  margin-bottom: .2rem;
+  margin-right: .4rem;
+  white-space: nowrap;
 }
 .page-btn {
   min-width: 2rem;
@@ -762,8 +764,6 @@ function printPage() {
   @media (prefers-reduced-motion: reduce) {
     .company-row:hover { transform: none; }
   }
-
-  .pagination { padding-top: 1rem; }
 }
 
 /* Changing page (or filtering) swaps the whole set of keys at once — every
