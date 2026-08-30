@@ -147,6 +147,10 @@ async function onJobUrlBlur() {
       position.value = r.position
       filled.push('position')
     }
+    if (r.locations?.length && locations.value.length === 0) {
+      locations.value = r.locations.slice(0, 10)
+      filled.push(r.locations.length > 1 ? 'locations' : 'location')
+    }
     linkHint.value = filled.length
       ? `Filled ${filled.join(' and ')} from the link.`
       : 'Couldn’t read anything from that link.'

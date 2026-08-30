@@ -127,9 +127,10 @@ public sealed class DashboardController : ApiControllerBase
         var result = await _jobLinks.ParseAsync(body.Url, HttpContext.RequestAborted);
         return Ok(new ParseJobLinkResponse
         {
-            Company  = result.Company,
-            Position = result.Position,
-            Source   = result.Source,
+            Company   = result.Company,
+            Position  = result.Position,
+            Locations = result.Locations.ToArray(),
+            Source    = result.Source,
         });
     }
 

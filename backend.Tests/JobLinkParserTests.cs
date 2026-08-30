@@ -225,6 +225,46 @@ public sealed class JobLinkParserTests
     }
 
     [Fact]
+    public void JsonLd_JobLocation_SingleCity()
+    {
+        var r = JobLinkParser.FromJsonLd(LdPage("""
+            {"@type":"JobPosting","title":"Engineer","hiringOrganization":"Acme",
+             "jobLocation":{"@type":"Place","address":{"@type":"PostalAddress","addressLocality":"Amsterdam"}}}
+        """));
+        Assert.Equal(new[] { "Amsterdam" }, r.Locations);
+    }
+
+    [Fact]
+    public void JsonLd_JobLocation_ArrayOfPlaces_Deduplicated()
+    {
+        var r = JobLinkParser.FromJsonLd(LdPage("""
+            {"@type":"JobPosting","title":"Engineer","hiringOrganization":"Acme","jobLocation":[
+              {"address":{"addressLocality":"Amsterdam"}},
+              {"address":{"addressLocality":"amsterdam"}},
+              {"address":{"addressLocality":"Utrecht"}}]}
+        """));
+        Assert.Equal(new[] { "Amsterdam", "Utrecht" }, r.Locations);
+    }
+
+    [Fact]
+    public void JsonLd_TelecommuteAddsRemote()
+    {
+        var r = JobLinkParser.FromJsonLd(LdPage("""
+            {"@type":"JobPosting","title":"Engineer","hiringOrganization":"Acme","jobLocationType":"TELECOMMUTE"}
+        """));
+        Assert.Equal(new[] { "Remote" }, r.Locations);
+    }
+
+    [Fact]
+    public void JsonLd_NoLocation_EmptyList()
+    {
+        var r = JobLinkParser.FromJsonLd(LdPage("""
+            {"@type":"JobPosting","title":"Engineer","hiringOrganization":"Acme"}
+        """));
+        Assert.Empty(r.Locations);
+    }
+
+    [Fact]
     public void JsonLd_NoJobPosting_ReturnsEmpty()
     {
         var r = JobLinkParser.FromJsonLd(LdPage("""{"@type":"Organization","name":"Acme"}"""));

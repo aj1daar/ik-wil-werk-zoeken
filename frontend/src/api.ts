@@ -180,6 +180,7 @@ export interface CompanyEditPatch {
 export interface ParsedJobLink {
   company: string | null
   position: string | null
+  locations: string[]
   source: 'jsonld' | 'opengraph' | 'title' | 'url' | 'none'
 }
 

@@ -70,10 +70,10 @@ public sealed partial class JobLinkParser
             var company  = fromHtml.Company  ?? fromUrl.Company;
             var position = fromHtml.Position ?? fromUrl.Position;
             var source   = fromHtml.Source != "none" ? fromHtml.Source : fromUrl.Source;
-            return Finalize(company, position, source);
+            return Finalize(company, position, source, fromHtml.Locations);
         }
 
-        return Finalize(fromUrl.Company, fromUrl.Position, fromUrl.Source);
+        return Finalize(fromUrl.Company, fromUrl.Position, fromUrl.Source, fromUrl.Locations);
     }
 
     // Accepts "https://acme.com/job", "acme.com/job" (assumes https). Rejects
@@ -274,7 +274,7 @@ public sealed partial class JobLinkParser
             meta.Company   is not null || meta.Position   is not null ? "opengraph" :
             title.Company  is not null || title.Position  is not null ? "title"     : "none";
 
-        return new JobLinkParseResult(company, position, source);
+        return new JobLinkParseResult(company, position, source, jsonLd.Locations);
     }
 
     internal static JobLinkParseResult FromJsonLd(string html)
@@ -292,10 +292,11 @@ public sealed partial class JobLinkParser
             {
                 if (FindJobPosting(doc.RootElement, 0) is not { } jp) continue;
 
-                var position = Clean(JsonString(jp, "title") ?? JsonString(jp, "name"));
-                var company  = Clean(HiringOrgName(jp));
-                if (position is not null || company is not null)
-                    return new JobLinkParseResult(company, position, "jsonld");
+                var position  = Clean(JsonString(jp, "title") ?? JsonString(jp, "name"));
+                var company   = Clean(HiringOrgName(jp));
+                var locations = JobLocations(jp);
+                if (position is not null || company is not null || locations.Count > 0)
+                    return new JobLinkParseResult(company, position, "jsonld", locations);
             }
         }
         return JobLinkParseResult.Empty;
@@ -374,7 +375,38 @@ public sealed partial class JobLinkParser
 
         return company is null && position is null
             ? JobLinkParseResult.Empty
-            : new JobLinkParseResult(company, position, "opengraph");
+            : new JobLinkParseResult(company, position, "opengraph", []);
+    }
+
+    // schema.org JobPosting.jobLocation → city names (and "Remote" for TELECOMMUTE).
+    private static IReadOnlyList<string> JobLocations(JsonElement jp)
+    {
+        var cities = new List<string>();
+
+        void Visit(JsonElement e)
+        {
+            if (e.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var x in e.EnumerateArray()) Visit(x);
+                return;
+            }
+            if (e.ValueKind != JsonValueKind.Object) return;
+
+            var addr = e.TryGetProperty("address", out var a) ? a : e;
+            var city = JsonString(addr, "addressLocality") ?? JsonString(addr, "addressRegion");
+            var clean = Clean(city);
+            if (clean is null || clean.Length > 100) return;
+            if (!cities.Contains(clean, StringComparer.OrdinalIgnoreCase))
+                cities.Add(clean);
+        }
+
+        if (jp.TryGetProperty("jobLocation", out var loc)) Visit(loc);
+
+        if (string.Equals(JsonString(jp, "jobLocationType"), "TELECOMMUTE", StringComparison.OrdinalIgnoreCase)
+            && !cities.Contains("Remote", StringComparer.OrdinalIgnoreCase))
+            cities.Insert(0, "Remote");
+
+        return cities.Count > 10 ? cities[..10] : cities;
     }
 
     internal static JobLinkParseResult FromTitleTag(string html)
@@ -387,7 +419,7 @@ public sealed partial class JobLinkParser
 
         return company is null && position is null
             ? JobLinkParseResult.Empty
-            : new JobLinkParseResult(company, position, "title");
+            : new JobLinkParseResult(company, position, "title", []);
     }
 
     private static string? MetaContent(string html, string key)
@@ -595,7 +627,7 @@ public sealed partial class JobLinkParser
         position = AcceptablePosition(position);
         return company is null && position is null
             ? JobLinkParseResult.Empty
-            : new JobLinkParseResult(company, position, "url");
+            : new JobLinkParseResult(company, position, "url", []);
     }
 
     // A path segment that is a bare id / UUID / hash carries no readable title.
@@ -641,13 +673,14 @@ public sealed partial class JobLinkParser
 
     // ── shared helpers ───────────────────────────────────────────────────────
 
-    private JobLinkParseResult Finalize(string? company, string? position, string source)
+    private static JobLinkParseResult Finalize(
+        string? company, string? position, string source, IReadOnlyList<string> locations)
     {
         company  = Clean(company);
         position = Clean(position);
-        return company is null && position is null
+        return company is null && position is null && locations.Count == 0
             ? JobLinkParseResult.Empty
-            : new JobLinkParseResult(company, position, source);
+            : new JobLinkParseResult(company, position, source, locations);
     }
 
     private static string? Clean(string? s)
@@ -690,7 +723,8 @@ public sealed partial class JobLinkParser
     private static partial Regex WhitespaceRegex();
 }
 
-public sealed record JobLinkParseResult(string? Company, string? Position, string Source)
+public sealed record JobLinkParseResult(
+    string? Company, string? Position, string Source, IReadOnlyList<string> Locations)
 {
-    public static readonly JobLinkParseResult Empty = new(null, null, "none");
+    public static readonly JobLinkParseResult Empty = new(null, null, "none", []);
 }

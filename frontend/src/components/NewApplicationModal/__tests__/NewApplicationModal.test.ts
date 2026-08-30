@@ -140,6 +140,10 @@ describe('NewApplicationModal – job posting link or email field', () => {
 describe('NewApplicationModal – parse job link', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  function parsed(over: Partial<import('../../../api').ParsedJobLink> = {}) {
+    return { company: null, position: null, locations: [], source: 'none' as const, ...over }
+  }
+
   async function pasteLink(w: ReturnType<typeof mountModal>, url: string) {
     const field = w.find('#new-app-joburl')
     await field.setValue(url)
@@ -148,9 +152,9 @@ describe('NewApplicationModal – parse job link', () => {
   }
 
   it('fills empty company and position from the parsed link', async () => {
-    vi.mocked(api.parseJobLink).mockResolvedValue({
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
       company: 'Acme B.V.', position: 'Senior Backend Engineer', source: 'jsonld',
-    })
+    }))
     const w = mountModal()
     await pasteLink(w, 'https://boards.greenhouse.io/acme/jobs/123')
     expect((w.find('#company-name').element as HTMLInputElement).value).toBe('Acme B.V.')
@@ -158,9 +162,9 @@ describe('NewApplicationModal – parse job link', () => {
   })
 
   it('does not overwrite a company the user already typed', async () => {
-    vi.mocked(api.parseJobLink).mockResolvedValue({
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
       company: 'Parsed Corp', position: 'Parsed Role', source: 'jsonld',
-    })
+    }))
     const w = mountModal()
     await w.find('#company-name').setValue('My Typed Co')
     await pasteLink(w, 'https://example.com/job/1')
@@ -170,9 +174,7 @@ describe('NewApplicationModal – parse job link', () => {
 
   it('does not overwrite company when a sponsor was picked from the dropdown', async () => {
     vi.useFakeTimers()
-    vi.mocked(api.parseJobLink).mockResolvedValue({
-      company: 'Parsed Corp', position: null, source: 'url',
-    })
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({ company: 'Parsed Corp', source: 'url' }))
     const { w } = mountModalWithCompanies([makeCompany({ id: 'co-1', name: 'Acme B.V.' })])
     await w.find('#company-name').setValue('Acm')
     await w.find('#company-name').trigger('input')
@@ -196,7 +198,7 @@ describe('NewApplicationModal – parse job link', () => {
   })
 
   it('does not call the parser twice for the same URL', async () => {
-    vi.mocked(api.parseJobLink).mockResolvedValue({ company: null, position: null, source: 'none' })
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed())
     const w = mountModal()
     await pasteLink(w, 'https://example.com/job/1')
     await w.find('#new-app-joburl').trigger('blur')
@@ -213,16 +215,16 @@ describe('NewApplicationModal – parse job link', () => {
   })
 
   it('shows a hint when nothing could be read', async () => {
-    vi.mocked(api.parseJobLink).mockResolvedValue({ company: null, position: null, source: 'none' })
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed())
     const w = mountModal()
     await pasteLink(w, 'https://example.com/job/1')
     expect(w.find('.link-hint').exists()).toBe(true)
   })
 
   it('submits the parsed values through to createApplication', async () => {
-    vi.mocked(api.parseJobLink).mockResolvedValue({
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
       company: 'Acme B.V.', position: 'Engineer', source: 'jsonld',
-    })
+    }))
     vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
     const w = mountModal()
     await pasteLink(w, 'https://example.com/job/1')
@@ -231,6 +233,29 @@ describe('NewApplicationModal – parse job link', () => {
     expect(api.createApplication).toHaveBeenCalledWith(
       expect.objectContaining({ companyName: 'Acme B.V.', position: 'Engineer' })
     )
+  })
+
+  it('fills empty locations from the parsed link', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
+      company: 'Acme', position: 'Engineer', locations: ['Amsterdam', 'Remote'], source: 'jsonld',
+    }))
+    const w = mountModal()
+    await pasteLink(w, 'https://example.com/job/1')
+    expect(w.text()).toContain('Amsterdam')
+    expect(w.text()).toContain('Remote')
+  })
+
+  it('does not touch locations the user already added', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
+      company: 'Acme', locations: ['Rotterdam'], source: 'jsonld',
+    }))
+    const w = mountModal()
+    const loc = w.find('input[placeholder="Type city and press Enter…"]')
+    await loc.setValue('Utrecht')
+    await loc.trigger('keydown', { key: 'Enter' })
+    await pasteLink(w, 'https://example.com/job/1')
+    expect(w.text()).toContain('Utrecht')
+    expect(w.text()).not.toContain('Rotterdam')
   })
 })
 
