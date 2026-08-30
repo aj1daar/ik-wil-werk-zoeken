@@ -14,14 +14,25 @@ public sealed class DashboardController : ApiControllerBase
     private readonly StageStore _stages;
     private readonly TokenService _tokens;
     private readonly AppDbContext _db;
+    private readonly JobLinkParser _jobLinks;
+    private readonly RateLimiterService _rateLimiter;
     private readonly ILogger<DashboardController> _logger;
 
-    public DashboardController(SponsorStore sponsors, StageStore stages, TokenService tokens, AppDbContext db, ILogger<DashboardController> logger)
+    public DashboardController(
+        SponsorStore sponsors,
+        StageStore stages,
+        TokenService tokens,
+        AppDbContext db,
+        JobLinkParser jobLinks,
+        RateLimiterService rateLimiter,
+        ILogger<DashboardController> logger)
     {
         _sponsors = sponsors;
         _stages = stages;
         _tokens = tokens;
         _db = db;
+        _jobLinks = jobLinks;
+        _rateLimiter = rateLimiter;
         _logger = logger;
     }
 
@@ -95,6 +106,31 @@ public sealed class DashboardController : ApiControllerBase
 
         await WithLiveSponsorLink([item]);
         return StatusCode(201, item);
+    }
+
+    // Best-effort extraction of company + position from a pasted job-posting link.
+    // Always 200 on a well-formed URL — an empty result just means nothing could
+    // be read. The fetch is SSRF-hardened inside JobLinkParser.
+    [HttpPost("parse-job-link")]
+    public async Task<IActionResult> ParseJobLink([FromBody] ParseJobLinkRequest? body)
+    {
+        if (CheckAuth(out var userId) is { } err) return err;
+        if (body is null || string.IsNullOrWhiteSpace(body.Url))
+            return Error(400, "url is required");
+        if (body.Url.Length > 2000)
+            return Error(400, "url must not exceed 2000 characters");
+        if (!JobLinkParser.TryNormalizeUrl(body.Url, out _))
+            return Error(400, "url must be a valid http(s) link");
+        if (!_rateLimiter.IsAllowed($"parse-job-link:{userId}", 20, 60))
+            return Error(429, "Too many link lookups — please wait a minute.");
+
+        var result = await _jobLinks.ParseAsync(body.Url, HttpContext.RequestAborted);
+        return Ok(new ParseJobLinkResponse
+        {
+            Company  = result.Company,
+            Position = result.Position,
+            Source   = result.Source,
+        });
     }
 
     [HttpPut("applications/{id}")]

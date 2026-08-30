@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
+import { api } from '../../api'
 import type { ApplicationStatus, SponsorCompany } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 import DatePicker from '../DatePicker/DatePicker.vue'
@@ -32,6 +33,10 @@ const successRate   = ref('')
 const saving        = ref(false)
 const error         = ref('')
 const showDiscardConfirm = ref(false)
+
+const parsingLink  = ref(false)
+const linkHint     = ref('')
+let   lastParsedUrl = ''
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -120,6 +125,36 @@ function removeLocation(l: string) { locations.value = locations.value.filter(x 
 
 function onLocationKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addLocation() }
+}
+
+// When a job-posting URL is pasted, ask the backend to read the company and
+// position off the page. Only fills fields the user hasn't touched — a picked
+// sponsor or any typed value is never overwritten.
+async function onJobUrlBlur() {
+  const url = jobUrl.value.trim()
+  if (!/^https?:\/\//i.test(url) || url === lastParsedUrl) return
+  lastParsedUrl = url
+  linkHint.value = ''
+  parsingLink.value = true
+  try {
+    const r = await api.parseJobLink(url)
+    const filled: string[] = []
+    if (r.company && !sponsorCompanyId.value && !companyName.value.trim()) {
+      companyName.value = r.company
+      filled.push('company')
+    }
+    if (r.position && !position.value.trim()) {
+      position.value = r.position
+      filled.push('position')
+    }
+    linkHint.value = filled.length
+      ? `Filled ${filled.join(' and ')} from the link.`
+      : 'Couldn’t read anything from that link.'
+  } catch {
+    linkHint.value = ''
+  } finally {
+    parsingLink.value = false
+  }
 }
 
 async function submit() {
@@ -235,7 +270,16 @@ async function submit() {
 
         <div class="field">
           <label class="field-label" for="new-app-joburl">Job posting link or email <span class="optional">(optional)</span></label>
-          <input id="new-app-joburl" v-model="jobUrl" type="text" class="field-input" placeholder="https://… or name@company.com" />
+          <input
+            id="new-app-joburl"
+            v-model="jobUrl"
+            type="text"
+            class="field-input"
+            placeholder="https://… or name@company.com"
+            @blur="onJobUrlBlur"
+          />
+          <p v-if="parsingLink" class="link-hint" role="status">Reading the link…</p>
+          <p v-else-if="linkHint" class="link-hint" role="status">{{ linkHint }}</p>
         </div>
 
         <div class="field">
@@ -312,6 +356,7 @@ async function submit() {
 .city-remove { background: none; border: none; cursor: pointer; color: var(--col-subtle); font-size: 1rem; line-height: 1; padding: 0; }
 .city-remove:hover { color: var(--col-error); }
 .save-error { color: var(--col-error); font-size: .875rem; margin-bottom: .5rem; }
+.link-hint { font-size: .75rem; color: var(--col-subtle); margin-top: .125rem; }
 .dup-warning {
   margin: 0 1.5rem;
   padding: .5rem .75rem;

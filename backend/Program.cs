@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using backend;
 using backend.Data;
@@ -44,6 +45,23 @@ builder.Services.AddHttpClient("resend", client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
+// Used only to fetch pasted job-posting links. SSRF-hardened: every resolved IP
+// is vetted in JobLinkParser.SafeConnectAsync before a socket opens, and
+// redirects are followed manually so each hop is re-checked.
+builder.Services.AddHttpClient("joblink", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(12);
+    client.MaxResponseContentBufferSize = 2 * 1024 * 1024;
+    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; IWWZ-JobLinkBot/1.0)");
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    AllowAutoRedirect       = false,
+    AutomaticDecompression  = DecompressionMethods.All,
+    ConnectTimeout          = TimeSpan.FromSeconds(6),
+    ConnectCallback         = JobLinkParser.SafeConnectAsync,
+});
+
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? throw new InvalidOperationException("DATABASE_URL is not set");
 
@@ -52,6 +70,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddSingleton<IndSponsorScraper>();
 builder.Services.AddSingleton<CompanyEnricher>();
+builder.Services.AddSingleton<JobLinkParser>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<RateLimiterService>();
 builder.Services.AddSingleton<EmailService>();

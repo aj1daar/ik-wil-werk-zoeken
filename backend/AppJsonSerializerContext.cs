@@ -26,6 +26,8 @@ namespace backend;
 [JsonSerializable(typeof(StatusHistory[]), TypeInfoPropertyName = "StatusHistoryArray")]
 [JsonSerializable(typeof(AddStatusHistoryRequest))]
 [JsonSerializable(typeof(UpdateStatusHistoryRequest))]
+[JsonSerializable(typeof(ParseJobLinkRequest))]
+[JsonSerializable(typeof(ParseJobLinkResponse))]
 [JsonSerializable(typeof(MessageResponse))]
 [JsonSerializable(typeof(EnrichResponse))]
 [JsonSerializable(typeof(ResendEmailRequest))]

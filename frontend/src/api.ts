@@ -103,6 +103,9 @@ export const api = {
   createApplication: (data: Omit<Application, 'id' | 'userId' | 'status' | 'updatedAt'>) =>
     request<Application>('POST', '/api/dashboard/applications', data),
 
+  parseJobLink: (url: string) =>
+    request<ParsedJobLink>('POST', '/api/dashboard/parse-job-link', { url }),
+
   updateApplication: (id: string, data: Partial<Application> & { statusDate?: string }) =>
     request<Application>('PUT', `/api/dashboard/applications/${id}`, data),
 
@@ -172,6 +175,12 @@ export interface CompanyEditPatch {
   remotePolicy?: string | null
   parentCompanyName?: string | null
   targetMarket?: string | null
+}
+
+export interface ParsedJobLink {
+  company: string | null
+  position: string | null
+  source: 'jsonld' | 'opengraph' | 'title' | 'url' | 'none'
 }
 
 export interface Application {
