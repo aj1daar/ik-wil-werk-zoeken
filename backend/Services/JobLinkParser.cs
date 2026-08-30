@@ -132,13 +132,14 @@ public sealed partial class JobLinkParser
                 && !mediaType.Contains("json", StringComparison.OrdinalIgnoreCase))
                 return null;
 
-            return await ReadCappedAsync(resp.Content, ct);
+            var charset = resp.Content.Headers.ContentType?.CharSet;
+            return await ReadCappedAsync(resp.Content, charset, ct);
         }
 
         return null;
     }
 
-    private static async Task<string> ReadCappedAsync(HttpContent content, CancellationToken ct)
+    private static async Task<string> ReadCappedAsync(HttpContent content, string? charset, CancellationToken ct)
     {
         await using var stream = await content.ReadAsStreamAsync(ct);
         using var ms = new MemoryStream();
@@ -147,7 +148,39 @@ public sealed partial class JobLinkParser
         while (ms.Length < MaxBodyBytes && (read = await stream.ReadAsync(buffer, ct)) > 0)
             ms.Write(buffer, 0, read);
         var count = (int)Math.Min(ms.Length, MaxBodyBytes);
-        return Encoding.UTF8.GetString(ms.GetBuffer(), 0, count);
+        return DecodeBody(ms.GetBuffer(), count, charset);
+    }
+
+    private static string DecodeBody(byte[] buffer, int count, string? charset)
+    {
+        var bytes = buffer.AsSpan(0, count);
+        return ResolveEncoding(charset, bytes).GetString(bytes);
+    }
+
+    // Job pages are mostly UTF-8, but some European ATS still serve Latin-1 —
+    // decoding those as UTF-8 mangles accented company names. Honour, in order:
+    // the Content-Type charset, a byte-order mark, then a <meta charset> sniff.
+    internal static Encoding ResolveEncoding(string? headerCharset, ReadOnlySpan<byte> body)
+    {
+        if (TryGetEncoding(headerCharset, out var fromHeader)) return fromHeader;
+
+        if (body.Length >= 3 && body[0] == 0xEF && body[1] == 0xBB && body[2] == 0xBF) return Encoding.UTF8;
+        if (body.Length >= 2 && body[0] == 0xFF && body[1] == 0xFE) return Encoding.Unicode;
+        if (body.Length >= 2 && body[0] == 0xFE && body[1] == 0xFF) return Encoding.BigEndianUnicode;
+
+        var head = Encoding.ASCII.GetString(body[..Math.Min(body.Length, 2048)]);
+        var m = MetaCharsetRegex().Match(head);
+        if (m.Success && TryGetEncoding(m.Groups[1].Value, out var fromMeta)) return fromMeta;
+
+        return Encoding.UTF8;
+    }
+
+    private static bool TryGetEncoding(string? name, out Encoding encoding)
+    {
+        encoding = Encoding.UTF8;
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        try { encoding = Encoding.GetEncoding(name.Trim().Trim('"', '\'')); return true; }
+        catch { return false; }   // code page unavailable on this runtime — caller falls back to UTF-8
     }
 
     // Registered as SocketsHttpHandler.ConnectCallback — this is the real SSRF
@@ -715,6 +748,9 @@ public sealed partial class JobLinkParser
 
     [GeneratedRegex(@"^[a-zA-Z][a-zA-Z0-9+.\-]*:")]
     private static partial Regex SchemePrefixRegex();
+
+    [GeneratedRegex(@"charset\s*=\s*[""']?\s*([a-zA-Z0-9_.:\-]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex MetaCharsetRegex();
 
     [GeneratedRegex(@"<[^>]+>")]
     private static partial Regex HtmlTagRegex();

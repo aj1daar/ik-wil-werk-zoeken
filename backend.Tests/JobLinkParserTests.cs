@@ -458,6 +458,51 @@ public sealed class JobLinkParserTests
         Assert.Equal(JobLinkParseResult.Empty, JobLinkParser.FromUrl(new Uri(url)));
     }
 
+    // ── charset resolution ──────────────────────────────────────────────────
+
+    [Fact]
+    public void ResolveEncoding_HeaderCharsetWins()
+    {
+        var enc = JobLinkParser.ResolveEncoding("utf-8", "<html>"u8);
+        Assert.Equal(65001, enc.CodePage);
+    }
+
+    [Fact]
+    public void ResolveEncoding_Latin1Header_DecodesAccentsCorrectly()
+    {
+        // "Café" as ISO-8859-1: the é is a single 0xE9 byte (invalid as UTF-8).
+        byte[] latin1 = [0x43, 0x61, 0x66, 0xE9];
+        var text = JobLinkParser.ResolveEncoding("iso-8859-1", latin1).GetString(latin1);
+        Assert.Equal("Café", text);
+    }
+
+    [Fact]
+    public void ResolveEncoding_Utf8Bom_Detected()
+    {
+        byte[] withBom = [0xEF, 0xBB, 0xBF, (byte)'h', (byte)'i'];
+        Assert.Equal(65001, JobLinkParser.ResolveEncoding(null, withBom).CodePage);
+    }
+
+    [Fact]
+    public void ResolveEncoding_MetaCharsetSniff()
+    {
+        var body = System.Text.Encoding.ASCII.GetBytes(
+            "<html><head><meta charset=\"iso-8859-1\"><title>x</title></head>");
+        Assert.Equal(28591, JobLinkParser.ResolveEncoding(null, body).CodePage);
+    }
+
+    [Fact]
+    public void ResolveEncoding_UnknownCharset_FallsBackToUtf8()
+    {
+        Assert.Equal(65001, JobLinkParser.ResolveEncoding("x-made-up-9000", "<html>"u8).CodePage);
+    }
+
+    [Fact]
+    public void ResolveEncoding_NothingDeclared_DefaultsToUtf8()
+    {
+        Assert.Equal(65001, JobLinkParser.ResolveEncoding(null, "<html><body>hi</body></html>"u8).CodePage);
+    }
+
     // ── field cleaning via ParseHtmlContent ──────────────────────────────────
 
     [Fact]
