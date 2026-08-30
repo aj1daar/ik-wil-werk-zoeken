@@ -10,7 +10,7 @@ public sealed class SponsorStore(AppDbContext db)
         await db.Sponsors.ToListAsync();
 
     public async Task<IReadOnlyList<SponsorCompany>> GetActiveAsync() =>
-        await db.Sponsors.Where(c => c.RemovedAt == null).ToListAsync();
+        await db.Sponsors.Where(c => c.RemovedAt == null).OrderBy(c => c.Name).ToListAsync();
 
     public async Task<SponsorCompany?> GetAsync(string id) =>
         await db.Sponsors.FindAsync(id);
