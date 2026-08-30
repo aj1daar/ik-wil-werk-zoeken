@@ -506,6 +506,36 @@ describe('CompaniesView – fixed page size of 8', () => {
     await flushPromises()
     expect(wrapper.find('.pagination-info').text()).toContain('1–6 of 6')
   })
+
+  it('sorts the whole list before paginating (not just the current page)', async () => {
+    // Source order is reversed vs. the alphabet — Zeta … Alpha.
+    const names = ['Zeta', 'Yankee', 'Xray', 'Whiskey', 'Victor', 'Uniform', 'Tango', 'Sierra', 'Romeo', 'Alpha']
+    const wrapper = mountView(names.map((n, i) => makeSponsor({ id: `sp-${i}`, name: n })))
+    await flushPromises()
+    // Default sort is A→Z: page 1 must START with "Alpha", not source-order "Zeta".
+    const firstRow = wrapper.findAll('.company-row')[0].text()
+    expect(firstRow).toContain('Alpha')
+    // Page 2 continues in order — "Zeta" is last alphabetically, on the final page.
+    await wrapper.findAll('.page-btn').find(b => b.text() === '2')!.trigger('click')
+    expect(wrapper.findAll('.company-row').map(r => r.text()).join(' ')).toContain('Zeta')
+  })
+
+  it('keeps a parent-company group whole on one page regardless of source order', async () => {
+    const sponsors = [
+      makeSponsor({ id: 'g1', name: 'Globex Alpha',  parentCompanyName: 'Globex' }),
+      ...makeManySponsors(6),
+      makeSponsor({ id: 'g2', name: 'Globex Beta',   parentCompanyName: 'Globex' }),
+      makeSponsor({ id: 'g3', name: 'Globex Gamma',  parentCompanyName: 'Globex' }),
+    ]
+    const wrapper = mountView(sponsors)
+    await flushPromises()
+    // 6 singles + 1 group entry = 7 entries → single page, one group header.
+    expect(wrapper.findAll('.group-header-row')).toHaveLength(1)
+    expect(wrapper.find('.group-count-badge').text()).toContain('3')
+    await wrapper.find('.group-header-row').trigger('click')
+    await nextTick()
+    expect(wrapper.findAll('.company-row--subsidiary')).toHaveLength(3)
+  })
 })
 
 // ── company row content: website link + locations ────────────────────────────

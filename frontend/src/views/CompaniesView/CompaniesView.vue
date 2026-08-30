@@ -115,12 +115,61 @@ const filteredRows = computed<SponsorCompany[]>(() => {
   return list
 })
 
-const rows = computed<SponsorCompany[]>(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE
-  return filteredRows.value.slice(start, start + PAGE_SIZE)
+// One list entry = one paginated slot: a standalone company, or a whole
+// parent-company group (its header, plus its subsidiaries when expanded).
+// Grouping and sorting happen here — across the FULL filtered set — so a page
+// is a contiguous, correctly ordered slice, not 8 arbitrary rows sorted only
+// among themselves.
+interface Entry {
+  key:       string
+  sortName:  string
+  sortCity:  string
+  groupKey?: string
+  parentName?: string
+  companies: SponsorCompany[]
+}
+
+const allEntries = computed<Entry[]>(() => {
+  const grouped = new Map<string, SponsorCompany[]>()
+  const singles: SponsorCompany[] = []
+
+  for (const c of filteredRows.value) {
+    const parent = c.parentCompanyName?.trim()
+    if (parent) {
+      const key = parent.toLowerCase()
+      const bucket = grouped.get(key) ?? (grouped.set(key, []), grouped.get(key)!)
+      bucket.push(c)
+    } else {
+      singles.push(c)
+    }
+  }
+
+  const entries: Entry[] = []
+  for (const [key, companies] of grouped) {
+    if (companies.length === 1) { singles.push(companies[0]); continue }
+    const parentName = companies[0].parentCompanyName!
+    entries.push({ key: `group:${key}`, sortName: parentName, sortCity: companies[0].city ?? '', groupKey: key, parentName, companies })
+  }
+  for (const c of singles) {
+    entries.push({ key: c.id, sortName: c.name, sortCity: c.city ?? '', companies: [c] })
+  }
+
+  if (sortOrder.value !== 'default') {
+    entries.sort((a, b) => {
+      if (sortOrder.value === 'za') return b.sortName.localeCompare(a.sortName)
+      if (sortOrder.value === 'city') return a.sortCity.localeCompare(b.sortCity) || a.sortName.localeCompare(b.sortName)
+      return a.sortName.localeCompare(b.sortName)
+    })
+  }
+  return entries
 })
 
-const pageCount = computed(() => Math.ceil(filteredRows.value.length / PAGE_SIZE))
+const pagedEntries = computed<Entry[]>(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return allEntries.value.slice(start, start + PAGE_SIZE)
+})
+
+const pageCount = computed(() => Math.max(1, Math.ceil(allEntries.value.length / PAGE_SIZE)))
 
 const visiblePages = computed((): (number | null)[] => {
   const total = pageCount.value
@@ -136,7 +185,7 @@ const visiblePages = computed((): (number | null)[] => {
   return pages
 })
 
-watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden], () => {
+watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden, sortOrder], () => {
   currentPage.value = 1
 })
 // Hiding a company or narrowing a filter can drop the page count below the
@@ -164,60 +213,22 @@ interface ListItem {
 
 const expandedGroups = ref(new Set<string>())
 
-const listItems = computed<ListItem[]>(() => {
-  const list = rows.value
-
-  const grouped = new Map<string, SponsorCompany[]>()
-  const ungrouped: SponsorCompany[] = []
-
-  for (const c of list) {
-    const parent = c.parentCompanyName?.trim()
-    if (parent) {
-      const key = parent.toLowerCase()
-      if (!grouped.has(key)) grouped.set(key, [])
-      grouped.get(key)!.push(c)
-    } else {
-      ungrouped.push(c)
+const listItems = computed<ListItem[]>(() =>
+  pagedEntries.value.flatMap((e): ListItem[] => {
+    if (!e.groupKey) {
+      return [{ type: 'company', key: e.companies[0].id, company: e.companies[0], isSubsidiary: false }]
     }
-  }
-
-  const entries: Array<{ name: string; items: ListItem[] }> = []
-
-  for (const [key, companies] of grouped) {
-    if (companies.length === 1) {
-      ungrouped.push(companies[0])
-      continue
-    }
-    const parentName = companies[0].parentCompanyName!
-    const groupItems: ListItem[] = [
-      { type: 'group-header', key: `group:${key}`, groupKey: key, parentName, groupCount: companies.length }
+    const items: ListItem[] = [
+      { type: 'group-header', key: e.key, groupKey: e.groupKey, parentName: e.parentName, groupCount: e.companies.length },
     ]
-    if (expandedGroups.value.has(key)) {
-      for (const c of companies) {
-        groupItems.push({ type: 'company', key: c.id, company: c, isSubsidiary: true })
+    if (expandedGroups.value.has(e.groupKey)) {
+      for (const c of e.companies) {
+        items.push({ type: 'company', key: c.id, company: c, isSubsidiary: true })
       }
     }
-    entries.push({ name: parentName, items: groupItems })
-  }
-
-  for (const c of ungrouped) {
-    entries.push({ name: c.name, items: [{ type: 'company', key: c.id, company: c, isSubsidiary: false }] })
-  }
-
-  if (sortOrder.value !== 'default') {
-    entries.sort((a, b) => {
-      if (sortOrder.value === 'za') return b.name.localeCompare(a.name)
-      if (sortOrder.value === 'city') {
-        const ca = a.items.find(i => i.type === 'company')?.company?.city ?? ''
-        const cb = b.items.find(i => i.type === 'company')?.company?.city ?? ''
-        const cmp = ca.localeCompare(cb)
-        return cmp !== 0 ? cmp : a.name.localeCompare(b.name)
-      }
-      return a.name.localeCompare(b.name)
-    })
-  }
-  return entries.flatMap(e => e.items)
-})
+    return items
+  })
+)
 
 function toggleGroup(groupKey: string) {
   const next = new Set(expandedGroups.value)
@@ -338,8 +349,11 @@ async function saveEdit() {
   }
 }
 
-watch(rows, (newRows) => {
-  if (selectedId.value && !newRows.find(c => c.id === selectedId.value))
+// Close the detail panel if paging (or a filter change) moves the selected
+// company off the current page. Collapsing its group keeps it open — the
+// company is still on the page, just not rendered.
+watch(pagedEntries, (entries) => {
+  if (selectedId.value && !entries.some(e => e.companies.some(c => c.id === selectedId.value)))
     selectedId.value = null
 })
 
@@ -423,8 +437,8 @@ const activeDropdownCount = computed(() =>
       <div class="filter-controls-row">
         <!-- Pagination — inline in the header, not a bottom bar that grows
              the page and forces a scroll. Mirrors ApplicationsView. -->
-        <div v-if="filteredRows.length > 0" class="pagination">
-          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filteredRows.length) }} of {{ filteredRows.length }}</span>
+        <div v-if="allEntries.length > 0" class="pagination">
+          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, allEntries.length) }} of {{ allEntries.length }}</span>
           <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
           <template v-for="(p, i) in visiblePages" :key="i">
             <span v-if="p === null" class="page-ellipsis">…</span>
@@ -567,7 +581,7 @@ const activeDropdownCount = computed(() =>
       <div :class="['company-list', selectedCompany ? 'hidden md:block' : '']">
         <div v-if="store.loading" class="state-msg">Loading…</div>
         <div v-else-if="store.error" class="state-msg state-msg--error" role="alert">{{ store.error }}</div>
-        <div v-else-if="rows.length === 0" class="state-msg">
+        <div v-else-if="listItems.length === 0" class="state-msg">
           {{ hasActiveFilters ? 'No companies match your filters.' : 'No IND sponsor companies loaded yet.' }}
         </div>
 
@@ -614,21 +628,22 @@ const activeDropdownCount = computed(() =>
                   <span v-if="locationText(item.company!)" class="row-city">{{ locationText(item.company!) }}</span>
                   <span v-if="locationText(item.company!) && item.company!.coreIndustry"> · </span>
                   <span v-if="item.company!.coreIndustry">{{ item.company!.coreIndustry }}</span>
+                  <span v-if="!locationText(item.company!) && !item.company!.coreIndustry" class="row-industry--empty">No details yet</span>
                 </p>
-                <a
-                  v-if="item.company!.websiteUrl"
-                  :href="item.company!.websiteUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="row-website"
-                  @click.stop
-                >
-                  <svg class="row-website-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  Website
-                </a>
               </div>
+              <a
+                v-if="item.company!.websiteUrl"
+                :href="item.company!.websiteUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="row-website"
+                @click.stop
+              >
+                <svg class="row-website-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span class="row-website-label">Website</span>
+              </a>
               <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
               </svg>
@@ -980,15 +995,23 @@ const activeDropdownCount = computed(() =>
 .ext-icon { width: .7rem; height: .7rem; }
 .row-city { color: var(--col-accent-dk); }
 
+/* Every list row occupies the same vertical range so a page of PAGE_SIZE
+   entries is always the same height — name line + one meta line, centred. */
+.company-row { box-sizing: border-box; height: 64px; padding-top: 0; padding-bottom: 0; }
+.company-row .row-body { display: flex; flex-direction: column; justify-content: center; gap: .125rem; }
+
 .row-website {
-  display: inline-flex; align-items: center; gap: .25rem;
-  margin-top: .25rem;
+  display: inline-flex; align-items: center; gap: .3rem; flex-shrink: 0;
   font-size: .72rem; color: var(--col-accent); text-decoration: none;
 }
 .row-website:hover { text-decoration: underline; }
-.row-website-icon { width: .7rem; height: .7rem; flex-shrink: 0; }
+.row-website-icon { width: .8rem; height: .8rem; flex-shrink: 0; }
+.row-industry--empty { color: var(--col-subtle); font-style: italic; }
+@media (max-width: 400px) { .row-website-label { display: none; } }
 
-.row-name-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.row-name-line { display: flex; align-items: center; gap: .5rem; flex-wrap: nowrap; min-width: 0; }
+.row-name-line .row-name { min-width: 0; }
+.row-name-line > :not(.row-name) { flex-shrink: 0; }
 
 .status-chip {
   display: inline-block; padding: .15rem .5rem; border-radius: 9999px;

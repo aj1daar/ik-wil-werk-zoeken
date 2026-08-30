@@ -146,7 +146,6 @@ export const useCompaniesStore = defineStore('companies', {
 
           return true
         })
-        .slice(0, 100)
     }
   }
 })

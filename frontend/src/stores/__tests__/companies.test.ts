@@ -232,7 +232,7 @@ describe('useCompaniesStore – filter', () => {
     makeCompany({ id: 'c4', name: 'Signify',      city: 'Eindhoven', coreIndustry: 'IoT',            techStackTags: ['Python'], functionalTags: ['Hardware'] }),
   ]
 
-  it('no filters returns all companies (up to 100)', () => {
+  it('no filters returns all companies', () => {
     const store = seedStore(companies)
     const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [] })
     expect(result).toHaveLength(4)
@@ -310,12 +310,12 @@ describe('useCompaniesStore – filter', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('caps results at 100', () => {
+  it('returns every match without capping (pagination happens in the view)', () => {
     const manyCompanies = Array.from({ length: 120 }, (_, i) =>
       makeCompany({ id: `c${i}`, name: `Company ${i}`, city: 'Amsterdam' }))
     const store = seedStore(manyCompanies)
     const result = store.filter({ query: '', city: 'Amsterdam', includeTags: [], excludeTags: [] })
-    expect(result).toHaveLength(100)
+    expect(result).toHaveLength(120)
   })
 
   it('query on company with no city does not throw', () => {
