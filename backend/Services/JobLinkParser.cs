@@ -44,12 +44,21 @@ public sealed partial class JobLinkParser
 
         var fromUrl = FromUrl(uri);
 
+        // One budget for the whole fetch — the per-request HttpClient timeout
+        // would otherwise reset on every manual redirect hop.
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(12));
+
         string? html = null;
         try
         {
-            html = await FetchHtmlAsync(uri, ct);
+            html = await FetchHtmlAsync(uri, cts.Token);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
         {
             _logger.LogInformation(ex,
                 "Job link fetch failed for {Host} — using URL heuristics only", uri.Host);
