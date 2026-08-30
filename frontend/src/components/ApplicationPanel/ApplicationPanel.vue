@@ -36,6 +36,9 @@ const locations        = ref<string[]>([...props.application.locations])
 const followUpDate     = ref(props.application.followUpDate?.slice(0, 10) ?? '')
 const jobUrl           = ref(props.application.jobUrl ?? '')
 const successRate      = ref(props.application.successRate?.toString() ?? '')
+const parsingLink      = ref(false)
+const linkHint         = ref('')
+let   lastParsedUrl    = props.application.jobUrl ?? ''
 const sponsorCompanyId = ref<string | undefined>(props.application.sponsorCompanyId)
 const deleting         = ref(false)
 const saveError        = ref('')
@@ -179,6 +182,8 @@ watch(() => props.application, (a) => {
   jobUrl.value          = a.jobUrl ?? ''
   successRate.value     = a.successRate?.toString() ?? ''
   sponsorCompanyId.value = a.sponsorCompanyId
+  lastParsedUrl         = a.jobUrl ?? ''
+  linkHint.value        = ''
   saveError.value       = ''
   activityLogs.value    = []
   journeyEntries.value  = []
@@ -261,6 +266,37 @@ async function copyJobEmail() {
   showCopiedToast.value = true
   if (copiedToastTimer) clearTimeout(copiedToastTimer)
   copiedToastTimer = setTimeout(() => { showCopiedToast.value = false }, 2200)
+}
+
+// Paste a new link into an application → try to backfill any field still blank.
+// Existing values (and a matched sponsor) are never overwritten.
+async function onJobUrlBlur() {
+  const url = jobUrl.value.trim()
+  if (!/^https?:\/\//i.test(url) || url === lastParsedUrl) return
+  lastParsedUrl = url
+  linkHint.value = ''
+  parsingLink.value = true
+  try {
+    const r = await api.parseJobLink(url)
+    const filled: string[] = []
+    if (r.company && !sponsorCompanyId.value && !companyName.value.trim()) {
+      companyName.value = r.company
+      filled.push('company')
+    }
+    if (r.position && !position.value.trim()) {
+      position.value = r.position
+      filled.push('position')
+    }
+    if (r.locations?.length && locations.value.length === 0) {
+      locations.value = r.locations.slice(0, 10)
+      filled.push(r.locations.length > 1 ? 'locations' : 'location')
+    }
+    linkHint.value = filled.length ? `Filled ${filled.join(' and ')} from the link.` : ''
+  } catch {
+    linkHint.value = ''
+  } finally {
+    parsingLink.value = false
+  }
 }
 
 const REJECTION_REASONS = Object.entries(REJECTION_REASON_LABELS) as [RejectionReason, string][]
@@ -668,7 +704,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           <span class="optional">(optional)</span>
         </label>
         <div class="joburl-row">
-          <input id="ap-joburl" v-model="jobUrl" type="text" class="field-input" placeholder="https://… or name@company.com" />
+          <input id="ap-joburl" v-model="jobUrl" type="text" class="field-input" placeholder="https://… or name@company.com" @blur="onJobUrlBlur" />
           <a
             v-if="contactLinkKind === 'url'"
             :href="jobUrl"
@@ -695,6 +731,8 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
             </svg>
           </button>
         </div>
+        <p v-if="parsingLink" class="link-hint" role="status">Reading the link…</p>
+        <p v-else-if="linkHint" class="link-hint" role="status">{{ linkHint }}</p>
       </div>
 
       <div class="field">
@@ -871,6 +909,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .sj-section { display: flex; flex-direction: column; gap: .5rem; }
 .sj-header { display: flex; align-items: center; justify-content: space-between; }
 .sj-hint { font-size: .7rem; color: var(--col-subtle); }
+.link-hint { font-size: .75rem; color: var(--col-subtle); margin-top: .25rem; }
 .sj-empty { font-size: .8rem; color: var(--col-subtle); padding: .125rem 0; }
 .sj-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
 .sj-item { display: flex; gap: .625rem; align-items: flex-start; }

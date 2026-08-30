@@ -17,6 +17,7 @@ vi.mock('../../../api', () => ({
     addStatusHistory:     vi.fn(),
     updateStatusHistory:  vi.fn(),
     deleteStatusHistory:  vi.fn(),
+    parseJobLink:         vi.fn(),
   }
 }))
 
@@ -202,6 +203,45 @@ describe('ApplicationPanel – job posting link or email', () => {
     await w.find('button.joburl-open-btn').trigger('click')
     await flushPromises()
     expect(document.querySelector('.toast-success')).toBeNull()
+  })
+})
+
+// ── parse a newly pasted link ─────────────────────────────────────────────────
+
+describe('ApplicationPanel – parse job link', () => {
+  function parsed(over: Partial<import('../../../api').ParsedJobLink> = {}) {
+    return { company: null, position: null, locations: [], source: 'none' as const, ...over }
+  }
+
+  async function paste(w: ReturnType<typeof mountPanel>, url: string) {
+    await w.find('#ap-joburl').setValue(url)
+    await w.find('#ap-joburl').trigger('blur')
+    await flushPromises()
+  }
+
+  it('does not re-parse the link the application was opened with', async () => {
+    const w = mountPanel(makeApp({ jobUrl: 'https://example.com/job/1' }))
+    await w.find('#ap-joburl').trigger('blur')
+    await flushPromises()
+    expect(api.parseJobLink).not.toHaveBeenCalled()
+  })
+
+  it('backfills only empty fields when a new link is pasted', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
+      company: 'Parsed Co', position: 'Parsed Role', locations: ['Delft'], source: 'jsonld',
+    }))
+    const w = mountPanel(makeApp({ companyName: 'Kept Co', position: '', locations: [], jobUrl: undefined }))
+    await paste(w, 'https://boards.greenhouse.io/parsedco/jobs/9')
+    expect((w.find('#ap-company').element as HTMLInputElement).value).toBe('Kept Co')
+    expect((w.find('#ap-position').element as HTMLInputElement).value).toBe('Parsed Role')
+    expect(w.text()).toContain('Delft')
+  })
+
+  it('stays silent when the parser fails', async () => {
+    vi.mocked(api.parseJobLink).mockRejectedValue(new Error('boom'))
+    const w = mountPanel(makeApp({ jobUrl: undefined }))
+    await paste(w, 'https://example.com/job/1')
+    expect(w.find('.save-error, .field-error').exists()).toBe(false)
   })
 })
 
