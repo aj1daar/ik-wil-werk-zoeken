@@ -281,23 +281,6 @@ const activeDropdownCount = computed(() =>
 
       <!-- Row 2: compact controls -->
       <div class="filter-controls-row">
-        <!-- Pagination — inline in the header, not a bottom bar that grows
-             the page and forces a scroll. Mirrors ApplicationsView. -->
-        <div v-if="sortedCompanies.length > 0" class="pagination">
-          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, sortedCompanies.length) }} of {{ sortedCompanies.length }}</span>
-          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
-          <template v-for="(p, i) in visiblePages" :key="i">
-            <span v-if="p === null" class="page-ellipsis">…</span>
-            <button
-              v-else
-              :class="['page-btn', p === currentPage && 'page-btn--active']"
-              @click="goToPage(p)"
-              :aria-current="p === currentPage ? 'page' : undefined"
-            >{{ p }}</button>
-          </template>
-          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
-        </div>
-
         <!-- Dropdown filters toggle -->
         <button
           :class="['btn-filter-toggle', (showDropdownFilters || activeDropdownCount > 0) && 'btn-filter-toggle--active']"
@@ -422,6 +405,25 @@ const activeDropdownCount = computed(() =>
       <p v-if="!tagSearch && store.allTagsByUsage.length > TAG_LIMIT" class="tag-overflow-note">
         Showing top {{ TAG_LIMIT }} most-used tags. Search to find others.
       </p>
+    </div>
+
+    <!-- Pagination lives on its own fixed-height, right-aligned strip so the
+         company count never reflows the controls above it. -->
+    <div class="pagination-bar">
+      <div v-if="sortedCompanies.length > 0" class="pagination">
+        <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, sortedCompanies.length) }} of {{ sortedCompanies.length }}</span>
+        <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
+        <template v-for="(p, i) in visiblePages" :key="i">
+          <span v-if="p === null" class="page-ellipsis">…</span>
+          <button
+            v-else
+            :class="['page-btn', p === currentPage && 'page-btn--active']"
+            @click="goToPage(p)"
+            :aria-current="p === currentPage ? 'page' : undefined"
+          >{{ p }}</button>
+        </template>
+        <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
+      </div>
     </div>
 
     <div class="grid-wrap">
@@ -668,17 +670,37 @@ const activeDropdownCount = computed(() =>
   .grid-wrap { overflow: hidden; }
 }
 
+/* Own strip, right-aligned, fixed height — the company count changes what's
+   inside .pagination but never moves the filter controls or the grid. */
+.pagination-bar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: .3rem 1.5rem;
+  background: var(--col-surface);
+  border-bottom: 1px solid var(--col-border);
+}
 .pagination {
   display: flex;
   align-items: center;
   gap: .25rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .pagination-info {
   font-size: .72rem;
   color: var(--col-subtle);
   margin-right: .4rem;
   white-space: nowrap;
+  min-width: 5.5rem;
+  text-align: right;
+}
+
+@media (max-width: 767px) {
+  .pagination-bar { padding: .3rem 1rem; justify-content: center; }
+  .pagination { justify-content: center; }
 }
 .page-btn {
   min-width: 2rem;
