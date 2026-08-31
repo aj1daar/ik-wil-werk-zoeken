@@ -1,5 +1,5 @@
 import { setActivePinia, createPinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSessionExpiry } from '../useSessionExpiry'
 import { useAuthStore } from '../../stores/auth'
 
@@ -11,13 +11,19 @@ function makeJwtWithExp(exp: number, role = 'user'): string {
   return `${b64({ alg: 'HS256' })}.${b64(payload)}.sig`
 }
 
-const NOW = Math.floor(Date.now() / 1000)
+// Pin the clock so exact-boundary assertions ("exactly 1 s", "exactly 24 h")
+// can't flip when Date.now() drifts a second between here and the composable.
+const FIXED_MS = Date.UTC(2026, 0, 15, 12, 0, 0)
+const NOW = Math.floor(FIXED_MS / 1000)
 
 describe('useSessionExpiry', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(FIXED_MS)
     setActivePinia(createPinia())
     sessionStorage.clear()
   })
+  afterEach(() => vi.useRealTimers())
 
   // ── isExpiringSoon ────────────────────────────────────────────────────────
 
