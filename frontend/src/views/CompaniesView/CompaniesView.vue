@@ -434,6 +434,14 @@ const activeDropdownCount = computed(() =>
               v-if="mostRecentForCompany.has(c.id)"
               :class="['status-chip', STATUS_COLOR[mostRecentForCompany.get(c.id)!.status]]"
             >{{ STATUS_LABELS[mostRecentForCompany.get(c.id)!.status] }}</span>
+            <a
+              v-if="c.websiteUrl"
+              :href="c.websiteUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="tile-website"
+              @click.stop
+            >Website ↗</a>
           </div>
 
           <div v-if="c.city || c.coreIndustry || c.workingLanguage" class="tile-chips">
@@ -442,15 +450,6 @@ const activeDropdownCount = computed(() =>
             <span v-if="c.workingLanguage" class="tile-chip tile-chip--lang">{{ c.workingLanguage }}</span>
           </div>
           <p v-else class="tile-empty">No details yet</p>
-
-          <a
-            v-if="c.websiteUrl"
-            :href="c.websiteUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="tile-website"
-            @click.stop
-          >Website ↗</a>
         </div>
       </div>
     </div>
@@ -580,8 +579,8 @@ const activeDropdownCount = computed(() =>
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: .35rem;
-  padding: .6rem 1rem;
+  gap: .3rem;
+  padding: .5rem 1rem;
   min-width: 0;
   overflow: hidden;
   cursor: pointer;
@@ -591,27 +590,32 @@ const activeDropdownCount = computed(() =>
 .company-tile--active { background: var(--col-accent-lt); }
 .company-tile:focus-visible { outline: 2px solid var(--col-accent); outline-offset: -2px; }
 
-.tile-name-line { display: flex; align-items: center; gap: .4rem; min-width: 0; }
+/* Header line: name (shrinks first), status chip, then the website link
+   pushed to the far right — keeps the whole tile to just two rows. */
+.tile-name-line { display: flex; align-items: center; gap: .4rem; min-width: 0; overflow: hidden; }
 .tile-name {
+  flex: 0 1 auto; min-width: 0;
   font-size: .875rem; font-weight: 600; color: var(--col-text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tile-name-line > :not(.tile-name) { flex-shrink: 0; }
+.tile-name-line > .status-chip { flex-shrink: 0; }
+.tile-website {
+  flex-shrink: 0; margin-left: auto;
+  font-size: .68rem; color: var(--col-accent); text-decoration: none; white-space: nowrap;
+}
+.tile-website:hover { text-decoration: underline; }
 
-.tile-chips { display: flex; flex-wrap: wrap; gap: .3rem; overflow: hidden; max-height: 3.2rem; }
+/* One row of chips, clipped at the right edge if they overrun — never a
+   half-height pill clipped along the bottom. */
+.tile-chips { display: flex; flex-wrap: nowrap; gap: .3rem; overflow: hidden; }
 .tile-chip {
-  font-size: .68rem; padding: .1rem .45rem; border-radius: 9999px; white-space: nowrap;
+  flex-shrink: 0;
+  font-size: .68rem; padding: .12rem .45rem; border-radius: 9999px; white-space: nowrap;
   background: var(--col-raised); color: var(--col-muted);
 }
 .tile-chip--city { background: var(--col-accent-lt); color: var(--col-accent-dk); }
 .tile-chip--lang { background: color-mix(in srgb, #3b82f6 12%, transparent); color: #1d4ed8; }
 .tile-empty { font-size: .72rem; color: var(--col-subtle); font-style: italic; margin: 0; }
-
-.tile-website {
-  align-self: flex-start;
-  font-size: .68rem; color: var(--col-accent); text-decoration: none;
-}
-.tile-website:hover { text-decoration: underline; }
 
 .status-chip {
   display: inline-block; padding: .15rem .5rem; border-radius: 9999px;
