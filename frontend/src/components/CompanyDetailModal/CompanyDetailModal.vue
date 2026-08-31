@@ -151,14 +151,6 @@ async function saveEdit() {
           </p>
         </div>
         <div class="modal-header-actions">
-          <button
-            v-if="!editing"
-            type="button"
-            :class="['star-btn', { 'star-btn--on': isInterested }]"
-            :aria-pressed="isInterested"
-            :title="isInterested ? 'Remove from interested' : 'Add to interested'"
-            @click="emit('toggle-interested')"
-          >{{ isInterested ? '★' : '☆' }}</button>
           <button v-if="isAdmin && !editing" type="button" class="panel-edit-btn" @click="startEdit">Edit</button>
           <button @click="requestClose" class="btn-icon" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -306,7 +298,14 @@ async function saveEdit() {
             </svg>
             Visit website
           </a>
-          <button @click="emit('toggle-hidden')" class="btn-hide-company">
+          <button
+            :class="['btn-list', { 'btn-list--on': isInterested }]"
+            :aria-pressed="isInterested"
+            @click="emit('toggle-interested')"
+          >
+            {{ isInterested ? 'Remove from interested' : 'Add to interested' }}
+          </button>
+          <button @click="emit('toggle-hidden')" class="btn-list">
             {{ isHidden ? 'Unhide' : 'Not interested' }}
           </button>
           <button @click="emit('start-application')" class="btn-primary footer-primary">
@@ -351,13 +350,6 @@ async function saveEdit() {
   text-transform: uppercase; letter-spacing: .05em;
 }
 .panel-edit-btn:hover { background: var(--col-raised); }
-.star-btn {
-  background: none; border: 1px solid var(--col-border); cursor: pointer;
-  color: var(--col-subtle); font-size: 1rem; line-height: 1;
-  padding: .15rem .4rem; border-radius: .375rem;
-}
-.star-btn:hover { background: var(--col-raised); color: #f59e0b; }
-.star-btn--on { color: #f59e0b; border-color: color-mix(in srgb, #f59e0b 45%, transparent); }
 .icon { width: 1.25rem; height: 1.25rem; }
 
 .modal-body {
@@ -371,12 +363,17 @@ async function saveEdit() {
 .footer-primary { flex: 1; min-width: 140px; }
 .footer-website { display: inline-flex; align-items: center; gap: .3rem; font-size: .875rem; white-space: nowrap; flex-shrink: 0; }
 .btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-hide-company {
+.btn-list {
   background: none; border: 1px solid var(--col-border); color: var(--col-muted);
   border-radius: .375rem; padding: .45rem .875rem; font-size: .8rem; cursor: pointer;
   flex-shrink: 0; white-space: nowrap;
 }
-.btn-hide-company:hover { background: var(--col-raised); color: var(--col-error); }
+.btn-list:hover { background: var(--col-raised); color: var(--col-text); }
+.btn-list--on {
+  border-color: color-mix(in srgb, #f59e0b 45%, transparent);
+  color: #b45309; background: color-mix(in srgb, #f59e0b 10%, transparent);
+}
+.btn-list--on:hover { color: #b45309; background: color-mix(in srgb, #f59e0b 16%, transparent); }
 
 .field { display: flex; flex-direction: column; gap: .375rem; }
 .field-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--col-subtle); }

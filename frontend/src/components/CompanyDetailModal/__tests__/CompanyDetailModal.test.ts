@@ -50,6 +50,10 @@ function mountModal(props: Partial<{
 
 beforeEach(() => vi.clearAllMocks())
 
+// The two ghost buttons in the footer share .btn-list; pick by label.
+const listBtn = (w: ReturnType<typeof mountModal>, text: string) =>
+  w.findAll('.btn-list').find(b => b.text().includes(text))
+
 // ── rendering ────────────────────────────────────────────────────────────────
 
 describe('CompanyDetailModal – rendering', () => {
@@ -122,42 +126,45 @@ describe('CompanyDetailModal – footer actions', () => {
 
   it('emits toggle-hidden and shows the right label', async () => {
     const w = mountModal({ isHidden: false })
-    expect(w.find('.btn-hide-company').text()).toContain('Not interested')
-    await w.find('.btn-hide-company').trigger('click')
+    const btn = listBtn(w, 'Not interested')
+    expect(btn).toBeTruthy()
+    await btn!.trigger('click')
     expect(w.emitted('toggle-hidden')).toBeTruthy()
   })
 
   it('shows "Unhide" when the company is hidden', () => {
     const w = mountModal({ isHidden: true })
-    expect(w.find('.btn-hide-company').text()).toContain('Unhide')
+    expect(listBtn(w, 'Unhide')).toBeTruthy()
   })
 })
 
-// ── interested star ──────────────────────────────────────────────────────────
+// ── interested button ────────────────────────────────────────────────────────
 
-describe('CompanyDetailModal – interested star', () => {
-  it('shows a hollow star when not on the interested list', () => {
+describe('CompanyDetailModal – interested button', () => {
+  it('reads "Add to interested" when not on the list', () => {
     const w = mountModal({ isInterested: false })
-    expect(w.find('.star-btn').text()).toBe('☆')
-    expect(w.find('.star-btn').classes()).not.toContain('star-btn--on')
+    const btn = listBtn(w, 'Add to interested')
+    expect(btn).toBeTruthy()
+    expect(btn!.classes()).not.toContain('btn-list--on')
   })
 
-  it('shows a filled star when interested', () => {
+  it('reads "Remove from interested" and is highlighted when interested', () => {
     const w = mountModal({ isInterested: true })
-    expect(w.find('.star-btn').text()).toBe('★')
-    expect(w.find('.star-btn').classes()).toContain('star-btn--on')
+    const btn = listBtn(w, 'Remove from interested')
+    expect(btn).toBeTruthy()
+    expect(btn!.classes()).toContain('btn-list--on')
   })
 
   it('emits toggle-interested', async () => {
     const w = mountModal()
-    await w.find('.star-btn').trigger('click')
+    await listBtn(w, 'Add to interested')!.trigger('click')
     expect(w.emitted('toggle-interested')).toBeTruthy()
   })
 
-  it('the star is hidden while the admin edit form is open', async () => {
+  it('the interested button is gone while the admin edit form is open', async () => {
     const w = mountModal({ isAdmin: true, company: makeCompany({ summary: 'x' }) })
     await w.find('.panel-edit-btn').trigger('click')
-    expect(w.find('.star-btn').exists()).toBe(false)
+    expect(listBtn(w, 'Add to interested')).toBeUndefined()
   })
 })
 

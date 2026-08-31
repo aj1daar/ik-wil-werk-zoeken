@@ -37,8 +37,7 @@ const visibleTags = computed(() => {
   return all.filter(t => t.toLowerCase().includes(q))
 })
 const sortOrder           = ref<'default' | 'az' | 'za' | 'city'>('az')
-const showHidden          = ref(false)
-const showInterestedOnly  = ref(false)
+const listFilter          = ref<'all' | 'interested' | 'hidden'>('all')
 const listError           = ref('')
 let   listErrorTimer: ReturnType<typeof setTimeout> | null = null
 const currentPage = ref(1)
@@ -112,9 +111,11 @@ const filteredRows = computed<SponsorCompany[]>(() => {
     list = store.companies
   }
 
-  if (showInterestedOnly.value) {
+  if (listFilter.value === 'interested') {
     list = list.filter(c => store.interestedIds.has(c.id))
-  } else if (!showHidden.value && store.hiddenIds.size > 0) {
+  } else if (listFilter.value === 'hidden') {
+    list = list.filter(c => store.hiddenIds.has(c.id))
+  } else if (store.hiddenIds.size > 0) {
     list = list.filter(c => !store.hiddenIds.has(c.id))
   }
 
@@ -165,7 +166,7 @@ const visiblePages = computed((): (number | null)[] => {
   return pages
 })
 
-watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden, showInterestedOnly, sortOrder], () => {
+watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, listFilter, sortOrder], () => {
   currentPage.value = 1
 })
 // Hiding a company or narrowing a filter can drop the page count below the
@@ -256,7 +257,7 @@ function clearFilters() {
   includeTags.value = []
   excludeTags.value = []
   sortOrder.value = 'az'
-  showInterestedOnly.value = false
+  listFilter.value = 'all'
 }
 
 const hasActiveFilters = computed(() => anyFilter.value)
@@ -321,12 +322,19 @@ const activeDropdownCount = computed(() =>
           <option value="default">Default</option>
         </select>
 
-        <!-- Applied toggle -->
-        <div class="applied-toggle" role="group" aria-label="Applied filter">
-          <button :class="['applied-toggle-btn', appliedFilter === 'all' && 'applied-toggle-btn--active']" @click="appliedFilter = 'all'">All</button>
-          <button :class="['applied-toggle-btn', appliedFilter === 'applied' && 'applied-toggle-btn--active']" @click="appliedFilter = 'applied'">Applied</button>
-          <button :class="['applied-toggle-btn', appliedFilter === 'not-applied' && 'applied-toggle-btn--active']" @click="appliedFilter = 'not-applied'">Not applied</button>
-        </div>
+        <!-- Application status -->
+        <select v-model="appliedFilter" class="filter-input filter-select filter-select--sm" aria-label="Application status">
+          <option value="all">Any status</option>
+          <option value="applied">Applied</option>
+          <option value="not-applied">Not applied</option>
+        </select>
+
+        <!-- Interested / hidden view -->
+        <select v-model="listFilter" class="filter-input filter-select filter-select--md" aria-label="List view">
+          <option value="all">All companies</option>
+          <option value="interested">Interested only ({{ store.interestedIds.size }})</option>
+          <option value="hidden">Hidden only ({{ store.hiddenIds.size }})</option>
+        </select>
 
         <!-- Tag filter -->
         <button
@@ -346,23 +354,6 @@ const activeDropdownCount = computed(() =>
 
         <button v-if="hasActiveFilters" @click="clearFilters" class="btn-clear-filters" aria-label="Clear all filters">
           Clear
-        </button>
-
-        <button
-          v-if="store.interestedIds.size > 0 || showInterestedOnly"
-          :class="['btn-filter-toggle', showInterestedOnly && 'btn-filter-toggle--active']"
-          :aria-pressed="showInterestedOnly"
-          @click="showInterestedOnly = !showInterestedOnly"
-        >
-          ★ {{ showInterestedOnly ? 'Interested only' : `Interested (${store.interestedIds.size})` }}
-        </button>
-
-        <button
-          v-if="store.hiddenIds.size > 0"
-          :class="['btn-filter-toggle', showHidden && 'btn-filter-toggle--active']"
-          @click="showHidden = !showHidden"
-        >
-          {{ showHidden ? 'Showing hidden' : `Hidden (${store.hiddenIds.size})` }}
         </button>
 
         <p v-if="listError" class="list-error" role="alert">{{ listError }}</p>
@@ -537,18 +528,8 @@ const activeDropdownCount = computed(() =>
 }
 .btn-clear-filters:hover { text-decoration: underline; }
 
-.applied-toggle {
-  display: inline-flex; border: 1px solid var(--col-border); border-radius: .375rem;
-  overflow: hidden; background: var(--col-surface);
-}
-.applied-toggle-btn {
-  background: none; border: none; border-right: 1px solid var(--col-border);
-  padding: .4rem .7rem; font-size: .8rem; cursor: pointer; color: var(--col-muted);
-  white-space: nowrap; transition: background .12s, color .12s;
-}
-.applied-toggle-btn:last-child { border-right: none; }
-.applied-toggle-btn:hover { background: var(--col-raised); color: var(--col-text); }
-.applied-toggle-btn--active { background: var(--col-accent-lt); color: var(--col-accent-dk); font-weight: 600; }
+/* Wide enough for "Interested only (12)" — split-panel's .filter-select--sm caps at 110px. */
+.filter-select--md { max-width: 170px; }
 
 .tag-filter-panel {
   background: var(--col-surface);

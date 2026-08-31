@@ -242,16 +242,21 @@ describe('CompaniesView – pagination (16 per page)', () => {
   })
 })
 
-// ── applied filter ───────────────────────────────────────────────────────────
+// ── application-status + list-view dropdowns ─────────────────────────────────
 
-describe('CompaniesView – applied filter toggle', () => {
+const statusSelect = (w: ReturnType<typeof mountView>) => w.find('select[aria-label="Application status"]')
+const listSelect   = (w: ReturnType<typeof mountView>) => w.find('select[aria-label="List view"]')
+const interestBtn  = (w: ReturnType<typeof mountView>) =>
+  w.findAll('.btn-list').find(b => /(to|from) interested/.test(b.text()))
+
+describe('CompaniesView – status dropdown', () => {
   it('"Applied" shows only companies with an application', async () => {
     const w = mountView(
       [makeSponsor({ id: 'sp-1', name: 'Applied Co' }), makeSponsor({ id: 'sp-2', name: 'Not Applied Co' })],
       [makeApp({ sponsorCompanyId: 'sp-1' })],
     )
     await flushPromises()
-    await w.findAll('.applied-toggle-btn')[1].trigger('click')
+    await statusSelect(w).setValue('applied')
     await nextTick()
     const tiles = w.findAll('.company-tile')
     expect(tiles).toHaveLength(1)
@@ -264,21 +269,23 @@ describe('CompaniesView – applied filter toggle', () => {
       [makeApp({ sponsorCompanyId: 'sp-1' })],
     )
     await flushPromises()
-    await w.findAll('.applied-toggle-btn')[2].trigger('click')
+    await statusSelect(w).setValue('not-applied')
     await nextTick()
     const tiles = w.findAll('.company-tile')
     expect(tiles).toHaveLength(1)
     expect(tiles[0].text()).toContain('Not Applied Co')
   })
 
-  it('clearFilters resets the applied filter to "all"', async () => {
+  it('clearFilters resets both dropdowns', async () => {
     const w = mountView([makeSponsor({ id: 'sp-1' })], [makeApp({ sponsorCompanyId: 'sp-1' })])
     await flushPromises()
-    await w.findAll('.applied-toggle-btn')[1].trigger('click')
+    await statusSelect(w).setValue('applied')
+    await listSelect(w).setValue('interested')
     await nextTick()
     await w.find('.btn-clear-filters').trigger('click')
     await nextTick()
-    expect(w.find('.applied-toggle-btn--active').text()).toBe('All')
+    expect((statusSelect(w).element as HTMLSelectElement).value).toBe('all')
+    expect((listSelect(w).element as HTMLSelectElement).value).toBe('all')
   })
 })
 
@@ -291,34 +298,32 @@ describe('CompaniesView – interested list', () => {
     expect(w.find('.company-tile .tile-star').exists()).toBe(false)
 
     await w.find('.company-tile').trigger('click')
-    await w.find('.star-btn').trigger('click')
+    await interestBtn(w)!.trigger('click')
     await flushPromises()
 
     expect(api.setCompanyList).toHaveBeenCalledWith('sp-1', 'interested')
     expect(w.find('.company-tile .tile-star').exists()).toBe(true)
   })
 
-  it('shows an "★ Interested (N)" toggle once something is on the list', async () => {
+  it('the list-view dropdown shows the interested count and filters to it', async () => {
     vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['sp-1'], hidden: [] })
     const w = mountView([makeSponsor({ id: 'sp-1', name: 'Acme' }), makeSponsor({ id: 'sp-2', name: 'Other' })])
     await flushPromises()
-    const toggle = w.findAll('button').find(b => b.text().includes('Interested'))
-    expect(toggle).toBeTruthy()
-    expect(toggle!.text()).toContain('Interested (1)')
+    expect(listSelect(w).text()).toContain('Interested only (1)')
 
-    await toggle!.trigger('click')
-    await flushPromises()
+    await listSelect(w).setValue('interested')
+    await nextTick()
     const tiles = w.findAll('.company-tile')
     expect(tiles).toHaveLength(1)
     expect(tiles[0].text()).toContain('Acme')
   })
 
-  it('un-stars from the modal (sends kind "none")', async () => {
+  it('un-marks from the modal (sends kind "none")', async () => {
     vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['sp-1'], hidden: [] })
     const w = mountView([makeSponsor({ id: 'sp-1' })])
     await flushPromises()
     await w.find('.company-tile').trigger('click')
-    await w.find('.star-btn').trigger('click')
+    await interestBtn(w)!.trigger('click')
     await flushPromises()
     expect(api.setCompanyList).toHaveBeenCalledWith('sp-1', 'none')
   })
@@ -328,21 +333,20 @@ describe('CompaniesView – interested list', () => {
     const w = mountView([makeSponsor({ id: 'sp-1' })])
     await flushPromises()
     await w.find('.company-tile').trigger('click')
-    await w.find('.star-btn').trigger('click')
+    await interestBtn(w)!.trigger('click')
     await flushPromises()
     expect(w.find('.list-error').exists()).toBe(true)
   })
 
-  it('a hidden company can be starred from the "Showing hidden" view', async () => {
+  it('a hidden company can be marked interested from the "Hidden only" view', async () => {
     vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: [], hidden: ['sp-1'] })
     const w = mountView([makeSponsor({ id: 'sp-1' })])
     await flushPromises()
-    // hidden companies are filtered out until you reveal them
-    expect(w.findAll('.company-tile')).toHaveLength(0)
-    await w.findAll('button').find(b => b.text().includes('Hidden'))!.trigger('click')
+    expect(w.findAll('.company-tile')).toHaveLength(0)   // hidden by default
+    await listSelect(w).setValue('hidden')
     await nextTick()
     await w.find('.company-tile').trigger('click')
-    await w.find('.star-btn').trigger('click')
+    await interestBtn(w)!.trigger('click')
     await flushPromises()
     expect(api.setCompanyList).toHaveBeenCalledWith('sp-1', 'interested')
   })
