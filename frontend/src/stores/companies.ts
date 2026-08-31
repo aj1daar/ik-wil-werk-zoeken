@@ -1,11 +1,16 @@
 import { defineStore } from 'pinia'
-import { api, type SponsorCompany, type CompanyEditPatch } from '../api'
+import { api, type SponsorCompany, type CompanyEditPatch, type CompanyListKind } from '../api'
+
+const LEGACY_HIDDEN_KEY = 'iwwz_hidden_companies'
 
 export const useCompaniesStore = defineStore('companies', {
   state: () => ({
     companies: [] as SponsorCompany[],
     loading: false,
-    error: null as string | null
+    error: null as string | null,
+    interestedIds: new Set<string>(),
+    hiddenIds: new Set<string>(),
+    listsLoaded: false,
   }),
 
   getters: {
@@ -92,6 +97,63 @@ export const useCompaniesStore = defineStore('companies', {
       const updated = await api.adminUpdateCompany(id, patch)
       const idx = this.companies.findIndex(c => c.id === id)
       if (idx !== -1) this.companies[idx] = updated
+    },
+
+    // The user's "interested" shortlist and "hidden" list, both stored on the
+    // backend and tied to the account.
+    async loadLists() {
+      try {
+        const lists = await api.getCompanyLists()
+        this.interestedIds = new Set(lists.interested)
+        this.hiddenIds = new Set(lists.hidden)
+        this.listsLoaded = true
+        await this.migrateLegacyHidden()
+      } catch {
+        /* leave lists empty — non-fatal */
+      }
+    },
+
+    // One-time: users who hid companies before this was on the backend have the
+    // ids in localStorage. Push them up, then drop the local copy.
+    async migrateLegacyHidden() {
+      let legacy: unknown
+      try { legacy = JSON.parse(localStorage.getItem(LEGACY_HIDDEN_KEY) ?? '[]') }
+      catch { return }
+      if (!Array.isArray(legacy) || legacy.length === 0) {
+        try { localStorage.removeItem(LEGACY_HIDDEN_KEY) } catch { /* ignore */ }
+        return
+      }
+      for (const id of legacy) {
+        if (typeof id !== 'string' || this.hiddenIds.has(id) || this.interestedIds.has(id)) continue
+        try {
+          await api.setCompanyList(id, 'hidden')
+          this.hiddenIds.add(id)
+        } catch { /* ignore a single failure; keep going */ }
+      }
+      try { localStorage.removeItem(LEGACY_HIDDEN_KEY) } catch { /* ignore */ }
+    },
+
+    async setListStatus(companyId: string, kind: CompanyListKind) {
+      const wasInterested = this.interestedIds.has(companyId)
+      const wasHidden = this.hiddenIds.has(companyId)
+
+      // optimistic — one company is on at most one list
+      this.interestedIds.delete(companyId)
+      this.hiddenIds.delete(companyId)
+      if (kind === 'interested') this.interestedIds.add(companyId)
+      else if (kind === 'hidden') this.hiddenIds.add(companyId)
+
+      try {
+        const lists = await api.setCompanyList(companyId, kind)
+        this.interestedIds = new Set(lists.interested)
+        this.hiddenIds = new Set(lists.hidden)
+      } catch {
+        this.interestedIds.delete(companyId)
+        this.hiddenIds.delete(companyId)
+        if (wasInterested) this.interestedIds.add(companyId)
+        if (wasHidden) this.hiddenIds.add(companyId)
+        throw new Error('Could not update the list. Please try again.')
+      }
     },
 
     search(query: string): SponsorCompany[] {

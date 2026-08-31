@@ -97,6 +97,12 @@ export const api = {
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 
+  getCompanyLists: () =>
+    request<CompanyLists>('GET', '/api/dashboard/company-lists'),
+
+  setCompanyList: (companyId: string, kind: CompanyListKind) =>
+    request<CompanyLists>('PUT', `/api/dashboard/company-lists/${companyId}`, { kind }),
+
   getApplications: () =>
     request<Application[]>('GET', '/api/dashboard/applications'),
 
@@ -175,6 +181,13 @@ export interface CompanyEditPatch {
   remotePolicy?: string | null
   parentCompanyName?: string | null
   targetMarket?: string | null
+}
+
+export type CompanyListKind = 'interested' | 'hidden' | 'none'
+
+export interface CompanyLists {
+  interested: string[]
+  hidden: string[]
 }
 
 export interface ParsedJobLink {

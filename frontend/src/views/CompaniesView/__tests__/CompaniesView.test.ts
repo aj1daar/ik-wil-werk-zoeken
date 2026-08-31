@@ -14,6 +14,8 @@ vi.mock('../../../api', () => ({
     deleteApplication:  vi.fn(),
     getStats:           vi.fn(),
     getCompanies:       vi.fn(),
+    getCompanyLists:    vi.fn(),
+    setCompanyList:     vi.fn(),
     adminUpdateCompany: vi.fn(),
     parseJobLink:       vi.fn(),
   },
@@ -25,6 +27,11 @@ import type { SponsorCompany, Application } from '../../../api'
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.getApplications).mockResolvedValue([])
+  vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: [], hidden: [] })
+  vi.mocked(api.setCompanyList).mockImplementation((id, kind) =>
+    Promise.resolve(kind === 'interested' ? { interested: [id], hidden: [] }
+      : kind === 'hidden' ? { interested: [], hidden: [id] }
+      : { interested: [], hidden: [] }))
 })
 
 function makeSponsor(overrides: Partial<SponsorCompany> = {}): SponsorCompany {
@@ -272,6 +279,72 @@ describe('CompaniesView – applied filter toggle', () => {
     await w.find('.btn-clear-filters').trigger('click')
     await nextTick()
     expect(w.find('.applied-toggle-btn--active').text()).toBe('All')
+  })
+})
+
+// ── interested list ──────────────────────────────────────────────────────────
+
+describe('CompaniesView – interested list', () => {
+  it('marks a company interested from the modal and stars its tile', async () => {
+    const w = mountView([makeSponsor({ id: 'sp-1', name: 'Acme' })])
+    await flushPromises()
+    expect(w.find('.company-tile .tile-star').exists()).toBe(false)
+
+    await w.find('.company-tile').trigger('click')
+    await w.find('.star-btn').trigger('click')
+    await flushPromises()
+
+    expect(api.setCompanyList).toHaveBeenCalledWith('sp-1', 'interested')
+    expect(w.find('.company-tile .tile-star').exists()).toBe(true)
+  })
+
+  it('shows an "★ Interested (N)" toggle once something is on the list', async () => {
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['sp-1'], hidden: [] })
+    const w = mountView([makeSponsor({ id: 'sp-1', name: 'Acme' }), makeSponsor({ id: 'sp-2', name: 'Other' })])
+    await flushPromises()
+    const toggle = w.findAll('button').find(b => b.text().includes('Interested'))
+    expect(toggle).toBeTruthy()
+    expect(toggle!.text()).toContain('Interested (1)')
+
+    await toggle!.trigger('click')
+    await flushPromises()
+    const tiles = w.findAll('.company-tile')
+    expect(tiles).toHaveLength(1)
+    expect(tiles[0].text()).toContain('Acme')
+  })
+
+  it('un-stars from the modal (sends kind "none")', async () => {
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['sp-1'], hidden: [] })
+    const w = mountView([makeSponsor({ id: 'sp-1' })])
+    await flushPromises()
+    await w.find('.company-tile').trigger('click')
+    await w.find('.star-btn').trigger('click')
+    await flushPromises()
+    expect(api.setCompanyList).toHaveBeenCalledWith('sp-1', 'none')
+  })
+
+  it('rolls back and warns when the server rejects the change', async () => {
+    vi.mocked(api.setCompanyList).mockRejectedValue(new Error('boom'))
+    const w = mountView([makeSponsor({ id: 'sp-1' })])
+    await flushPromises()
+    await w.find('.company-tile').trigger('click')
+    await w.find('.star-btn').trigger('click')
+    await flushPromises()
+    expect(w.find('.list-error').exists()).toBe(true)
+  })
+
+  it('a hidden company can be starred from the "Showing hidden" view', async () => {
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: [], hidden: ['sp-1'] })
+    const w = mountView([makeSponsor({ id: 'sp-1' })])
+    await flushPromises()
+    // hidden companies are filtered out until you reveal them
+    expect(w.findAll('.company-tile')).toHaveLength(0)
+    await w.findAll('button').find(b => b.text().includes('Hidden'))!.trigger('click')
+    await nextTick()
+    await w.find('.company-tile').trigger('click')
+    await w.find('.star-btn').trigger('click')
+    await flushPromises()
+    expect(api.setCompanyList).toHaveBeenCalledWith('sp-1', 'interested')
   })
 })
 

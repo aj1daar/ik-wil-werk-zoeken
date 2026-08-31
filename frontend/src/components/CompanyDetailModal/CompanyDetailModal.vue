@@ -6,12 +6,18 @@ import type { Application, SponsorCompany } from '../../api'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const props = defineProps<{
-  company:     SponsorCompany
-  application: Application | null
-  isAdmin:     boolean
-  isHidden:    boolean
+  company:      SponsorCompany
+  application:  Application | null
+  isAdmin:      boolean
+  isHidden:     boolean
+  isInterested: boolean
 }>()
-const emit = defineEmits<{ close: []; 'start-application': []; 'toggle-hidden': [] }>()
+const emit = defineEmits<{
+  close: []
+  'start-application': []
+  'toggle-hidden': []
+  'toggle-interested': []
+}>()
 
 const store = useCompaniesStore()
 useBodyScrollLock()
@@ -145,6 +151,14 @@ async function saveEdit() {
           </p>
         </div>
         <div class="modal-header-actions">
+          <button
+            v-if="!editing"
+            type="button"
+            :class="['star-btn', { 'star-btn--on': isInterested }]"
+            :aria-pressed="isInterested"
+            :title="isInterested ? 'Remove from interested' : 'Add to interested'"
+            @click="emit('toggle-interested')"
+          >{{ isInterested ? '★' : '☆' }}</button>
           <button v-if="isAdmin && !editing" type="button" class="panel-edit-btn" @click="startEdit">Edit</button>
           <button @click="requestClose" class="btn-icon" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -337,6 +351,13 @@ async function saveEdit() {
   text-transform: uppercase; letter-spacing: .05em;
 }
 .panel-edit-btn:hover { background: var(--col-raised); }
+.star-btn {
+  background: none; border: 1px solid var(--col-border); cursor: pointer;
+  color: var(--col-subtle); font-size: 1rem; line-height: 1;
+  padding: .15rem .4rem; border-radius: .375rem;
+}
+.star-btn:hover { background: var(--col-raised); color: #f59e0b; }
+.star-btn--on { color: #f59e0b; border-color: color-mix(in srgb, #f59e0b 45%, transparent); }
 .icon { width: 1.25rem; height: 1.25rem; }
 
 .modal-body {

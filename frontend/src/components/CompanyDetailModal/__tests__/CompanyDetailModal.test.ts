@@ -33,6 +33,7 @@ function mountModal(props: Partial<{
   application: Application | null
   isAdmin: boolean
   isHidden: boolean
+  isInterested: boolean
 }> = {}) {
   setActivePinia(createPinia())
   return mount(CompanyDetailModal, {
@@ -41,6 +42,7 @@ function mountModal(props: Partial<{
       application: null,
       isAdmin: false,
       isHidden: false,
+      isInterested: false,
       ...props,
     },
   })
@@ -128,6 +130,34 @@ describe('CompanyDetailModal – footer actions', () => {
   it('shows "Unhide" when the company is hidden', () => {
     const w = mountModal({ isHidden: true })
     expect(w.find('.btn-hide-company').text()).toContain('Unhide')
+  })
+})
+
+// ── interested star ──────────────────────────────────────────────────────────
+
+describe('CompanyDetailModal – interested star', () => {
+  it('shows a hollow star when not on the interested list', () => {
+    const w = mountModal({ isInterested: false })
+    expect(w.find('.star-btn').text()).toBe('☆')
+    expect(w.find('.star-btn').classes()).not.toContain('star-btn--on')
+  })
+
+  it('shows a filled star when interested', () => {
+    const w = mountModal({ isInterested: true })
+    expect(w.find('.star-btn').text()).toBe('★')
+    expect(w.find('.star-btn').classes()).toContain('star-btn--on')
+  })
+
+  it('emits toggle-interested', async () => {
+    const w = mountModal()
+    await w.find('.star-btn').trigger('click')
+    expect(w.emitted('toggle-interested')).toBeTruthy()
+  })
+
+  it('the star is hidden while the admin edit form is open', async () => {
+    const w = mountModal({ isAdmin: true, company: makeCompany({ summary: 'x' }) })
+    await w.find('.panel-edit-btn').trigger('click')
+    expect(w.find('.star-btn').exists()).toBe(false)
   })
 })
 

@@ -1,5 +1,5 @@
 import { setActivePinia, createPinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCompaniesStore } from '../companies'
 import type { SponsorCompany } from '../../api'
 
@@ -7,6 +7,8 @@ vi.mock('../../api', () => ({
   api: {
     getCompanies: vi.fn(),
     adminUpdateCompany: vi.fn(),
+    getCompanyLists: vi.fn(),
+    setCompanyList: vi.fn(),
   }
 }))
 
@@ -581,5 +583,88 @@ describe('useCompaniesStore – updateCompany', () => {
     vi.mocked(api.adminUpdateCompany).mockRejectedValue(new Error('403 Forbidden'))
     await expect(store.updateCompany('c1', { summary: 'new' })).rejects.toThrow('403 Forbidden')
     expect(store.companies[0].summary).toBe('old')
+  })
+})
+
+// ── interested / hidden lists ────────────────────────────────────────────────
+
+describe('useCompaniesStore – company lists', () => {
+  // This test env has no working localStorage; shim an in-memory one.
+  let mem: Record<string, string>
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    mem = {}
+    vi.stubGlobal('localStorage', {
+      getItem:    (k: string) => (k in mem ? mem[k] : null),
+      setItem:    (k: string, v: string) => { mem[k] = String(v) },
+      removeItem: (k: string) => { delete mem[k] },
+      clear:      () => { mem = {} },
+    })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('loadLists populates both sets', async () => {
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['a', 'b'], hidden: ['c'] })
+    const store = useCompaniesStore()
+    await store.loadLists()
+    expect([...store.interestedIds].sort()).toEqual(['a', 'b'])
+    expect([...store.hiddenIds]).toEqual(['c'])
+  })
+
+  it('loadLists stays empty and does not throw on API failure', async () => {
+    vi.mocked(api.getCompanyLists).mockRejectedValue(new Error('offline'))
+    const store = useCompaniesStore()
+    await store.loadLists()
+    expect(store.interestedIds.size).toBe(0)
+    expect(store.hiddenIds.size).toBe(0)
+  })
+
+  it('setListStatus optimistically moves a company between lists', async () => {
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: [], hidden: ['x'] })
+    vi.mocked(api.setCompanyList).mockResolvedValue({ interested: ['x'], hidden: [] })
+    const store = useCompaniesStore()
+    await store.loadLists()
+    await store.setListStatus('x', 'interested')
+    expect(store.interestedIds.has('x')).toBe(true)
+    expect(store.hiddenIds.has('x')).toBe(false)
+  })
+
+  it('setListStatus rolls back on failure and throws', async () => {
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['x'], hidden: [] })
+    vi.mocked(api.setCompanyList).mockRejectedValue(new Error('500'))
+    const store = useCompaniesStore()
+    await store.loadLists()
+    await expect(store.setListStatus('x', 'none')).rejects.toThrow(/list/i)
+    expect(store.interestedIds.has('x')).toBe(true)  // restored
+  })
+
+  it('setListStatus with "none" clears the entry', async () => {
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['x'], hidden: [] })
+    vi.mocked(api.setCompanyList).mockResolvedValue({ interested: [], hidden: [] })
+    const store = useCompaniesStore()
+    await store.loadLists()
+    await store.setListStatus('x', 'none')
+    expect(store.interestedIds.has('x')).toBe(false)
+  })
+
+  it('migrates legacy localStorage hidden ids to the backend once, then clears the key', async () => {
+    localStorage.setItem('iwwz_hidden_companies', JSON.stringify(['h1', 'h2']))
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: [], hidden: [] })
+    vi.mocked(api.setCompanyList).mockResolvedValue({ interested: [], hidden: ['h1'] })
+    const store = useCompaniesStore()
+    await store.loadLists()
+    expect(api.setCompanyList).toHaveBeenCalledWith('h1', 'hidden')
+    expect(api.setCompanyList).toHaveBeenCalledWith('h2', 'hidden')
+    expect(localStorage.getItem('iwwz_hidden_companies')).toBeNull()
+  })
+
+  it('does not re-migrate ids the backend already has', async () => {
+    localStorage.setItem('iwwz_hidden_companies', JSON.stringify(['h1']))
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: [], hidden: ['h1'] })
+    const store = useCompaniesStore()
+    await store.loadLists()
+    expect(api.setCompanyList).not.toHaveBeenCalled()
+    expect(localStorage.getItem('iwwz_hidden_companies')).toBeNull()
   })
 })

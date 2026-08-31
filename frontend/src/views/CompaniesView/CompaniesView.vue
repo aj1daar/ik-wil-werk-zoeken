@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
 import { useAuthStore } from '../../stores/auth'
@@ -37,11 +37,10 @@ const visibleTags = computed(() => {
   return all.filter(t => t.toLowerCase().includes(q))
 })
 const sortOrder           = ref<'default' | 'az' | 'za' | 'city'>('az')
-const hiddenIds           = ref<Set<string>>((() => {
-  try { return new Set<string>(JSON.parse(localStorage.getItem('iwwz_hidden_companies') ?? '[]')) }
-  catch { return new Set<string>() }
-})())
 const showHidden          = ref(false)
+const showInterestedOnly  = ref(false)
+const listError           = ref('')
+let   listErrorTimer: ReturnType<typeof setTimeout> | null = null
 const currentPage = ref(1)
 
 // 16 tiles per page — two columns of eight. The grid stretches to fill the
@@ -52,8 +51,17 @@ const COLUMNS   = 2
 
 onMounted(() => {
   store.load()
+  store.loadLists()
   appsStore.load()
 })
+
+onUnmounted(() => { if (listErrorTimer) clearTimeout(listErrorTimer) })
+
+function flashListError(msg: string) {
+  listError.value = msg
+  if (listErrorTimer) clearTimeout(listErrorTimer)
+  listErrorTimer = setTimeout(() => { listError.value = '' }, 4000)
+}
 
 const mostRecentForCompany = computed((): Map<string, Application> => {
   const byId   = new Map<string, Application>()
@@ -104,8 +112,10 @@ const filteredRows = computed<SponsorCompany[]>(() => {
     list = store.companies
   }
 
-  if (!showHidden.value && hiddenIds.value.size > 0) {
-    list = list.filter(c => !hiddenIds.value.has(c.id))
+  if (showInterestedOnly.value) {
+    list = list.filter(c => store.interestedIds.has(c.id))
+  } else if (!showHidden.value && store.hiddenIds.size > 0) {
+    list = list.filter(c => !store.hiddenIds.has(c.id))
   }
 
   if (appliedFilter.value === 'applied') {
@@ -155,7 +165,7 @@ const visiblePages = computed((): (number | null)[] => {
   return pages
 })
 
-watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden, sortOrder], () => {
+watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, showHidden, showInterestedOnly, sortOrder], () => {
   currentPage.value = 1
 })
 // Hiding a company or narrowing a filter can drop the page count below the
@@ -195,11 +205,21 @@ function startApplication() {
   selectedId.value = null
 }
 
-function onToggleHidden() {
+async function onToggleHidden() {
   const c = selectedCompany.value
   if (!c) return
-  toggleHidden(c.id)
-  selectedId.value = null
+  const next = store.hiddenIds.has(c.id) ? 'none' : 'hidden'
+  selectedId.value = null                       // dismissing it closes the card
+  try { await store.setListStatus(c.id, next) }
+  catch (e) { flashListError(e instanceof Error ? e.message : 'Update failed.') }
+}
+
+async function onToggleInterested() {
+  const c = selectedCompany.value
+  if (!c) return
+  const next = store.interestedIds.has(c.id) ? 'none' : 'interested'
+  try { await store.setListStatus(c.id, next) }
+  catch (e) { flashListError(e instanceof Error ? e.message : 'Update failed.') }
 }
 
 function formatSyncDate(iso: string): string {
@@ -236,14 +256,7 @@ function clearFilters() {
   includeTags.value = []
   excludeTags.value = []
   sortOrder.value = 'az'
-}
-
-function toggleHidden(id: string) {
-  const next = new Set(hiddenIds.value)
-  if (next.has(id)) next.delete(id)
-  else { next.add(id); selectedId.value = null }
-  hiddenIds.value = next
-  try { localStorage.setItem('iwwz_hidden_companies', JSON.stringify([...next])) } catch { /* ignore */ }
+  showInterestedOnly.value = false
 }
 
 const hasActiveFilters = computed(() => anyFilter.value)
@@ -336,12 +349,23 @@ const activeDropdownCount = computed(() =>
         </button>
 
         <button
-          v-if="hiddenIds.size > 0"
+          v-if="store.interestedIds.size > 0 || showInterestedOnly"
+          :class="['btn-filter-toggle', showInterestedOnly && 'btn-filter-toggle--active']"
+          :aria-pressed="showInterestedOnly"
+          @click="showInterestedOnly = !showInterestedOnly"
+        >
+          ★ {{ showInterestedOnly ? 'Interested only' : `Interested (${store.interestedIds.size})` }}
+        </button>
+
+        <button
+          v-if="store.hiddenIds.size > 0"
           :class="['btn-filter-toggle', showHidden && 'btn-filter-toggle--active']"
           @click="showHidden = !showHidden"
         >
-          {{ showHidden ? 'Showing hidden' : `Hidden (${hiddenIds.size})` }}
+          {{ showHidden ? 'Showing hidden' : `Hidden (${store.hiddenIds.size})` }}
         </button>
+
+        <p v-if="listError" class="list-error" role="alert">{{ listError }}</p>
 
         <p v-if="store.lastSyncedAt" class="sync-badge">
           IND data last synced {{ formatSyncDate(store.lastSyncedAt) }}
@@ -429,6 +453,7 @@ const activeDropdownCount = computed(() =>
           @keydown.space.prevent="openCompany(c.id)"
         >
           <div class="tile-name-line">
+            <span v-if="store.interestedIds.has(c.id)" class="tile-star" title="On your interested list" aria-label="Interested">★</span>
             <span class="tile-name">{{ c.name }}</span>
             <span
               v-if="mostRecentForCompany.has(c.id)"
@@ -461,13 +486,14 @@ const activeDropdownCount = computed(() =>
         :company="selectedCompany"
         :application="selectedCompanyApp"
         :is-admin="isAdmin"
-        :is-hidden="hiddenIds.has(selectedCompany.id)"
+        :is-hidden="store.hiddenIds.has(selectedCompany.id)"
+        :is-interested="store.interestedIds.has(selectedCompany.id)"
         @close="closeCompany"
         @start-application="startApplication"
         @toggle-hidden="onToggleHidden"
+        @toggle-interested="onToggleInterested"
       />
     </Transition>
-
 
     <Transition name="modal">
       <NewApplicationModal
@@ -485,6 +511,7 @@ const activeDropdownCount = computed(() =>
 .dashboard { max-width: 1280px; margin: 10px auto 0; }
 
 .sync-badge { font-size: .75rem; color: var(--col-subtle); white-space: nowrap; padding-left: .25rem; }
+.list-error { font-size: .75rem; color: var(--col-error); white-space: nowrap; margin: 0; }
 
 .btn-filter-toggle {
   display: inline-flex; align-items: center; gap: .375rem;
@@ -599,6 +626,7 @@ const activeDropdownCount = computed(() =>
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tile-name-line > .status-chip { flex-shrink: 0; }
+.tile-star { flex-shrink: 0; color: #f59e0b; font-size: .8rem; line-height: 1; }
 .tile-website {
   flex-shrink: 0; margin-left: auto;
   font-size: .68rem; color: var(--col-accent); text-decoration: none; white-space: nowrap;
