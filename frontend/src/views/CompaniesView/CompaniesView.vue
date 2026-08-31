@@ -323,7 +323,7 @@ const activeDropdownCount = computed(() =>
         </select>
 
         <!-- Application status -->
-        <select v-model="appliedFilter" class="filter-input filter-select filter-select--sm" aria-label="Application status">
+        <select v-model="appliedFilter" class="filter-input filter-select filter-select--auto" aria-label="Application status">
           <option value="all">Any status</option>
           <option value="applied">Applied</option>
           <option value="not-applied">Not applied</option>
@@ -528,8 +528,19 @@ const activeDropdownCount = computed(() =>
 }
 .btn-clear-filters:hover { text-decoration: underline; }
 
-/* Wide enough for "Interested only (12)" — split-panel's .filter-select--sm caps at 110px. */
-.filter-select--md { max-width: 170px; }
+/* split-panel's .filter-select--sm caps at 110px, which clips "Not applied". */
+.filter-select--auto {
+  width: auto;
+  min-width: 7.5rem;
+  max-width: none;
+  flex: 0 0 auto;
+}
+/* Wide enough for "Interested only (12)". */
+.filter-select--md {
+  max-width: 190px;
+  min-width: 9.5rem;
+  flex: 0 0 auto;
+}
 
 .tag-filter-panel {
   background: var(--col-surface);
