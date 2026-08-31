@@ -15,6 +15,7 @@ public sealed class DashboardController : ApiControllerBase
     private readonly TokenService _tokens;
     private readonly AppDbContext _db;
     private readonly JobLinkParser _jobLinks;
+    private readonly CompanyListStore _companyLists;
     private readonly RateLimiterService _rateLimiter;
     private readonly ILogger<DashboardController> _logger;
 
@@ -24,6 +25,7 @@ public sealed class DashboardController : ApiControllerBase
         TokenService tokens,
         AppDbContext db,
         JobLinkParser jobLinks,
+        CompanyListStore companyLists,
         RateLimiterService rateLimiter,
         ILogger<DashboardController> logger)
     {
@@ -32,6 +34,7 @@ public sealed class DashboardController : ApiControllerBase
         _tokens = tokens;
         _db = db;
         _jobLinks = jobLinks;
+        _companyLists = companyLists;
         _rateLimiter = rateLimiter;
         _logger = logger;
     }
@@ -53,6 +56,39 @@ public sealed class DashboardController : ApiControllerBase
         if (CheckAuth(out _) is { } err) return err;
         return Ok((await _sponsors.GetActiveAsync()).ToArray());
     }
+
+    // The user's per-company shortlist ("interested") and dismissed list
+    // ("hidden") — a company is on at most one of them.
+    [HttpGet("company-lists")]
+    public async Task<IActionResult> GetCompanyLists()
+    {
+        if (CheckAuth(out var userId) is { } err) return err;
+        var (interested, hidden) = await _companyLists.GetForUserAsync(userId);
+        return Ok(new CompanyListsResponse { Interested = interested, Hidden = hidden });
+    }
+
+    [HttpPut("company-lists/{companyId}")]
+    public async Task<IActionResult> SetCompanyList(string companyId, [FromBody] SetCompanyListRequest? body)
+    {
+        if (CheckAuth(out var userId) is { } err) return err;
+        if (string.IsNullOrWhiteSpace(companyId) || companyId.Length > 64)
+            return Error(400, "invalid companyId");
+        if (body is null || !ValidCompanyListKinds.Contains(body.Kind))
+            return Error(400, "kind must be one of: interested, hidden, none");
+
+        if (body.Kind != "none" && await _sponsors.GetAsync(companyId) is null)
+            return Error(404, "Unknown company");
+
+        if (body.Kind == "none")
+            await _companyLists.ClearAsync(userId, companyId);
+        else
+            await _companyLists.SetAsync(userId, companyId, body.Kind);
+
+        var (interested, hidden) = await _companyLists.GetForUserAsync(userId);
+        return Ok(new CompanyListsResponse { Interested = interested, Hidden = hidden });
+    }
+
+    private static readonly string[] ValidCompanyListKinds = ["interested", "hidden", "none"];
 
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats([FromQuery] string? from, [FromQuery] string? to)

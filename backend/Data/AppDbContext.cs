@@ -14,6 +14,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<StatusHistory> StatusHistories => Set<StatusHistory>();
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
     public DbSet<GeminiCallLog> GeminiCallLogs => Set<GeminiCallLog>();
+    public DbSet<CompanyListEntry> CompanyLists => Set<CompanyListEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +72,16 @@ public sealed class AppDbContext : DbContext
         {
             e.HasKey(g => g.Id);
             e.Property(g => g.Id).ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<CompanyListEntry>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.SponsorCompanyId }).IsUnique();
+            e.HasOne<User>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

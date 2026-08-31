@@ -28,6 +28,8 @@ namespace backend;
 [JsonSerializable(typeof(UpdateStatusHistoryRequest))]
 [JsonSerializable(typeof(ParseJobLinkRequest))]
 [JsonSerializable(typeof(ParseJobLinkResponse))]
+[JsonSerializable(typeof(CompanyListsResponse))]
+[JsonSerializable(typeof(SetCompanyListRequest))]
 [JsonSerializable(typeof(MessageResponse))]
 [JsonSerializable(typeof(EnrichResponse))]
 [JsonSerializable(typeof(ResendEmailRequest))]

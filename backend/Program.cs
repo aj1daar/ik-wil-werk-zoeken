@@ -77,6 +77,7 @@ builder.Services.AddSingleton<EmailService>();
 builder.Services.AddScoped<UserStore>();
 builder.Services.AddScoped<StageStore>();
 builder.Services.AddScoped<SponsorStore>();
+builder.Services.AddScoped<CompanyListStore>();
 builder.Services.AddHostedService<MonthlyIndSponsorSyncWorker>();
 
 var app = builder.Build();
