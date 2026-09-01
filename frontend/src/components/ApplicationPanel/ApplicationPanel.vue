@@ -282,6 +282,10 @@ async function onJobUrlBlur() {
     if (r.company && !sponsorCompanyId.value && !companyName.value.trim()) {
       companyName.value = r.company
       filled.push('company')
+      // Link the sponsor when the parsed name is in the IND register — the
+      // autocomplete dropdown was bypassed on this path.
+      const match = companiesStore.matchByName(r.company)
+      if (match) sponsorCompanyId.value = match.id
     }
     if (r.position && !position.value.trim()) {
       position.value = r.position

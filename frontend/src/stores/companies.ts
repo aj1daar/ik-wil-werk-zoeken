@@ -156,6 +156,16 @@ export const useCompaniesStore = defineStore('companies', {
       }
     },
 
+    // Exact (case-insensitive, trimmed) name match against the sponsor register —
+    // same rule the backend uses in SponsorStore.FindByNameAsync. Used to light up
+    // the "IND sponsor" tag when a company name arrives from a parsed job link
+    // rather than the autocomplete dropdown.
+    matchByName(name: string): SponsorCompany | null {
+      const n = name.trim().toLowerCase()
+      if (!n) return null
+      return this.companies.find(c => c.name.trim().toLowerCase() === n) ?? null
+    },
+
     search(query: string): SponsorCompany[] {
       const q = query.trim().toLowerCase()
       if (!q) return []

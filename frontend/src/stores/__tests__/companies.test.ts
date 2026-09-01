@@ -162,6 +162,38 @@ describe('useCompaniesStore – search', () => {
   })
 })
 
+describe('useCompaniesStore – matchByName', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('returns null for blank / whitespace name', () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'Acme B.V.' })])
+    expect(store.matchByName('')).toBeNull()
+    expect(store.matchByName('   ')).toBeNull()
+  })
+
+  it('returns null when the register is empty', () => {
+    expect(useCompaniesStore().matchByName('Acme B.V.')).toBeNull()
+  })
+
+  it('matches exactly, case-insensitively, trimming surrounding space', () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'Acme B.V.' })])
+    expect(store.matchByName('  acme b.v. ')?.id).toBe('c1')
+  })
+
+  it('does not match on a partial / substring name', () => {
+    const store = seedStore([makeCompany({ id: 'c1', name: 'Acme Netherlands B.V.' })])
+    expect(store.matchByName('Acme')).toBeNull()
+  })
+
+  it('returns the first company when names collide', () => {
+    const store = seedStore([
+      makeCompany({ id: 'c1', name: 'Acme B.V.' }),
+      makeCompany({ id: 'c2', name: 'ACME B.V.' }),
+    ])
+    expect(store.matchByName('acme b.v.')?.id).toBe('c1')
+  })
+})
+
 // ── allCities ─────────────────────────────────────────────────────────────────
 
 describe('useCompaniesStore – allCities', () => {

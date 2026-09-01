@@ -142,6 +142,13 @@ async function onJobUrlBlur() {
     if (r.company && !sponsorCompanyId.value && !companyName.value.trim()) {
       companyName.value = r.company
       filled.push('company')
+      // If the parsed name is in the IND register, link the sponsor so the
+      // "IND sponsor" tag shows — the dropdown was bypassed here.
+      const match = companiesStore.matchByName(r.company)
+      if (match) {
+        sponsorCompanyId.value = match.id
+        selectedCompany.value  = match
+      }
     }
     if (r.position && !position.value.trim()) {
       position.value = r.position

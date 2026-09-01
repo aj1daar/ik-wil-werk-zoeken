@@ -22,7 +22,16 @@ vi.mock('../../../api', () => ({
 }))
 
 import { api } from '../../../api'
-import type { StatusHistory } from '../../../api'
+import type { StatusHistory, SponsorCompany } from '../../../api'
+import { useCompaniesStore } from '../../../stores/companies'
+
+function makeCompany(overrides: Partial<SponsorCompany> = {}): SponsorCompany {
+  return {
+    id: 'co-1', name: 'Acme B.V.', kvKNumber: '12345678',
+    lastVerifiedAt: '2026-01-01T00:00:00Z', city: 'Amsterdam', coreIndustry: 'Software',
+    ...overrides,
+  }
+}
 
 function makeHistory(overrides: Partial<StatusHistory> = {}): StatusHistory {
   return {
@@ -209,6 +218,8 @@ describe('ApplicationPanel – job posting link or email', () => {
 // ── parse a newly pasted link ─────────────────────────────────────────────────
 
 describe('ApplicationPanel – parse job link', () => {
+  beforeEach(() => vi.clearAllMocks())
+
   function parsed(over: Partial<import('../../../api').ParsedJobLink> = {}) {
     return { company: null, position: null, locations: [], source: 'none' as const, ...over }
   }
@@ -242,6 +253,30 @@ describe('ApplicationPanel – parse job link', () => {
     const w = mountPanel(makeApp({ jobUrl: undefined }))
     await paste(w, 'https://example.com/job/1')
     expect(w.find('.save-error, .field-error').exists()).toBe(false)
+  })
+
+  it('links the IND sponsor when the backfilled company is in the register', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({ company: 'Acme B.V.', source: 'jsonld' }))
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ companyName: '', sponsorCompanyId: undefined, jobUrl: undefined }))
+    useCompaniesStore().$patch({ companies: [makeCompany({ id: 'co-1', name: 'Acme B.V.' })] })
+    await paste(w, 'https://boards.greenhouse.io/acme/jobs/1')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    const payload = vi.mocked(api.updateApplication).mock.calls[0][1]
+    expect(payload.sponsorCompanyId).toBe('co-1')
+  })
+
+  it('leaves the sponsor unlinked when the backfilled company is not in the register', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({ company: 'Ghost Ltd', source: 'jsonld' }))
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp())
+    const w = mountPanel(makeApp({ companyName: '', sponsorCompanyId: undefined, jobUrl: undefined }))
+    useCompaniesStore().$patch({ companies: [makeCompany({ id: 'co-1', name: 'Acme B.V.' })] })
+    await paste(w, 'https://example.com/job/1')
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    const payload = vi.mocked(api.updateApplication).mock.calls[0][1]
+    expect(payload.sponsorCompanyId).toBeUndefined()
   })
 })
 

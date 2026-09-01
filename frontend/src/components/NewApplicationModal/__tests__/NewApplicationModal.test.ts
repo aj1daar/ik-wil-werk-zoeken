@@ -245,6 +245,39 @@ describe('NewApplicationModal – parse job link', () => {
     expect(w.text()).toContain('Remote')
   })
 
+  it('links the IND sponsor when the parsed company is in the register', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
+      company: 'Acme B.V.', position: 'Engineer', source: 'jsonld',
+    }))
+    vi.mocked(api.createApplication).mockResolvedValue(makeCreatedApp())
+    const { w } = mountModalWithCompanies([makeCompany({ id: 'co-1', name: 'Acme B.V.' })])
+    await pasteLink(w, 'https://example.com/job/1')
+    expect(w.find('.context-ind-badge').exists()).toBe(true)
+    await w.find('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(api.createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ companyName: 'Acme B.V.', sponsorCompanyId: 'co-1' })
+    )
+  })
+
+  it('matches the register case-insensitively and ignoring surrounding space', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
+      company: '  acme b.v. ', source: 'jsonld',
+    }))
+    const { w } = mountModalWithCompanies([makeCompany({ id: 'co-1', name: 'Acme B.V.' })])
+    await pasteLink(w, 'https://example.com/job/1')
+    expect(w.find('.context-ind-badge').exists()).toBe(true)
+  })
+
+  it('leaves the sponsor unlinked when the parsed company is not in the register', async () => {
+    vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
+      company: 'Not A Sponsor Ltd', source: 'jsonld',
+    }))
+    const { w } = mountModalWithCompanies([makeCompany({ id: 'co-1', name: 'Acme B.V.' })])
+    await pasteLink(w, 'https://example.com/job/1')
+    expect(w.find('.context-ind-badge').exists()).toBe(false)
+  })
+
   it('does not touch locations the user already added', async () => {
     vi.mocked(api.parseJobLink).mockResolvedValue(parsed({
       company: 'Acme', locations: ['Rotterdam'], source: 'jsonld',
