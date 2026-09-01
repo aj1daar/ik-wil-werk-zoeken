@@ -68,12 +68,12 @@ describe('FunnelChart – bar segments', () => {
     expect(grows).toContain('5')
   })
 
-  it('renders all 8 segments when all statuses have counts', () => {
+  it('renders all 9 segments when all statuses have counts', () => {
     const w = mountChart({
       Applied: 10, InterviewScheduled: 4, Assessment: 2, OfferReceived: 2,
-      Accepted: 1, OnHold: 1, Rejected: 3, Withdrawn: 2,
+      Accepted: 1, OnHold: 1, Rejected: 3, Withdrawn: 2, Ghosted: 1,
     })
-    expect(w.findAll('.sb-seg')).toHaveLength(8)
+    expect(w.findAll('.sb-seg')).toHaveLength(9)
   })
 
   it('Assessment segment renders when count > 0', () => {
@@ -81,20 +81,30 @@ describe('FunnelChart – bar segments', () => {
     expect(w.findAll('.sb-seg')).toHaveLength(2)
     expect(w.find('.sb-total').text()).toContain('8')
   })
+
+  it('Ghosted segment renders grey and counts toward the total', () => {
+    const w = mountChart({ Applied: 5, Ghosted: 2 })
+    expect(w.findAll('.sb-seg')).toHaveLength(2)
+    expect(w.find('.sb-total').text()).toContain('7')
+    const ghostSeg = w.findAll('.sb-seg').find(
+      s => (s.element as HTMLElement).style.flexGrow === '2'
+    )
+    expect((ghostSeg!.element as HTMLElement).style.background).toBe('#71717A')
+  })
 })
 
 // ── legend ────────────────────────────────────────────────────────────────────
 
 describe('FunnelChart – legend', () => {
-  it('renders 8 legend rows always', () => {
+  it('renders 9 legend rows always', () => {
     const w = mountChart({ Applied: 10 })
-    expect(w.findAll('.sb-leg-row')).toHaveLength(8)
+    expect(w.findAll('.sb-leg-row')).toHaveLength(9)
   })
 
   it('zero-count rows have the dim class', () => {
     const w = mountChart({ Applied: 10 })
     const zeroRows = w.findAll('.sb-leg-row--zero')
-    expect(zeroRows.length).toBe(7)
+    expect(zeroRows.length).toBe(8)
   })
 
   it('non-zero rows do not have the dim class', () => {

@@ -806,4 +806,23 @@ describe('NewApplicationModal – duplicate detection', () => {
     await w.vm.$nextTick()
     expect(w.find('.dup-warning').exists()).toBe(false)
   })
+
+  it('does not show dup-warning for a Ghosted application', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.mocked(api.getCompanies).mockResolvedValue([])
+    const w = mount(NewApplicationModal, { global: { plugins: [pinia] } })
+
+    const { useApplicationsStore } = await import('../../../stores/applications')
+    useApplicationsStore().$patch({
+      applications: [{
+        id: 'ghosted-app', userId: 'u1', companyName: 'Acme', position: 'Dev',
+        appliedAt: '2026-01-01T00:00:00Z', status: 'Ghosted', locations: [], updatedAt: '2026-01-01T00:00:00Z',
+      }]
+    })
+
+    await w.find('#company-name').setValue('acme')
+    await w.vm.$nextTick()
+    expect(w.find('.dup-warning').exists()).toBe(false)
+  })
 })

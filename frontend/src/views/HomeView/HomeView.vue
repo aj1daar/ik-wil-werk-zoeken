@@ -11,7 +11,7 @@ const store = useApplicationsStore()
 const showBanner   = ref(false)
 const showOverdue  = ref(true)
 
-const TERMINAL = new Set(['Rejected', 'Withdrawn', 'Accepted'])
+const TERMINAL = new Set(['Rejected', 'Withdrawn', 'Accepted', 'Ghosted'])
 
 const overdueApps = computed(() => {
   const today = new Date().toISOString().slice(0, 10)

@@ -219,6 +219,7 @@ public sealed class DashboardFunctionTests
     [InlineData("Rejected")]
     [InlineData("Withdrawn")]
     [InlineData("Accepted")]
+    [InlineData("Ghosted")]
     public void ValidateStage_AllValidStatuses_ReturnsTrue(string status)
     {
         var s = ValidStage(); s.Status = status;

@@ -650,6 +650,7 @@ const activeDropdownCount = computed(() =>
 .chip-rejected    { background: #fee2e2; color: #991b1b; }
 .chip-withdrawn   { background: var(--col-raised); color: var(--col-muted); }
 .chip-accepted    { background: #bbf7d0; color: #14532d; }
+.chip-ghosted     { background: var(--col-raised); color: var(--col-subtle); }
 
 @media (max-width: 767px) {
   /* One column, natural tile height, page scrolls. */

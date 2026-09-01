@@ -421,7 +421,7 @@ public sealed class DashboardController : ApiControllerBase
     private static readonly string[] ValidStatuses =
     [
         "Applied", "InterviewScheduled", "Assessment", "OfferReceived",
-        "OnHold", "Rejected", "Withdrawn", "Accepted"
+        "OnHold", "Rejected", "Withdrawn", "Accepted", "Ghosted"
     ];
 
     private static readonly string[] ValidRejectionReasons =

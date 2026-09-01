@@ -8,7 +8,7 @@ import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 import DatePicker from '../DatePicker/DatePicker.vue'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
-const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted'])
+const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted', 'Ghosted'])
 
 const props = defineProps<{ prefillCompany?: string; prefillSponsorId?: string }>()
 const emit  = defineEmits<{ close: [] }>()

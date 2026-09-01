@@ -243,6 +243,7 @@ export type ApplicationStatus =
   | 'Rejected'
   | 'Withdrawn'
   | 'Accepted'
+  | 'Ghosted'
 
 export type RejectionReason =
   | 'dutch_language'

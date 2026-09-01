@@ -43,10 +43,10 @@ function makeStats(overrides: Partial<Stats> = {}): Stats {
 // ── exported constants ────────────────────────────────────────────────────────
 
 describe('STATUS_LABELS', () => {
-  it('covers all eight statuses', () => {
-    const expected = ['Applied','InterviewScheduled','Assessment','OfferReceived','OnHold','Rejected','Withdrawn','Accepted']
+  it('covers all nine statuses', () => {
+    const expected = ['Applied','InterviewScheduled','Assessment','OfferReceived','OnHold','Rejected','Withdrawn','Accepted','Ghosted']
     expect(Object.keys(STATUS_LABELS)).toEqual(expect.arrayContaining(expected))
-    expect(Object.keys(STATUS_LABELS)).toHaveLength(8)
+    expect(Object.keys(STATUS_LABELS)).toHaveLength(9)
   })
 
   it('has non-empty string for every status', () => {
@@ -54,17 +54,27 @@ describe('STATUS_LABELS', () => {
       expect(label.trim().length).toBeGreaterThan(0)
     }
   })
+
+  it('labels Ghosted as "Ghosted"', () => {
+    expect(STATUS_LABELS.Ghosted).toBe('Ghosted')
+  })
 })
 
 describe('STATUS_COLOR', () => {
-  it('covers all eight statuses', () => {
-    expect(Object.keys(STATUS_COLOR)).toHaveLength(8)
+  it('covers all nine statuses', () => {
+    expect(Object.keys(STATUS_COLOR)).toHaveLength(9)
   })
 
   it('every status has a chip CSS class name', () => {
     for (const cls of Object.values(STATUS_COLOR)) {
       expect(cls).toMatch(/^chip-/)
     }
+  })
+
+  it('colors Ghosted distinctly from every other status', () => {
+    const others = Object.entries(STATUS_COLOR).filter(([k]) => k !== 'Ghosted').map(([, v]) => v)
+    expect(STATUS_COLOR.Ghosted).toBe('chip-ghosted')
+    expect(others).not.toContain('chip-ghosted')
   })
 })
 
@@ -77,11 +87,12 @@ describe('REJECTION_REASON_LABELS', () => {
 })
 
 describe('ALL_STATUSES', () => {
-  it('is an array of all eight status keys', () => {
-    expect(ALL_STATUSES).toHaveLength(8)
+  it('is an array of all nine status keys', () => {
+    expect(ALL_STATUSES).toHaveLength(9)
     expect(ALL_STATUSES).toContain('Applied')
     expect(ALL_STATUSES).toContain('Accepted')
     expect(ALL_STATUSES).toContain('Rejected')
+    expect(ALL_STATUSES).toContain('Ghosted')
   })
 })
 

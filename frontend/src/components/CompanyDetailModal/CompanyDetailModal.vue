@@ -389,6 +389,7 @@ async function saveEdit() {
 .chip-rejected    { background: #fee2e2; color: #991b1b; }
 .chip-withdrawn   { background: var(--col-raised); color: var(--col-muted); }
 .chip-accepted    { background: #bbf7d0; color: #14532d; }
+.chip-ghosted     { background: var(--col-raised); color: var(--col-subtle); }
 
 .meta-chips { display: flex; flex-wrap: wrap; gap: .375rem; }
 .meta-chip {

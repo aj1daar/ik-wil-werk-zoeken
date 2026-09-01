@@ -381,6 +381,7 @@ textarea::placeholder { color: var(--col-subtle); }
   .chip-rejected    { background: #FEE2E2; color: #7F1D1D; border-color: #FCA5A5; }
   .chip-withdrawn   { background: #F3F4F6; color: #374151; border-color: #D1D5DB; }
   .chip-accepted    { background: #D1FAE5; color: #064E3B; border-color: #6EE7B7; }
+  .chip-ghosted     { background: #E4E4E7; color: #3F3F46; border-color: #D4D4D8; }
 
   /* Section card */
   .card {
@@ -480,6 +481,7 @@ input[type="password"]::-ms-clear { display: none; }
 :root[data-theme="dark"] .chip-rejected   { background: #3B0E0E; color: #FCA5A5; border-color: #7F1D1D; }
 :root[data-theme="dark"] .chip-withdrawn  { background: #2A2A2A; color: #9CA3AF; border-color: #4B5563; }
 :root[data-theme="dark"] .chip-accepted   { background: #0A2A1A; color: #34D399; border-color: #065F46; }
+:root[data-theme="dark"] .chip-ghosted    { background: #27272A; color: #A1A1AA; border-color: #52525B; }
 
 /* ── Session expiry warning banner ── */
 .session-expiry-banner {

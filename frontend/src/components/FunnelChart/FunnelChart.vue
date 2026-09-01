@@ -12,6 +12,7 @@ const STATUSES = [
   { key: 'OnHold',             label: 'On Hold',        color: '#FBBF24' },
   { key: 'Rejected',           label: 'Rejected',       color: '#F87171' },
   { key: 'Withdrawn',          label: 'Withdrawn',      color: '#9CA3AF' },
+  { key: 'Ghosted',            label: 'Ghosted',        color: '#71717A' },
 ] as const
 
 const total = computed(() =>

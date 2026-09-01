@@ -28,7 +28,7 @@ const NAV_LINKS = [
   { to: '/profile',      label: 'Profile' },
 ]
 
-const TERMINAL = new Set(['Rejected', 'Withdrawn', 'Accepted'])
+const TERMINAL = new Set(['Rejected', 'Withdrawn', 'Accepted', 'Ghosted'])
 const activeCount = () =>
   apps.applications.filter(a => !TERMINAL.has(a.status)).length
 </script>

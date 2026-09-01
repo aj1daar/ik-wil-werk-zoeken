@@ -16,6 +16,7 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   Rejected:            'Rejected',
   Withdrawn:           'Withdrawn',
   Accepted:            'Accepted',
+  Ghosted:             'Ghosted',
 }
 
 export const STATUS_COLOR: Record<ApplicationStatus, string> = {
@@ -27,6 +28,7 @@ export const STATUS_COLOR: Record<ApplicationStatus, string> = {
   Rejected:            'chip-rejected',
   Withdrawn:           'chip-withdrawn',
   Accepted:            'chip-accepted',
+  Ghosted:             'chip-ghosted',
 }
 
 export const REJECTION_REASON_LABELS: Record<string, string> = {

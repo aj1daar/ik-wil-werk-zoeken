@@ -78,7 +78,9 @@ builder.Services.AddScoped<UserStore>();
 builder.Services.AddScoped<StageStore>();
 builder.Services.AddScoped<SponsorStore>();
 builder.Services.AddScoped<CompanyListStore>();
+builder.Services.AddSingleton<GhostDetectionService>();
 builder.Services.AddHostedService<MonthlyIndSponsorSyncWorker>();
+builder.Services.AddHostedService<GhostDetectionWorker>();
 
 var app = builder.Build();
 
