@@ -150,6 +150,31 @@ public sealed class StageStoreTests : IDisposable
         Assert.Equal(1, await _db.Stages.CountAsync());
     }
 
+    [Fact]
+    public async Task UpsertAsync_MutatesTheCallersTrackedReferenceInPlace()
+    {
+        // Documents a real gotcha DashboardController.UpdateApplication hit: because
+        // GetAsync and UpsertAsync share the same DbContext, EF's identity map hands
+        // both callers the SAME tracked ApplicationStage instance. UpsertAsync's
+        // CurrentValues.SetValues therefore overwrites fields on whatever the caller
+        // is still holding — a caller that fetched "existing" via GetAsync and then
+        // diffs existing.Status against the new status AFTER calling UpsertAsync will
+        // always see them as equal, because existing was quietly rewritten too. Any
+        // before/after comparison has to capture the old value before calling Upsert.
+        _db.Stages.Add(MakeStage("user-1", "id-1"));
+        await _db.SaveChangesAsync();
+
+        var existing = await _store.GetAsync("user-1", "id-1");
+        var previousStatus = existing!.Status;
+
+        var updated = MakeStage("user-1", "id-1");
+        updated.Status = "InterviewScheduled";
+        await _store.UpsertAsync(updated);
+
+        Assert.Equal("Applied", previousStatus);           // captured before the upsert — still correct
+        Assert.Equal("InterviewScheduled", existing.Status); // same reference — silently mutated
+    }
+
     // ── DeleteAsync ───────────────────────────────────────────────────────────
 
     [Fact]

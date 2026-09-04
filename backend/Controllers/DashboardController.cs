@@ -177,6 +177,11 @@ public sealed class DashboardController : ApiControllerBase
 
         var existing = await _stages.GetAsync(userId, id);
         if (existing is null) return Error(404, "Not found");
+        // StageStore.UpsertAsync mutates this same tracked instance in place (EF's
+        // identity map hands back the identical object for both queries on this
+        // DbContext), so its Status has to be captured now — comparing existing.Status
+        // after the upsert would always read the *new* value and never write history.
+        var previousStatus = existing.Status;
 
         ApplicationStage? item;
         try { item = JsonSerializer.Deserialize(bodyElement, AppJsonSerializerContext.Default.ApplicationStage); }
@@ -214,7 +219,7 @@ public sealed class DashboardController : ApiControllerBase
         var logs = BuildActivityLogs(existing, updated, userId);
         await _stages.UpsertAsync(updated);
 
-        if (existing.Status != updated.Status && statusDate.HasValue)
+        if (previousStatus != updated.Status && statusDate.HasValue)
         {
             _db.StatusHistories.Add(new StatusHistory
             {
@@ -226,7 +231,7 @@ public sealed class DashboardController : ApiControllerBase
         }
 
         if (logs.Count > 0) _db.ActivityLogs.AddRange(logs);
-        if (logs.Count > 0 || existing.Status != updated.Status) await _db.SaveChangesAsync();
+        if (logs.Count > 0 || previousStatus != updated.Status) await _db.SaveChangesAsync();
 
         await WithLiveSponsorLink([updated]);
         return Ok(updated);
