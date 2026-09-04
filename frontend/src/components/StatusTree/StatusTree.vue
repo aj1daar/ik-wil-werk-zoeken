@@ -97,22 +97,28 @@ const edgePaths = computed(() => {
     // would otherwise draw a straight vertical curve through whatever node
     // sits at the skipped rank — its count badge then reads as if it belongs
     // to that node instead of to the real endpoints. Bow the curve sideways
-    // so it routes around it, fanning further out each time so several
-    // skip-edges from the same source don't stack on each other.
+    // so it routes around it.
     //
-    // Putting both control points at the same midY (the first attempt at
-    // this) isn't enough: a cubic bezier's tangent near t=0 points at
-    // control point 1, but position barely moves toward it for small t, so
-    // the curve stays close to the source's x for a while — precisely
-    // where an immediately-adjacent rank's node sits. Control points close
-    // to each endpoint (not the midpoint) make the curve bow out right
-    // after leaving the source and stay out until just before the target.
+    // Putting both control points at the same midY (attempt #1) isn't
+    // enough: a cubic bezier's tangent near t=0 points at control point 1,
+    // but position barely moves toward it for small t, so the curve stays
+    // close to the source's x right where an immediately-adjacent rank's
+    // node sits. Control points close to each endpoint fixed that — but a
+    // single-column rank (the common case: one status per rank) is
+    // horizontally centered same as every other single-column rank above
+    // and below it, so source, target, and the node being routed around can
+    // land on the exact same x (attempt #2's bug). A modest fixed bow isn't
+    // enough there: at the skipped rank's y, the curve is still a weighted
+    // blend pulled back toward that shared x. Always bow by the full
+    // geometrically-safe amount (maxBow, already sized to clear a node's
+    // half-width) rather than a small fraction of it — alternating side per
+    // skip-edge is enough separation; the magnitude has to be maxed to
+    // actually clear in the colinear case.
     const rankGap = STATUS_META[e.to].rank - STATUS_META[e.from].rank
     let bow = 0
     if (rankGap > 1) {
       const maxBow = Math.max(0, svgWidth.value / 2 - NODE_W / 2 - PAD_X)
-      const raw = 100 + Math.floor(skipIndex / 2) * 60
-      bow = (skipIndex % 2 === 0 ? 1 : -1) * Math.min(raw, maxBow)
+      bow = (skipIndex % 2 === 0 ? 1 : -1) * maxBow
       skipIndex++
     }
     const c1x = from.x + bow
