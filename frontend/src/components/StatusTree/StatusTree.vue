@@ -53,13 +53,27 @@ const ranks = computed(() => {
 
 const maxCols = computed(() => Math.max(1, ...ranks.value.map(([, ss]) => ss.length)))
 const svgWidth  = computed(() => maxCols.value * COL_W + PAD_X * 2)
-const svgHeight = computed(() => ranks.value.length * ROW_H + PAD_Y * 2)
+// Height has to be measured off the same thing the nodes are positioned by.
+// Rows are the *present* ranks compacted (a status keeps its rank order, but
+// an absent rank doesn't leave a blank row) — so the last row's bottom edge
+// is (rows - 1) pitches down plus one node, not a full pitch per row.
+const svgHeight = computed(() => (ranks.value.length - 1) * ROW_H + NODE_H + PAD_Y * 2)
 
 interface Positioned { status: ApplicationStatus; x: number; y: number; total: number; current: number }
 
+// Rank -> row index. Positioning by raw rank would leave a blank row wherever
+// a rank has no statuses (e.g. nothing ever reached Assessment or Offer
+// Received) and, worse, push the bottom row past the canvas height, clipping
+// those nodes in half. Compacting keeps the two in agreement.
+const rowOfStatus = computed(() => {
+  const out = new Map<ApplicationStatus, number>()
+  ranks.value.forEach(([, statuses], row) => statuses.forEach(s => out.set(s, row)))
+  return out
+})
+
 const positions = computed(() => {
   const out = new Map<ApplicationStatus, Positioned>()
-  for (const [rank, statuses] of ranks.value) {
+  ranks.value.forEach(([, statuses], row) => {
     const rowW = statuses.length * COL_W
     const startX = (svgWidth.value - rowW) / 2 + COL_W / 2
     statuses.forEach((status, i) => {
@@ -67,12 +81,12 @@ const positions = computed(() => {
       out.set(status, {
         status,
         x: startX + i * COL_W,
-        y: PAD_Y + rank * ROW_H + NODE_H / 2,
+        y: PAD_Y + row * ROW_H + NODE_H / 2,
         total: info.total,
         current: info.current,
       })
     })
-  }
+  })
   return out
 })
 
@@ -114,9 +128,9 @@ const edgePaths = computed(() => {
     // half-width) rather than a small fraction of it — alternating side per
     // skip-edge is enough separation; the magnitude has to be maxed to
     // actually clear in the colinear case.
-    const rankGap = STATUS_META[e.to].rank - STATUS_META[e.from].rank
+    const rowGap = (rowOfStatus.value.get(e.to) ?? 0) - (rowOfStatus.value.get(e.from) ?? 0)
     let bow = 0
-    if (rankGap > 1) {
+    if (rowGap > 1) {
       const maxBow = Math.max(0, svgWidth.value / 2 - NODE_W / 2 - PAD_X)
       bow = (skipIndex % 2 === 0 ? 1 : -1) * maxBow
       skipIndex++
