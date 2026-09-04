@@ -28,8 +28,12 @@ const COL_W = 168
 const ROW_H = 132
 const NODE_W = 148
 const NODE_H = 62
-const PAD_X = 24
+// Side padding doubles as the routing lane an edge uses when every gap
+// between nodes in a crossed row is taken.
+const PAD_X = 44
 const PAD_Y = 20
+// Gap kept between an edge and any node box it routes past.
+const EDGE_CLEARANCE = 14
 
 const nodesByStatus = computed(() => {
   const map = new Map<ApplicationStatus, { total: number; current: number }>()
@@ -96,59 +100,125 @@ const maxEdgeCount = computed(() =>
   Math.max(1, ...(props.flow?.edges ?? []).map(e => e.count))
 )
 
+interface Point { x: number; y: number }
+
+const nodesByRow = computed(() =>
+  ranks.value.map(([, statuses]) => statuses.map(s => positions.value.get(s)!))
+)
+
+// Horizontal stretches of a row that no node box occupies, with clearance so
+// an edge threading one doesn't graze a box corner.
+function freeChannels(centers: number[]): [number, number][] {
+  const blocked = centers
+    .map(x => [x - NODE_W / 2 - EDGE_CLEARANCE, x + NODE_W / 2 + EDGE_CLEARANCE] as [number, number])
+    .sort((a, b) => a[0] - b[0])
+
+  const channels: [number, number][] = []
+  let cursor = EDGE_CLEARANCE
+  for (const [lo, hi] of blocked) {
+    if (lo - cursor > 2) channels.push([cursor, lo])
+    cursor = Math.max(cursor, hi)
+  }
+  const right = svgWidth.value - EDGE_CLEARANCE
+  if (right - cursor > 2) channels.push([cursor, right])
+  return channels
+}
+
+// The x in a free channel closest to where the edge "wants" to be, so it
+// hugs the node it routes past instead of swinging out to the canvas edge.
+function nearestFreeX(channels: [number, number][], ideal: number): number | null {
+  let best: number | null = null
+  let bestDist = Infinity
+  for (const [lo, hi] of channels) {
+    const x = Math.min(Math.max(ideal, lo), hi)
+    const dist = Math.abs(x - ideal)
+    if (dist < bestDist) { bestDist = dist; best = x }
+  }
+  return best
+}
+
+// Catmull-Rom through the waypoints, converted to cubic beziers. The phantom
+// end points give the curve vertical tangents where it meets a node, so it
+// leaves the parent heading down and enters the child heading down.
+function smoothPath(points: Point[]): string {
+  if (points.length === 2) {
+    const [p0, p1] = points
+    const midY = (p0.y + p1.y) / 2
+    return `M ${p0.x} ${p0.y} C ${p0.x} ${midY}, ${p1.x} ${midY}, ${p1.x} ${p1.y}`
+  }
+  const first = points[0]
+  const last  = points[points.length - 1]
+  const pts: Point[] = [
+    { x: first.x, y: first.y - ROW_H * 0.5 },
+    ...points,
+    { x: last.x,  y: last.y  + ROW_H * 0.5 },
+  ]
+  let d = `M ${first.x} ${first.y}`
+  for (let i = 1; i < pts.length - 2; i++) {
+    const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2]
+    const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6
+    const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`
+  }
+  return d
+}
+
+// Halfway along the route — where the count badge sits, so it reads as
+// belonging to this edge rather than to whatever node it passes.
+function midpointOf(points: Point[]): Point {
+  const segments = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y))
+  let remaining = segments.reduce((a, b) => a + b, 0) / 2
+  for (let i = 0; i < segments.length; i++) {
+    if (remaining <= segments[i]) {
+      const f = segments[i] === 0 ? 0 : remaining / segments[i]
+      return {
+        x: points[i].x + (points[i + 1].x - points[i].x) * f,
+        y: points[i].y + (points[i + 1].y - points[i].y) * f,
+      }
+    }
+    remaining -= segments[i]
+  }
+  return points[points.length - 1]
+}
+
 const edgePaths = computed(() => {
   const list: { from: ApplicationStatus; to: ApplicationStatus; count: number; d: string; strokeWidth: number; color: string; mx: number; my: number }[] = []
-  let skipIndex = 0
   for (const e of props.flow?.edges ?? []) {
     const from = positions.value.get(e.from)
     const to   = positions.value.get(e.to)
     if (!from || !to) continue
-    const sy = from.y + NODE_H / 2
-    const ty = to.y - NODE_H / 2
-    const midY = (sy + ty) / 2
 
-    // An edge spanning more than one rank (e.g. Applied straight to Rejected)
-    // would otherwise draw a straight vertical curve through whatever node
-    // sits at the skipped rank — its count badge then reads as if it belongs
-    // to that node instead of to the real endpoints. Bow the curve sideways
-    // so it routes around it.
-    //
-    // Putting both control points at the same midY (attempt #1) isn't
-    // enough: a cubic bezier's tangent near t=0 points at control point 1,
-    // but position barely moves toward it for small t, so the curve stays
-    // close to the source's x right where an immediately-adjacent rank's
-    // node sits. Control points close to each endpoint fixed that — but a
-    // single-column rank (the common case: one status per rank) is
-    // horizontally centered same as every other single-column rank above
-    // and below it, so source, target, and the node being routed around can
-    // land on the exact same x (attempt #2's bug). A modest fixed bow isn't
-    // enough there: at the skipped rank's y, the curve is still a weighted
-    // blend pulled back toward that shared x. Always bow by the full
-    // geometrically-safe amount (maxBow, already sized to clear a node's
-    // half-width) rather than a small fraction of it — alternating side per
-    // skip-edge is enough separation; the magnitude has to be maxed to
-    // actually clear in the colinear case.
-    const rowGap = (rowOfStatus.value.get(e.to) ?? 0) - (rowOfStatus.value.get(e.from) ?? 0)
-    let bow = 0
-    if (rowGap > 1) {
-      const maxBow = Math.max(0, svgWidth.value / 2 - NODE_W / 2 - PAD_X)
-      bow = (skipIndex % 2 === 0 ? 1 : -1) * maxBow
-      skipIndex++
+    const fromRow = rowOfStatus.value.get(e.from) ?? 0
+    const toRow   = rowOfStatus.value.get(e.to) ?? 0
+    const start: Point = { x: from.x, y: from.y + NODE_H / 2 }
+    const end:   Point = { x: to.x,   y: to.y   - NODE_H / 2 }
+
+    // An edge spanning more than one row (e.g. Applied straight to Rejected)
+    // crosses rows that have their own nodes. Drawn as a plain curve it runs
+    // under one of them and its count badge then reads as if it belonged to
+    // that node. Instead, pin a waypoint in each crossed row: the free gap
+    // nearest to where the edge would naturally pass.
+    const waypoints: Point[] = []
+    for (let row = Math.min(fromRow, toRow) + 1; row < Math.max(fromRow, toRow); row++) {
+      const rowY = PAD_Y + row * ROW_H + NODE_H / 2
+      const span = to.y - from.y
+      const ideal = span === 0 ? from.x : from.x + (to.x - from.x) * ((rowY - from.y) / span)
+      const x = nearestFreeX(freeChannels(nodesByRow.value[row].map(n => n.x)), ideal)
+      if (x !== null) waypoints.push({ x, y: rowY })
     }
-    const c1x = from.x + bow
-    const c2x = to.x + bow
-    const c1y = sy + (ty - sy) * 0.15
-    const c2y = ty - (ty - sy) * 0.15
+
+    const route = [start, ...waypoints, end]
+    const badge = midpointOf(route)
 
     list.push({
       from: e.from,
       to: e.to,
       count: e.count,
-      d: `M ${from.x} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${to.x} ${ty}`,
+      d: smoothPath(route),
       strokeWidth: 1.5 + (e.count / maxEdgeCount.value) * 7,
       color: STATUS_META[e.from].color,
-      mx: (c1x + c2x) / 2,
-      my: midY,
+      mx: badge.x,
+      my: badge.y,
     })
   }
   return list
