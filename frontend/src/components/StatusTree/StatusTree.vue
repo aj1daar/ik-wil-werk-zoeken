@@ -6,11 +6,12 @@ const props = defineProps<{ flow: StatusFlow | null }>()
 
 interface StatusMeta { label: string; color: string; rank: number }
 
-// Rank fixes each status to a column so the tree reads top-to-bottom even
-// though real transitions can skip columns (e.g. Applied straight to
-// Rejected) or run sideways (Interviewing to Assessment). Order here also
-// fixes left-to-right position within a rank and is never re-sorted by count,
-// so a status keeps the same seat as the underlying counts change.
+// Rank fixes which row a status lands in, so the tree reads top-to-bottom
+// even though real transitions can skip rows (e.g. Applied straight to
+// Rejected) or run sideways (Interviewing to Assessment). Left-to-right
+// position within a row is not fixed here — see orderedRows, which picks the
+// column order that draws best for the data at hand and falls back to this
+// declaration order to break ties.
 const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
   Applied:             { label: 'Applied',        color: '#60A5FA', rank: 0 },
   InterviewScheduled:  { label: 'Interviewing',   color: '#A78BFA', rank: 1 },
@@ -65,21 +66,104 @@ const svgHeight = computed(() => (ranks.value.length - 1) * ROW_H + NODE_H + PAD
 
 interface Positioned { status: ApplicationStatus; x: number; y: number; total: number; current: number }
 
+function rowStartX(count: number) {
+  return (svgWidth.value - count * COL_W) / 2 + COL_W / 2
+}
+
+// What a given column order costs to draw: how far the flow travels sideways,
+// plus how far each edge gets shoved off its natural line to get around a node
+// standing in a row it crosses. Both terms are weighted by the edge's count, so
+// the fattest flows get the straightest runs.
+//
+// The detour term has to be a distance, not a yes/no. A diagonal one column
+// over still passes within clearance of a centred node above it, so a boolean
+// "is it blocked" scores every arrangement the same and nothing ever gets
+// reordered — even though being nudged 4px aside is nothing like being shoved
+// a whole half-node-width around a head-on collision.
+const DETOUR_PENALTY = 3
+
+function layoutCost(rows: ApplicationStatus[][]): number {
+  const at = new Map<ApplicationStatus, { row: number; x: number }>()
+  rows.forEach((statuses, row) => {
+    const startX = rowStartX(statuses.length)
+    statuses.forEach((s, i) => at.set(s, { row, x: startX + i * COL_W }))
+  })
+
+  let cost = 0
+  for (const e of props.flow?.edges ?? []) {
+    const a = at.get(e.from)
+    const b = at.get(e.to)
+    if (!a || !b) continue
+    cost += e.count * Math.abs(b.x - a.x) / COL_W
+    for (let row = Math.min(a.row, b.row) + 1; row < Math.max(a.row, b.row); row++) {
+      const ideal = a.x + (b.x - a.x) * ((row - a.row) / (b.row - a.row))
+      const routed = nearestFreeX(freeChannels(rows[row].map(s => at.get(s)!.x)), ideal)
+      if (routed === null) continue
+      cost += e.count * (Math.abs(routed - ideal) / COL_W) * DETOUR_PENALTY
+    }
+  }
+  return cost
+}
+
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items]
+  const out: T[][] = []
+  items.forEach((item, i) => {
+    for (const rest of permutations([...items.slice(0, i), ...items.slice(i + 1)])) {
+      out.push([item, ...rest])
+    }
+  })
+  return out
+}
+
+// Which column a status takes inside its row is decided per dataset, not by
+// STATUS_META's declaration order — that order only breaks ties. Swapping two
+// terminal statuses often lets a fat edge run straight down instead of
+// weaving around the node above it (e.g. putting On Hold under Interviewing
+// so Applied -> Rejected gets a clean diagonal). Rows hold a handful of
+// statuses at most, so every permutation is tried and one is adopted only if
+// it strictly beats the current arrangement — a layout that is already
+// optimal, or where reordering would just move the problem, is left alone.
+const orderedRows = computed(() => {
+  const rows = ranks.value.map(([, statuses]) => [...statuses])
+  let best = layoutCost(rows)
+
+  for (let sweep = 0; sweep < 3; sweep++) {
+    let improved = false
+    for (let row = 0; row < rows.length; row++) {
+      if (rows[row].length < 2 || rows[row].length > 6) continue
+      const candidates = permutations(rows[row])
+      let bestOrder = rows[row]
+      for (const candidate of candidates) {
+        rows[row] = candidate
+        const cost = layoutCost(rows)
+        if (cost < best - 1e-9) {
+          best = cost
+          bestOrder = candidate
+          improved = true
+        }
+      }
+      rows[row] = bestOrder
+    }
+    if (!improved) break
+  }
+  return rows
+})
+
 // Rank -> row index. Positioning by raw rank would leave a blank row wherever
 // a rank has no statuses (e.g. nothing ever reached Assessment or Offer
 // Received) and, worse, push the bottom row past the canvas height, clipping
 // those nodes in half. Compacting keeps the two in agreement.
 const rowOfStatus = computed(() => {
   const out = new Map<ApplicationStatus, number>()
-  ranks.value.forEach(([, statuses], row) => statuses.forEach(s => out.set(s, row)))
+  orderedRows.value.forEach((statuses, row) => statuses.forEach(s => out.set(s, row)))
   return out
 })
 
 const positions = computed(() => {
   const out = new Map<ApplicationStatus, Positioned>()
-  ranks.value.forEach(([, statuses], row) => {
-    const rowW = statuses.length * COL_W
-    const startX = (svgWidth.value - rowW) / 2 + COL_W / 2
+  orderedRows.value.forEach((statuses, row) => {
+    const startX = rowStartX(statuses.length)
     statuses.forEach((status, i) => {
       const info = nodesByStatus.value.get(status)!
       out.set(status, {
@@ -107,7 +191,8 @@ const nodesByRow = computed(() =>
 )
 
 // Horizontal stretches of a row that no node box occupies, with clearance so
-// an edge threading one doesn't graze a box corner.
+// an edge threading one doesn't graze a box corner. Takes bare x-centres so
+// the column-ordering search can score hypothetical rows with it too.
 function freeChannels(centers: number[]): [number, number][] {
   const blocked = centers
     .map(x => [x - NODE_W / 2 - EDGE_CLEARANCE, x + NODE_W / 2 + EDGE_CLEARANCE] as [number, number])
