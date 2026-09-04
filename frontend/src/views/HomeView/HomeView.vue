@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useApplicationsStore } from '../../stores/applications'
-import FunnelChart from '../../components/FunnelChart/FunnelChart.vue'
+import StatusTree from '../../components/StatusTree/StatusTree.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
 import DatePicker from '../../components/DatePicker/DatePicker.vue'
@@ -75,16 +75,16 @@ const fromTo = computed<{ from?: string; to?: string }>(() => {
   return {}
 })
 
-async function fetchStats() {
-  await store.loadStats(fromTo.value.from, fromTo.value.to)
+async function fetchStatusFlow() {
+  await store.loadStatusFlow(fromTo.value.from, fromTo.value.to)
 }
 
 onMounted(() => {
   showBanner.value = !window.localStorage?.getItem('iwwz_onboarded')
   store.load()
-  return fetchStats()
+  return fetchStatusFlow()
 })
-watch(fromTo, fetchStats)
+watch(fromTo, fetchStatusFlow)
 
 
 </script>
@@ -129,11 +129,11 @@ watch(fromTo, fetchStats)
       </div>
     </div>
 
-    <div v-if="store.statsLoading && !store.stats" class="state-msg">Loading…</div>
+    <div v-if="store.statusFlowLoading && !store.statusFlow" class="state-msg">Loading…</div>
 
-    <div v-else-if="store.statsError" class="state-msg state-msg--error" role="alert">{{ store.statsError }}</div>
+    <div v-else-if="store.statusFlowError" class="state-msg state-msg--error" role="alert">{{ store.statusFlowError }}</div>
 
-    <div v-else-if="store.stats" :class="['content-area', { 'content-area--updating': store.statsLoading }]">
+    <div v-else-if="store.statusFlow" :class="['content-area', { 'content-area--updating': store.statusFlowLoading }]">
       <div v-if="overdueApps.length > 0" class="overdue-card">
         <button class="overdue-header" @click="showOverdue = !showOverdue" :aria-expanded="showOverdue">
           <span class="overdue-title">
@@ -156,7 +156,7 @@ watch(fromTo, fetchStats)
         </ul>
       </div>
 
-      <FunnelChart :by-status="store.stats.byStatus" class="funnel-section" />
+      <StatusTree :flow="store.statusFlow" class="funnel-section" />
 
       <div class="charts-row">
         <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />

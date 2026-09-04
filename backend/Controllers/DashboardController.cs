@@ -95,20 +95,98 @@ public sealed class DashboardController : ApiControllerBase
     {
         if (CheckAuth(out var userId) is { } err) return err;
 
-        DateTimeOffset? fromDate = DateTimeOffset.TryParse(from, out var f) ? f : null;
-        DateTimeOffset? toDate   = DateTimeOffset.TryParse(to,   out var t) ? t : null;
-
-        var all = await _stages.GetByUserIdAsync(userId);
-        var filtered = all
-            .Where(s => fromDate == null || s.AppliedAt >= fromDate.Value)
-            .Where(s => toDate   == null || s.AppliedAt <= toDate.Value)
-            .ToList();
+        var filtered = await GetFilteredStagesAsync(userId, from, to);
 
         return Ok(new StatsResponse
         {
             Total    = filtered.Count,
             ByStatus = filtered.GroupBy(s => s.Status).ToDictionary(g => g.Key, g => g.Count())
         });
+    }
+
+    // Real branch/transition data for the status tree: for each application in
+    // range, walk its StatusHistory in chronological order (StatusDate, then
+    // CreatedAt to break same-day ties) and turn consecutive status changes
+    // into edges. Node "total" is how many apps ever passed through a status;
+    // "current" is how many are sitting there right now (path's last stop).
+    [HttpGet("status-flow")]
+    public async Task<IActionResult> GetStatusFlow([FromQuery] string? from, [FromQuery] string? to)
+    {
+        if (CheckAuth(out var userId) is { } err) return err;
+
+        var filtered = await GetFilteredStagesAsync(userId, from, to);
+        if (filtered.Count == 0) return Ok(new StatusFlowResponse());
+
+        var idsInRange = filtered.Select(s => s.Id).ToHashSet();
+        var statusById = filtered.ToDictionary(s => s.Id, s => s.Status);
+
+        var history = await _db.StatusHistories
+            .Where(h => h.UserId == userId && idsInRange.Contains(h.ApplicationId))
+            .OrderBy(h => h.ApplicationId)
+            .ThenBy(h => h.StatusDate)
+            .ThenBy(h => h.CreatedAt)
+            .ToListAsync();
+
+        return Ok(BuildStatusFlow(history, statusById));
+    }
+
+    // Pure aggregation: chronological history (already ordered per-app by
+    // StatusDate then CreatedAt, so same-day changes land in the order they
+    // actually happened) becomes a per-app path of distinct consecutive
+    // statuses, which is then folded into node totals/currents and edge
+    // counts. Exposed as internal so it can be unit tested without a DB.
+    internal static StatusFlowResponse BuildStatusFlow(
+        IEnumerable<StatusHistory> historyInRange,
+        IReadOnlyDictionary<string, string> currentStatusById)
+    {
+        var totals   = new Dictionary<string, int>();
+        var currents = new Dictionary<string, int>();
+        var edges    = new Dictionary<(string From, string To), int>();
+
+        void Bump(Dictionary<string, int> d, string key) => d[key] = d.GetValueOrDefault(key) + 1;
+
+        foreach (var group in historyInRange.GroupBy(h => h.ApplicationId))
+        {
+            var path = new List<string>();
+            foreach (var h in group)
+                if (path.Count == 0 || path[^1] != h.Status) path.Add(h.Status);
+
+            // Guard against a stage whose Status never got a matching history row.
+            if (currentStatusById.TryGetValue(group.Key, out var currentStatus) &&
+                (path.Count == 0 || path[^1] != currentStatus))
+                path.Add(currentStatus);
+
+            if (path.Count == 0) continue;
+
+            foreach (var status in path.Distinct()) Bump(totals, status);
+            Bump(currents, path[^1]);
+            for (var i = 0; i < path.Count - 1; i++)
+            {
+                var key = (path[i], path[i + 1]);
+                edges[key] = edges.GetValueOrDefault(key) + 1;
+            }
+        }
+
+        var nodes = totals.Keys
+            .Select(s => new StatusFlowNode { Status = s, Total = totals[s], Current = currents.GetValueOrDefault(s) })
+            .ToArray();
+        var edgeArray = edges
+            .Select(kv => new StatusFlowEdge { From = kv.Key.From, To = kv.Key.To, Count = kv.Value })
+            .ToArray();
+
+        return new StatusFlowResponse { Nodes = nodes, Edges = edgeArray };
+    }
+
+    private async Task<List<ApplicationStage>> GetFilteredStagesAsync(string userId, string? from, string? to)
+    {
+        DateTimeOffset? fromDate = DateTimeOffset.TryParse(from, out var f) ? f : null;
+        DateTimeOffset? toDate   = DateTimeOffset.TryParse(to,   out var t) ? t : null;
+
+        var all = await _stages.GetByUserIdAsync(userId);
+        return all
+            .Where(s => fromDate == null || s.AppliedAt >= fromDate.Value)
+            .Where(s => toDate   == null || s.AppliedAt <= toDate.Value)
+            .ToList();
     }
 
     [HttpGet("applications")]

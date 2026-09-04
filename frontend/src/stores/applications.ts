@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { api, type Application, type ApplicationStatus, type Stats } from '../api'
+import { api, type Application, type ApplicationStatus, type Stats, type StatusFlow } from '../api'
 
 export interface HistoryChanges {
   toDelete: string[]
@@ -48,10 +48,13 @@ export const useApplicationsStore = defineStore('applications', {
   state: () => ({
     applications: [] as Application[],
     stats: null as Stats | null,
+    statusFlow: null as StatusFlow | null,
     loading: false,
     statsLoading: false,
+    statusFlowLoading: false,
     error: null as string | null,
     statsError: null as string | null,
+    statusFlowError: null as string | null,
     savingIds: [] as string[],
     toastError: null as string | null,
   }),
@@ -87,6 +90,18 @@ export const useApplicationsStore = defineStore('applications', {
         this.statsError = 'Could not load stats. Please try again.'
       } finally {
         this.statsLoading = false
+      }
+    },
+
+    async loadStatusFlow(from?: string, to?: string) {
+      this.statusFlowLoading = true
+      this.statusFlowError = null
+      try {
+        this.statusFlow = await api.getStatusFlow(from, to)
+      } catch {
+        this.statusFlowError = 'Could not load status flow. Please try again.'
+      } finally {
+        this.statusFlowLoading = false
       }
     },
 

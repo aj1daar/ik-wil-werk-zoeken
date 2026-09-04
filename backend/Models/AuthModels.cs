@@ -96,6 +96,28 @@ public sealed class StatsResponse
     [JsonPropertyName("byStatus")] public Dictionary<string, int> ByStatus { get; set; } = new();
 }
 
+public sealed class StatusFlowNode
+{
+    [JsonPropertyName("status")]  public string Status { get; set; } = string.Empty;
+    // How many applications ever passed through this status.
+    [JsonPropertyName("total")]   public int Total { get; set; }
+    // How many applications are currently sitting at this status (their latest entry).
+    [JsonPropertyName("current")] public int Current { get; set; }
+}
+
+public sealed class StatusFlowEdge
+{
+    [JsonPropertyName("from")]  public string From { get; set; } = string.Empty;
+    [JsonPropertyName("to")]    public string To { get; set; } = string.Empty;
+    [JsonPropertyName("count")] public int Count { get; set; }
+}
+
+public sealed class StatusFlowResponse
+{
+    [JsonPropertyName("nodes")] public StatusFlowNode[] Nodes { get; set; } = [];
+    [JsonPropertyName("edges")] public StatusFlowEdge[] Edges { get; set; } = [];
+}
+
 public sealed class PromoteRequest
 {
     [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
