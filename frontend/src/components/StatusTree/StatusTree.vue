@@ -96,25 +96,35 @@ const edgePaths = computed(() => {
     // An edge spanning more than one rank (e.g. Applied straight to Rejected)
     // would otherwise draw a straight vertical curve through whatever node
     // sits at the skipped rank — its count badge then reads as if it belongs
-    // to that node instead of to the real endpoints. Bow the control points
-    // sideways so the curve routes around it, fanning further out each time
-    // so several skip-edges from the same source don't stack on each other.
+    // to that node instead of to the real endpoints. Bow the curve sideways
+    // so it routes around it, fanning further out each time so several
+    // skip-edges from the same source don't stack on each other.
+    //
+    // Putting both control points at the same midY (the first attempt at
+    // this) isn't enough: a cubic bezier's tangent near t=0 points at
+    // control point 1, but position barely moves toward it for small t, so
+    // the curve stays close to the source's x for a while — precisely
+    // where an immediately-adjacent rank's node sits. Control points close
+    // to each endpoint (not the midpoint) make the curve bow out right
+    // after leaving the source and stay out until just before the target.
     const rankGap = STATUS_META[e.to].rank - STATUS_META[e.from].rank
     let bow = 0
     if (rankGap > 1) {
       const maxBow = Math.max(0, svgWidth.value / 2 - NODE_W / 2 - PAD_X)
-      const raw = 70 + Math.floor(skipIndex / 2) * 50
+      const raw = 100 + Math.floor(skipIndex / 2) * 60
       bow = (skipIndex % 2 === 0 ? 1 : -1) * Math.min(raw, maxBow)
       skipIndex++
     }
     const c1x = from.x + bow
     const c2x = to.x + bow
+    const c1y = sy + (ty - sy) * 0.15
+    const c2y = ty - (ty - sy) * 0.15
 
     list.push({
       from: e.from,
       to: e.to,
       count: e.count,
-      d: `M ${from.x} ${sy} C ${c1x} ${midY}, ${c2x} ${midY}, ${to.x} ${ty}`,
+      d: `M ${from.x} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${to.x} ${ty}`,
       strokeWidth: 1.5 + (e.count / maxEdgeCount.value) * 7,
       color: STATUS_META[e.from].color,
       mx: (c1x + c2x) / 2,
