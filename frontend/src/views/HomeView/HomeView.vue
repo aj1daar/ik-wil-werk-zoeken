@@ -156,11 +156,13 @@ watch(fromTo, fetchStatusFlow)
         </ul>
       </div>
 
-      <StatusTree :flow="store.statusFlow" class="funnel-section" />
+      <div class="journey-layout">
+        <StatusTree :flow="store.statusFlow" class="funnel-section" />
 
-      <div class="charts-row">
-        <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
-        <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
+        <div class="charts-col">
+          <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
+          <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
+        </div>
       </div>
     </div>
   </div>
@@ -231,14 +233,34 @@ watch(fromTo, fetchStatusFlow)
 
 .funnel-section { margin-bottom: 1.5rem; }
 
-.charts-row {
+.journey-layout { display: flex; flex-direction: column; }
+
+.charts-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 @media (max-width: 600px) {
-  .charts-row { grid-template-columns: 1fr; }
+  .charts-col { grid-template-columns: 1fr; }
+}
+
+/* Desktop: tree on the right, rejection + over-time stacked on the left —
+   keeps the dashboard from growing taller as charts are added. */
+@media (min-width: 900px) {
+  .page { max-width: 1180px; }
+  .journey-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 380px) 1fr;
+    align-items: start;
+    gap: 1rem;
+  }
+  .funnel-section { order: 2; margin-bottom: 0; }
+  .charts-col {
+    order: 1;
+    grid-template-columns: 1fr;
+    margin-bottom: 0;
+  }
 }
 
 .overdue-card {
