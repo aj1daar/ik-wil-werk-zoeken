@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useApplicationsStore } from '../../stores/applications'
 import StatusTree from '../../components/StatusTree/StatusTree.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
@@ -86,7 +86,53 @@ onMounted(() => {
 })
 watch(fromTo, fetchStatusFlow)
 
+// Desktop only: cap the journey tree's height to whatever the rejection +
+// over-time column measures, so a growing tree scrolls instead of pushing
+// the page taller than its neighbor column.
+const chartsColRef     = ref<HTMLElement | null>(null)
+const journeyMaxHeight = ref<number | null>(null)
+const isDesktop        = ref(false)
+let chartsResizeObserver: ResizeObserver | null = null
+let desktopMediaQuery: MediaQueryList | null = null
 
+function updateJourneyHeight() {
+  journeyMaxHeight.value = isDesktop.value && chartsColRef.value
+    ? chartsColRef.value.offsetHeight
+    : null
+}
+
+const journeyStyle = computed(() =>
+  journeyMaxHeight.value ? { height: `${journeyMaxHeight.value}px` } : {}
+)
+
+onMounted(() => {
+  desktopMediaQuery = window.matchMedia('(min-width: 900px)')
+  isDesktop.value = desktopMediaQuery.matches
+  desktopMediaQuery.addEventListener('change', e => {
+    isDesktop.value = e.matches
+    updateJourneyHeight()
+  })
+})
+onUnmounted(() => chartsResizeObserver?.disconnect())
+
+// charts-col sits behind `v-else-if="store.statusFlow"`, so the ref is still
+// null when onMounted runs (the stats fetch hasn't resolved yet) — watch it
+// instead of grabbing it once, so the observer attaches whenever the column
+// actually appears.
+watch(chartsColRef, el => {
+  chartsResizeObserver?.disconnect()
+  if (el) {
+    chartsResizeObserver = new ResizeObserver(updateJourneyHeight)
+    chartsResizeObserver.observe(el)
+  }
+  updateJourneyHeight()
+})
+
+// RejectionChart/AreaChart size themselves off store.applications, which can
+// resolve after charts-col first mounts (e.g. its legend rows growing once
+// rejection reasons are known) — resync once that settles, past the point
+// where the ResizeObserver's own timing might race the charts' own layout.
+watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 </script>
 
 <template>
@@ -157,9 +203,9 @@ watch(fromTo, fetchStatusFlow)
       </div>
 
       <div class="journey-layout">
-        <StatusTree :flow="store.statusFlow" class="funnel-section" />
+        <StatusTree :flow="store.statusFlow" class="funnel-section" :style="journeyStyle" />
 
-        <div class="charts-col">
+        <div class="charts-col" ref="chartsColRef">
           <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
           <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
         </div>

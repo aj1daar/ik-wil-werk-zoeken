@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { StatusFlow, ApplicationStatus } from '../../api'
 
 const props = defineProps<{ flow: StatusFlow | null }>()
@@ -105,6 +105,43 @@ const edgePaths = computed(() => {
   return list
 })
 
+// Zoom/pan: the tree scrolls inside a height-capped card, so it needs its
+// own zoom rather than relying on max-width to shrink-to-fit. fitScale keeps
+// the initial view at "whole tree fits the card's width" (same look as
+// before); userZoom is what a trackpad pinch (delivered as wheel+ctrlKey) or
+// ctrl+scroll multiplies on top of that. Plain scroll/trackpad-pan is left
+// alone so the browser's native overflow scrolling handles panning.
+const scrollRef = ref<HTMLElement | null>(null)
+const containerWidth = ref(0)
+let containerResizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  if (scrollRef.value) {
+    containerResizeObserver = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width
+      if (w) containerWidth.value = w
+    })
+    containerResizeObserver.observe(scrollRef.value)
+  }
+})
+onUnmounted(() => containerResizeObserver?.disconnect())
+
+const fitScale = computed(() =>
+  containerWidth.value && svgWidth.value ? Math.min(1, containerWidth.value / svgWidth.value) : 1
+)
+
+const MIN_ZOOM = 0.5
+const MAX_ZOOM = 3
+const userZoom = ref(1)
+const scale = computed(() => fitScale.value * userZoom.value)
+
+function onWheel(e: WheelEvent) {
+  if (!e.ctrlKey) return // plain wheel/trackpad scroll — let the container pan natively
+  e.preventDefault()
+  const factor = Math.exp(-e.deltaY * 0.01)
+  userZoom.value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, userZoom.value * factor))
+}
+
 const hovered = ref<ApplicationStatus | null>(null)
 function toggleHover(status: ApplicationStatus) {
   hovered.value = hovered.value === status ? null : status
@@ -133,13 +170,13 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 
     <div v-if="isEmpty" class="st-empty">No applications to display.</div>
 
-    <div v-else class="st-scroll">
+    <div v-else class="st-scroll" ref="scrollRef" @wheel="onWheel">
       <svg
         :viewBox="`0 0 ${svgWidth} ${svgHeight}`"
-        :width="svgWidth"
-        :height="svgHeight"
+        :width="svgWidth * scale"
+        :height="svgHeight * scale"
         role="img"
-        aria-label="Application status flow, showing how applications branch from Applied into later stages"
+        aria-label="Application status flow, showing how applications branch from Applied into later stages. Scroll to pan, or pinch / ctrl-scroll to zoom."
       >
         <g v-for="e in edgePaths" :key="`${e.from}-${e.to}`" :class="{ 'st-edge--dim': edgeDim(e.from, e.to) }">
           <path :d="e.d" fill="none" :stroke="e.color" stroke-opacity="0.45" :stroke-width="e.strokeWidth" stroke-linecap="round" />
@@ -188,6 +225,13 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 
 <style scoped>
 .st-wrap {
+  display: flex;
+  flex-direction: column;
+  /* Without these, a grid/flex ancestor sizes this item to fit the zoomed-in
+     SVG's full content instead of respecting its own track/flex-basis size —
+     the classic "min-width/height: auto" overflow gotcha. */
+  min-width: 0;
+  min-height: 0;
   background: var(--col-surface);
   border: 1px solid var(--col-border);
   border-radius: .75rem;
@@ -202,6 +246,7 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   align-items: baseline;
   justify-content: space-between;
   margin-bottom: .75rem;
+  flex-shrink: 0;
 }
 .st-title {
   font-size: .8rem;
@@ -215,7 +260,8 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 .st-total strong { color: var(--col-text); font-weight: 700; }
 
 .st-empty {
-  height: 80px;
+  flex: 1 1 auto;
+  min-height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -223,8 +269,13 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   font-size: .875rem;
 }
 
-.st-scroll { overflow-x: auto; }
-.st-scroll svg { display: block; margin: 0 auto; max-width: 100%; }
+.st-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  touch-action: pan-x pan-y pinch-zoom;
+}
+.st-scroll svg { display: block; }
 
 .st-node { cursor: default; transition: opacity .15s; }
 .st-node--dim { opacity: .35; }
@@ -239,6 +290,7 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 
 .st-hover-label {
   height: 1.375rem;
+  flex-shrink: 0;
   margin-top: .5rem;
   font-size: .8rem;
   color: var(--col-muted);
