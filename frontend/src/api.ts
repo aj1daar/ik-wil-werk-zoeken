@@ -132,6 +132,14 @@ export const api = {
   bulkUpdateStatus: (ids: string[], status: string) =>
     request<Application[]>('PATCH', '/api/dashboard/applications', { ids, status }),
 
+  getStatusFlow: (from?: string, to?: string) => {
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (to)   params.set('to', to)
+    const qs = params.toString()
+    return request<StatusFlow>('GET', `/api/dashboard/status-flow${qs ? `?${qs}` : ''}`)
+  },
+
   getStatusHistory: (applicationId: string) =>
     request<StatusHistory[]>('GET', `/api/dashboard/status-history/${applicationId}`),
 
@@ -258,6 +266,23 @@ export type RejectionReason =
 export interface Stats {
   total: number
   byStatus: Partial<Record<ApplicationStatus, number>>
+}
+
+export interface StatusFlowNode {
+  status: ApplicationStatus
+  total: number
+  current: number
+}
+
+export interface StatusFlowEdge {
+  from: ApplicationStatus
+  to: ApplicationStatus
+  count: number
+}
+
+export interface StatusFlow {
+  nodes: StatusFlowNode[]
+  edges: StatusFlowEdge[]
 }
 
 export interface AdminUserSummary {

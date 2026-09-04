@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useApplicationsStore } from '../../stores/applications'
-import FunnelChart from '../../components/FunnelChart/FunnelChart.vue'
+import StatusTree from '../../components/StatusTree/StatusTree.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
 import DatePicker from '../../components/DatePicker/DatePicker.vue'
@@ -75,18 +75,64 @@ const fromTo = computed<{ from?: string; to?: string }>(() => {
   return {}
 })
 
-async function fetchStats() {
-  await store.loadStats(fromTo.value.from, fromTo.value.to)
+async function fetchStatusFlow() {
+  await store.loadStatusFlow(fromTo.value.from, fromTo.value.to)
 }
 
 onMounted(() => {
   showBanner.value = !window.localStorage?.getItem('iwwz_onboarded')
   store.load()
-  return fetchStats()
+  return fetchStatusFlow()
 })
-watch(fromTo, fetchStats)
+watch(fromTo, fetchStatusFlow)
 
+// Desktop only: cap the journey tree's height to whatever the rejection +
+// over-time column measures, so a growing tree scrolls instead of pushing
+// the page taller than its neighbor column.
+const chartsColRef     = ref<HTMLElement | null>(null)
+const journeyMaxHeight = ref<number | null>(null)
+const isDesktop        = ref(false)
+let chartsResizeObserver: ResizeObserver | null = null
+let desktopMediaQuery: MediaQueryList | null = null
 
+function updateJourneyHeight() {
+  journeyMaxHeight.value = isDesktop.value && chartsColRef.value
+    ? chartsColRef.value.offsetHeight
+    : null
+}
+
+const journeyStyle = computed(() =>
+  journeyMaxHeight.value ? { height: `${journeyMaxHeight.value}px` } : {}
+)
+
+onMounted(() => {
+  desktopMediaQuery = window.matchMedia('(min-width: 900px)')
+  isDesktop.value = desktopMediaQuery.matches
+  desktopMediaQuery.addEventListener('change', e => {
+    isDesktop.value = e.matches
+    updateJourneyHeight()
+  })
+})
+onUnmounted(() => chartsResizeObserver?.disconnect())
+
+// charts-col sits behind `v-else-if="store.statusFlow"`, so the ref is still
+// null when onMounted runs (the stats fetch hasn't resolved yet) — watch it
+// instead of grabbing it once, so the observer attaches whenever the column
+// actually appears.
+watch(chartsColRef, el => {
+  chartsResizeObserver?.disconnect()
+  if (el) {
+    chartsResizeObserver = new ResizeObserver(updateJourneyHeight)
+    chartsResizeObserver.observe(el)
+  }
+  updateJourneyHeight()
+})
+
+// RejectionChart/AreaChart size themselves off store.applications, which can
+// resolve after charts-col first mounts (e.g. its legend rows growing once
+// rejection reasons are known) — resync once that settles, past the point
+// where the ResizeObserver's own timing might race the charts' own layout.
+watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 </script>
 
 <template>
@@ -129,11 +175,11 @@ watch(fromTo, fetchStats)
       </div>
     </div>
 
-    <div v-if="store.statsLoading && !store.stats" class="state-msg">Loading…</div>
+    <div v-if="store.statusFlowLoading && !store.statusFlow" class="state-msg">Loading…</div>
 
-    <div v-else-if="store.statsError" class="state-msg state-msg--error" role="alert">{{ store.statsError }}</div>
+    <div v-else-if="store.statusFlowError" class="state-msg state-msg--error" role="alert">{{ store.statusFlowError }}</div>
 
-    <div v-else-if="store.stats" :class="['content-area', { 'content-area--updating': store.statsLoading }]">
+    <div v-else-if="store.statusFlow" :class="['content-area', { 'content-area--updating': store.statusFlowLoading }]">
       <div v-if="overdueApps.length > 0" class="overdue-card">
         <button class="overdue-header" @click="showOverdue = !showOverdue" :aria-expanded="showOverdue">
           <span class="overdue-title">
@@ -156,11 +202,13 @@ watch(fromTo, fetchStats)
         </ul>
       </div>
 
-      <FunnelChart :by-status="store.stats.byStatus" class="funnel-section" />
+      <div class="journey-layout">
+        <StatusTree :flow="store.statusFlow" class="funnel-section" :style="journeyStyle" />
 
-      <div class="charts-row">
-        <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
-        <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
+        <div class="charts-col" ref="chartsColRef">
+          <RejectionChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
+          <AreaChart :applications="store.applications" :from="fromTo.from" :to="fromTo.to" />
+        </div>
       </div>
     </div>
   </div>
@@ -231,14 +279,34 @@ watch(fromTo, fetchStats)
 
 .funnel-section { margin-bottom: 1.5rem; }
 
-.charts-row {
+.journey-layout { display: flex; flex-direction: column; }
+
+.charts-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 @media (max-width: 600px) {
-  .charts-row { grid-template-columns: 1fr; }
+  .charts-col { grid-template-columns: 1fr; }
+}
+
+/* Desktop: tree on the right, rejection + over-time stacked on the left —
+   keeps the dashboard from growing taller as charts are added. */
+@media (min-width: 900px) {
+  .page { max-width: 1180px; }
+  .journey-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 380px) 1fr;
+    align-items: start;
+    gap: 1rem;
+  }
+  .funnel-section { order: 2; margin-bottom: 0; }
+  .charts-col {
+    order: 1;
+    grid-template-columns: 1fr;
+    margin-bottom: 0;
+  }
 }
 
 .overdue-card {

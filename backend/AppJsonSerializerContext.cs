@@ -39,6 +39,7 @@ namespace backend;
 [JsonSerializable(typeof(SponsorCompany[]))]
 [JsonSerializable(typeof(ApplicationStage[]))]
 [JsonSerializable(typeof(StatsResponse))]
+[JsonSerializable(typeof(StatusFlowResponse))]
 [JsonSerializable(typeof(Dictionary<string, int>))]
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(SyncLog))]

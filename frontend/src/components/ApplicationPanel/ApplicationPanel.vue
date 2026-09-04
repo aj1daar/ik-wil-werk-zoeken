@@ -14,7 +14,13 @@ interface JourneyEntry {
   status:     string
   statusDate: string
   isApplied:  boolean
+  // Tiebreaker for same-day entries: the DB row's createdAt (ms epoch) for
+  // saved entries, or the moment it was added locally for unsaved ones —
+  // statusDate alone can't order two same-day status changes correctly.
+  order:      number
 }
+
+let localOrderSeq = 0
 
 const props = defineProps<{ application: Application }>()
 const emit  = defineEmits<{ close: [] }>()
@@ -127,7 +133,8 @@ const sortedJourney = computed(() =>
   [...journeyEntries.value].sort((a, b) => {
     const d = a.statusDate.localeCompare(b.statusDate)
     if (d !== 0) return d
-    return a.isApplied ? -1 : 1
+    if (a.isApplied !== b.isApplied) return a.isApplied ? -1 : 1
+    return a.order - b.order
   })
 )
 
@@ -137,9 +144,9 @@ function updateStatusFromJourney() {
   const hasNonApplied = journeyEntries.value.some(e => !e.isApplied)
   if (!hasNonApplied) return
   const latest = journeyEntries.value.reduce((a, b) => {
-    if (b.statusDate > a.statusDate) return b
-    if (a.statusDate > b.statusDate) return a
-    return a.isApplied ? b : a
+    if (b.statusDate !== a.statusDate) return b.statusDate > a.statusDate ? b : a
+    if (a.isApplied !== b.isApplied) return a.isApplied ? b : a
+    return b.order > a.order ? b : a
   })
   status.value = latest.status as typeof status.value
 }
@@ -157,10 +164,11 @@ function initJourney(history: StatusHistory[]) {
     status:     'Applied',
     statusDate: appliedAt.value,
     isApplied:  true,
+    order:      appliedDb ? new Date(appliedDb.createdAt).getTime() : -Infinity,
   })
 
   for (const h of history.filter(e => e.status !== 'Applied')) {
-    entries.push({ id: h.id, tempId: h.id, status: h.status, statusDate: h.statusDate, isApplied: false })
+    entries.push({ id: h.id, tempId: h.id, status: h.status, statusDate: h.statusDate, isApplied: false, order: new Date(h.createdAt).getTime() })
   }
 
   journeyEntries.value = entries
@@ -472,6 +480,7 @@ function confirmAdd() {
     status:     newEntryStatus.value,
     statusDate: newEntryDate.value,
     isApplied:  false,
+    order:      Date.now() + (localOrderSeq++),
   })
   if (newEntryStatus.value === 'Rejected') {
     rejectionReason.value = newEntryRejectionReason.value
