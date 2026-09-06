@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using backend.Models;
 
 namespace backend;
@@ -18,6 +18,8 @@ namespace backend;
 [JsonSerializable(typeof(PromoteRequest))]
 [JsonSerializable(typeof(BulkStatusRequest))]
 [JsonSerializable(typeof(UpdateCompanyRequest))]
+[JsonSerializable(typeof(MergeCompaniesRequest))]
+[JsonSerializable(typeof(MergeCompaniesResponse))]
 [JsonSerializable(typeof(AdminUserSummary))]
 [JsonSerializable(typeof(AdminUserSummary[]), TypeInfoPropertyName = "AdminUserSummaryArray")]
 [JsonSerializable(typeof(ActivityLog))]

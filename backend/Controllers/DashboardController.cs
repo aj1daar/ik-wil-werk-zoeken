@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using backend.Data;
 using backend.Models;
 using backend.Services;
@@ -76,8 +76,14 @@ public sealed class DashboardController : ApiControllerBase
         if (body is null || !ValidCompanyListKinds.Contains(body.Kind))
             return Error(400, "kind must be one of: interested, hidden, none");
 
-        if (body.Kind != "none" && await _sponsors.GetAsync(companyId) is null)
-            return Error(404, "Unknown company");
+        // A company that was merged away is no longer listable — the surviving
+        // company is the one users see and shortlist.
+        if (body.Kind != "none")
+        {
+            var company = await _sponsors.GetAsync(companyId);
+            if (company is null || company.MergedIntoId is not null)
+                return Error(404, "Unknown company");
+        }
 
         if (body.Kind == "none")
             await _companyLists.ClearAsync(userId, companyId);
