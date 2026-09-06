@@ -162,6 +162,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      # Checked out before the artifact is downloaded — checkout cleans the
+      # workspace, which would take ./publish with it.
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: backend-publish
@@ -195,6 +199,15 @@ jobs:
             printf "ADMIN_EMAIL=%s\n" "$ADMIN_EMAIL"
             printf "ALLOWED_ORIGIN=%s\n" "$ALLOWED_ORIGIN"
           } | ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "cat > /var/www/iwwz/.env"
+
+      # Migrations run on startup, so the only safe moment for a dump is before
+      # the new build goes up. A failing dump fails the deploy on purpose.
+      - name: Back up the database
+        run: |
+          scp -i ~/.ssh/deploy_key scripts/backup-db.sh \
+            iwwz@${{ secrets.HETZNER_HOST }}:/var/www/iwwz/backup-db.sh
+          ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} \
+            "chmod +x /var/www/iwwz/backup-db.sh && /var/www/iwwz/backup-db.sh --keep 10"
 
       - name: Stop service
         run: ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "sudo systemctl stop iwwz || true"

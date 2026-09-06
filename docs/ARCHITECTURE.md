@@ -91,6 +91,23 @@ the lifetime of the (per-request) store.
 `.github/workflows/ci-cd.yml`: lint → test → build → deploy on push to `main`. Migrations run
 via `Database.MigrateAsync()` on startup, no separate migration step.
 
+Because migrations apply the moment the new build boots, the backend deploy job dumps the
+database first: it copies `scripts/backup-db.sh` to the server and runs it between writing the
+env file and stopping the service. The script reads `DATABASE_URL` out of `/var/www/iwwz/.env`,
+writes `/var/www/iwwz/backups/iwwz-<UTC timestamp>.sql.gz`, keeps the last 10 and prunes the
+rest. It uses the host's `pg_dump` when there is one and otherwise the client inside the running
+Postgres container (`PG_CONTAINER` overrides the auto-detected name). A dump that fails, or that
+comes back unreadable, fails the deploy before anything is stopped — and leaves the previous
+backups in place. There is no scheduled backup between deploys; `scripts/backup-db.sh` can be run
+by hand or from cron for that.
+
+Restore:
+
+```
+gunzip -c /var/www/iwwz/backups/iwwz-20260906-120000.sql.gz \
+  | psql "postgres://user:pass@host:5432/iwwz"
+```
+
 Secrets: `HETZNER_HOST`, `HETZNER_SSH_KEY`, `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`,
 `RESEND_API_KEY`, `ADMIN_EMAIL`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 

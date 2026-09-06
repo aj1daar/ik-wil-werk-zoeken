@@ -29,6 +29,6 @@ Tests: `dotnet test backend.Tests` (295), `cd frontend && pnpm test` (565).
 Rate limiter is in-memory, so it resets on every deploy and wouldn't survive running more than
 one backend instance. IND company enrichment leaves ~11% of companies blank on purpose (Gemini
 had nothing to say about them), and only about half are *fully* enriched — city, summary, and
-website all present. No automated DB backups configured on the Hetzner box yet. Admin is granted
+website all present. The only DB backup is the pg_dump the deploy takes before each release (`scripts/backup-db.sh`, last 10 kept in `/var/www/iwwz/backups`) — there is no scheduled backup between deploys. Admin is granted
 by matching `ADMIN_EMAIL` on first startup; there's no invite or promotion flow beyond the one
 manual `/api/mgmt/promote` call. No e2e tests, just unit-level coverage on both sides.
