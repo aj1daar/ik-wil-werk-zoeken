@@ -10,13 +10,13 @@ backend/            ASP.NET Core Web API (.NET 8)
   Models/             User, SponsorCompany, ApplicationStage, ActivityLog, StatusHistory, SyncLog
   Services/           PasswordHasher, TokenService, EmailService, UserStore, StageStore,
                        SponsorStore, IndSponsorScraper, CompanyEnricher, RateLimiterService
-backend.Tests/       xUnit (295 tests)
+backend.Tests/       xUnit (588 tests)
 frontend/            Vue 3 SPA
   src/components/     ApplicationPanel, NewApplicationModal, ConfirmDialog, DatePicker,
                        FunnelChart, RejectionChart, AreaChart, ui/ (AppSelect, AppInput, AppButton)
   src/views/          Home, Applications, Companies, Profile, Admin, auth views
   src/stores/         auth, companies, applications (Pinia)
-  src/__tests__/       Vitest (565 tests)
+  src/__tests__/       Vitest (729 tests)
 ```
 
 Request flow: `Browser → Cloudflare → Nginx :80 → ASP.NET Core :5000 → Postgres 18`.
@@ -33,7 +33,9 @@ activity/{id}, status-history/{id} (GET/POST), status-history-item/{id} (PUT/DEL
 
 ### Admin `/api/mgmt/`
 users, promote, reload-sponsors (insert-new-only, soft-deletes removed ones),
-enrich-sponsors (Gemini, batches of 100), sync-logs.
+enrich-sponsors (Gemini, batches of 100), sync-logs, companies/{id} (PUT — manual field
+override, including the company name), companies/merge (POST), companies/{id}/merged (GET),
+companies/{id}/unmerge (POST).
 
 All non-auth routes require `Authorization: Bearer <jwt>`; admin routes additionally check
 `role === "admin"`.
@@ -50,6 +52,30 @@ re-enrichment on the next sync.
 
 As of June 2026, 12,790 active companies: 88.5% have a summary, 67.3% a city, 55.5% a website,
 48.6% all three. Full initial enrichment run costs about $1 (Gemini pricing, ~640 calls).
+
+## Company identity — renames and merges
+
+The IND register is the source of truth for which companies exist, but its names are messy: the
+same employer shows up under a trading name, a legal name and a holding name with separate KvK
+numbers. Admins fix that from the company modal.
+
+- **Rename** (`PUT /api/mgmt/companies/{id}` with `name`): sets a new display name and keeps the
+  old one in `AliasNames`. `name` is the one field a PUT cannot clear — omitted means "leave it".
+- **Merge** (`POST /api/mgmt/companies/merge`): folds one or more duplicates into a surviving
+  company. Nothing is deleted — each source keeps its row with `MergedIntoId` set, which hides it
+  from `GET /api/dashboard/sponsors`, keeps the monthly IND sync from re-creating it (the KvK is
+  still in the table) and skips it during enrichment. The target absorbs the source names as
+  aliases; application links and every user's interested/hidden entries are re-pointed at it, and
+  a user who had both companies on a list keeps their target entry.
+- **Unmerge** (`POST /api/mgmt/companies/{id}/unmerge`): puts the company back in the register and
+  drops the aliases it contributed, unless another still-merged company contributes the same name.
+  Applications and list entries stay with the target — sponsor links are resolved by name on every
+  read, so applications follow the restored company again on their own.
+
+`SponsorStore.FindByNameAsync` — which decides whether an application counts as "at an HSM
+sponsor" — matches the display name first and the alias list second, so applications saved under
+an old or duplicate name stay linked. Alias-carrying companies are a small set and are cached for
+the lifetime of the (per-request) store.
 
 ## Security
 
