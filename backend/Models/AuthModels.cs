@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace backend.Models;
 
@@ -134,6 +134,11 @@ public sealed class BulkStatusRequest
 // are trimmed, de-duplicated (case-insensitive, first wins) and empty-filtered.
 public sealed class UpdateCompanyRequest
 {
+    // The display name. Unlike every other field, null or omitted means "leave the
+    // name as it is" — a company always needs a name, so it can never be cleared.
+    // Renaming keeps the previous name as an alias so applications saved under it
+    // still resolve to this company.
+    [JsonPropertyName("name")]              public string? Name { get; set; }
     [JsonPropertyName("summary")]           public string? Summary { get; set; }
     [JsonPropertyName("city")]              public string? City { get; set; }
     [JsonPropertyName("locations")]         public string[]? Locations { get; set; }
@@ -162,7 +167,26 @@ public sealed record CompanyEdit(
     string? CompanySize,
     string? RemotePolicy,
     string? ParentCompanyName,
-    string? TargetMarket);
+    string? TargetMarket,
+    // null = keep the current name (see UpdateCompanyRequest.Name).
+    string? Name = null);
+
+// Admin merge of one or more duplicate companies into a single surviving company.
+public sealed class MergeCompaniesRequest
+{
+    [JsonPropertyName("targetId")]  public string   TargetId  { get; set; } = string.Empty;
+    [JsonPropertyName("sourceIds")] public string[] SourceIds { get; set; } = [];
+}
+
+public sealed class MergeCompaniesResponse
+{
+    [JsonPropertyName("target")]              public SponsorCompany? Target { get; set; }
+    [JsonPropertyName("mergedIds")]           public string[] MergedIds { get; set; } = [];
+    [JsonPropertyName("movedApplications")]   public int MovedApplications { get; set; }
+    [JsonPropertyName("movedListEntries")]    public int MovedListEntries { get; set; }
+    [JsonPropertyName("droppedListEntries")]  public int DroppedListEntries { get; set; }
+    [JsonPropertyName("message")]             public string Message { get; set; } = string.Empty;
+}
 
 public sealed class AdminUserSummary
 {

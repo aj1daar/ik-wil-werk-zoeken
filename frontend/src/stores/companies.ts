@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { api, type SponsorCompany, type CompanyEditPatch, type CompanyListKind } from '../api'
+import { api, type SponsorCompany, type CompanyEditPatch, type CompanyListKind, type MergeCompaniesResult } from '../api'
 
 const LEGACY_HIDDEN_KEY = 'iwwz_hidden_companies'
 
@@ -97,6 +97,28 @@ export const useCompaniesStore = defineStore('companies', {
       const updated = await api.adminUpdateCompany(id, patch)
       const idx = this.companies.findIndex(c => c.id === id)
       if (idx !== -1) this.companies[idx] = updated
+    },
+
+    // Admin: fold duplicates into one surviving company. The merged companies
+    // leave the register, so they are dropped from local state and the user's
+    // lists are re-read — their entries were moved to the surviving company.
+    async mergeCompanies(targetId: string, sourceIds: string[]): Promise<MergeCompaniesResult> {
+      const result = await api.adminMergeCompanies(targetId, sourceIds)
+      const merged = new Set(result.mergedIds)
+      this.companies = this.companies.filter(c => !merged.has(c.id))
+      const idx = this.companies.findIndex(c => c.id === targetId)
+      if (idx !== -1) this.companies[idx] = result.target
+      if (this.listsLoaded) await this.loadLists()
+      return result
+    },
+
+    // Admin: undo a single merge. The restored company returns to the register and
+    // the surviving company drops the aliases it had absorbed, so the whole list is
+    // re-read rather than patched in two places.
+    async unmergeCompany(id: string): Promise<SponsorCompany> {
+      const restored = await api.adminUnmergeCompany(id)
+      this.companies = await api.getCompanies()
+      return restored
     },
 
     // The user's "interested" shortlist and "hidden" list, both stored on the

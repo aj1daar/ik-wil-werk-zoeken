@@ -94,6 +94,15 @@ export const api = {
   adminUpdateCompany: (id: string, patch: CompanyEditPatch) =>
     request<SponsorCompany>('PUT', `/api/mgmt/companies/${id}`, patch),
 
+  adminGetMergedCompanies: (id: string) =>
+    request<SponsorCompany[]>('GET', `/api/mgmt/companies/${id}/merged`),
+
+  adminMergeCompanies: (targetId: string, sourceIds: string[]) =>
+    request<MergeCompaniesResult>('POST', '/api/mgmt/companies/merge', { targetId, sourceIds }),
+
+  adminUnmergeCompany: (id: string) =>
+    request<SponsorCompany>('POST', `/api/mgmt/companies/${id}/unmerge`),
+
   getCompanies: () =>
     request<SponsorCompany[]>('GET', '/api/dashboard/sponsors'),
 
@@ -172,11 +181,28 @@ export interface SponsorCompany {
   targetMarket?: string
   enrichedAt?: string
   enrichmentVersion?: number
+  // Previous names, plus the names of every company merged into this one. Used
+  // for lookup only — never shown as the company's own name.
+  aliasNames?: string[]
+  // Set when this company was merged into another one. Merged companies are
+  // hidden from the register and only ever reachable through the admin panel.
+  mergedIntoId?: string | null
+}
+
+export interface MergeCompaniesResult {
+  target: SponsorCompany
+  mergedIds: string[]
+  movedApplications: number
+  movedListEntries: number
+  droppedListEntries: number
+  message: string
 }
 
 // Admin manual override of company fields. Every key is optional; null / omitted
 // / blank clears the field on the server.
 export interface CompanyEditPatch {
+  // Omitted or null keeps the current name — a company can never be left nameless.
+  name?: string
   summary?: string | null
   city?: string | null
   locations?: string[] | null

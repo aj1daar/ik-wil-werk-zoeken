@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
-import type { Application, SponsorCompany } from '../../api'
+import { api, type Application, type SponsorCompany } from '../../api'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
+import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 
 const props = defineProps<{
   company:      SponsorCompany
@@ -34,7 +35,7 @@ const chipFields: { field: ChipField; label: string; placeholder: string }[] = [
 
 function blankForm() {
   return {
-    summary: '', city: '', websiteUrl: '',
+    name: '', summary: '', city: '', websiteUrl: '',
     coreIndustry: '', workingLanguage: '', companySize: '', remotePolicy: '',
     targetMarket: '', parentCompanyName: '',
     locations: [] as string[], techStackTags: [] as string[], functionalTags: [] as string[],
@@ -62,6 +63,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 function startEdit() {
   const c = props.company
   Object.assign(form, blankForm(), {
+    name:              c.name,
     summary:           c.summary ?? '',
     city:              c.city ?? '',
     websiteUrl:        c.websiteUrl ?? '',
@@ -105,10 +107,17 @@ async function saveEdit() {
   ;(['locations', 'techStackTags', 'functionalTags'] as ChipField[])
     .forEach(f => { if (chipInput[f].trim()) addChip(f, chipInput[f]) })
 
+  const name = form.name.trim()
+  if (!name) {
+    editError.value = 'Name is required.'
+    return
+  }
+
   savingEdit.value = true
   editError.value  = ''
   try {
     await store.updateCompany(props.company.id, {
+      name,
       summary:           form.summary.trim()           || null,
       city:              form.city.trim()              || null,
       websiteUrl:        form.websiteUrl.trim()         || null,
@@ -129,6 +138,96 @@ async function saveEdit() {
     savingEdit.value = false
   }
 }
+
+// ── admin merge ─────────────────────────────────────────────────────────────
+
+const mergeQuery       = ref('')
+const mergeStaged      = ref<SponsorCompany[]>([])
+const merging          = ref(false)
+const mergeError       = ref('')
+const mergeNotice      = ref('')
+const showMergeConfirm = ref(false)
+const mergedCompanies  = ref<SponsorCompany[]>([])
+const unmergingId      = ref<string | null>(null)
+
+// Live companies matching the search box, minus this company and anything the
+// admin already staged for the merge.
+const mergeResults = computed<SponsorCompany[]>(() => {
+  const q = mergeQuery.value.trim()
+  if (q.length < 2) return []
+  const staged = new Set(mergeStaged.value.map(c => c.id))
+  return store.search(q)
+    .filter(c => c.id !== props.company.id && !staged.has(c.id))
+    .slice(0, 8)
+})
+
+async function loadMerged() {
+  if (!props.isAdmin) return
+  try {
+    mergedCompanies.value = (await api.adminGetMergedCompanies(props.company.id)) ?? []
+  } catch {
+    mergedCompanies.value = []
+  }
+}
+
+function stageForMerge(company: SponsorCompany) {
+  if (!mergeStaged.value.some(c => c.id === company.id)) mergeStaged.value.push(company)
+  mergeQuery.value = ''
+  mergeError.value = ''
+}
+
+function unstageFromMerge(id: string) {
+  mergeStaged.value = mergeStaged.value.filter(c => c.id !== id)
+}
+
+function resetMerge() {
+  mergeQuery.value       = ''
+  mergeStaged.value      = []
+  mergeError.value       = ''
+  showMergeConfirm.value = false
+}
+
+async function confirmMerge() {
+  showMergeConfirm.value = false
+  if (mergeStaged.value.length === 0) return
+
+  merging.value     = true
+  mergeError.value  = ''
+  mergeNotice.value = ''
+  try {
+    const result = await store.mergeCompanies(props.company.id, mergeStaged.value.map(c => c.id))
+    mergeStaged.value = []
+    mergeQuery.value  = ''
+    const moved = result.movedApplications
+    const lists = result.movedListEntries + result.droppedListEntries
+    mergeNotice.value =
+      `${result.message} ${moved} application${moved === 1 ? '' : 's'} and ` +
+      `${lists} list entr${lists === 1 ? 'y' : 'ies'} moved across.`
+    await loadMerged()
+  } catch (e: unknown) {
+    mergeError.value = e instanceof Error ? e.message : 'Merge failed. Please try again.'
+  } finally {
+    merging.value = false
+  }
+}
+
+async function unmerge(id: string) {
+  unmergingId.value = id
+  mergeError.value  = ''
+  mergeNotice.value = ''
+  try {
+    const restored = await store.unmergeCompany(id)
+    mergeNotice.value = `${restored.name} is a separate company again.`
+    await loadMerged()
+  } catch (e: unknown) {
+    mergeError.value = e instanceof Error ? e.message : 'Unmerge failed. Please try again.'
+  } finally {
+    unmergingId.value = null
+  }
+}
+
+watch(() => props.company.id, () => { resetMerge(); mergeNotice.value = ''; loadMerged() })
+onMounted(loadMerged)
 </script>
 
 <template>
@@ -206,10 +305,90 @@ async function saveEdit() {
               <span v-for="t in company.functionalTags" :key="t" class="tag--muted">{{ t }}</span>
             </div>
           </div>
+
+          <div v-if="isAdmin && company.aliasNames?.length" class="field">
+            <label class="field-label">Also known as</label>
+            <div class="tag-row">
+              <span v-for="a in company.aliasNames" :key="a" class="tag--muted">{{ a }}</span>
+            </div>
+          </div>
+
+          <!-- admin merge panel -->
+          <div v-if="isAdmin" class="field merge-panel">
+            <label class="field-label" for="ce-merge-search">Merge duplicates into this company</label>
+            <p class="field-hint">
+              The companies you pick disappear from the register and their names become aliases of
+              {{ company.name }}. Applications and everyone's lists move across. This can be undone.
+            </p>
+
+            <div v-if="mergeStaged.length" class="tag-row ce-chip-row">
+              <span v-for="c in mergeStaged" :key="c.id" class="city-chip">
+                {{ c.name }}
+                <button type="button" class="city-remove" :aria-label="`Remove ${c.name}`" @click="unstageFromMerge(c.id)">&times;</button>
+              </span>
+            </div>
+
+            <input
+              id="ce-merge-search"
+              v-model="mergeQuery"
+              class="field-input"
+              placeholder="Search a duplicate by name…"
+              autocomplete="off"
+              :disabled="merging"
+            />
+
+            <ul v-if="mergeResults.length" class="merge-results">
+              <li v-for="c in mergeResults" :key="c.id">
+                <button type="button" class="merge-result" @click="stageForMerge(c)">
+                  <span class="merge-result-name">{{ c.name }}</span>
+                  <span class="merge-result-meta">{{ c.city || 'Unknown city' }} · KvK {{ c.kvKNumber }}</span>
+                </button>
+              </li>
+            </ul>
+            <p v-else-if="mergeQuery.trim().length >= 2" class="field-hint">No other company matches that.</p>
+
+            <button
+              v-if="mergeStaged.length"
+              type="button"
+              class="btn-danger merge-submit"
+              :disabled="merging"
+              @click="showMergeConfirm = true"
+            >
+              {{ merging ? 'Merging…' : `Merge ${mergeStaged.length} ${mergeStaged.length === 1 ? 'company' : 'companies'}` }}
+            </button>
+
+            <div v-if="mergedCompanies.length" class="merged-list">
+              <label class="field-label">Merged into this company</label>
+              <ul class="merge-results">
+                <li v-for="c in mergedCompanies" :key="c.id" class="merged-row">
+                  <span class="merge-result-name">{{ c.name }}</span>
+                  <button
+                    type="button"
+                    class="btn-list merge-undo"
+                    :disabled="unmergingId === c.id"
+                    @click="unmerge(c.id)"
+                  >
+                    {{ unmergingId === c.id ? 'Undoing…' : 'Unmerge' }}
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <p v-if="mergeError"  class="summary-error" role="alert">{{ mergeError }}</p>
+            <p v-if="mergeNotice" class="merge-notice" role="status">{{ mergeNotice }}</p>
+          </div>
         </template>
 
         <!-- ── admin edit form ─────────────────────────────────────────────── -->
         <template v-else>
+          <div class="field">
+            <label class="field-label" for="ce-name">Company name</label>
+            <input id="ce-name" v-model="form.name" class="field-input" maxlength="200" required />
+            <p class="field-hint">
+              The old name is kept as an alias, so applications saved under it stay linked to this company.
+            </p>
+          </div>
+
           <div class="field">
             <label class="field-label" for="ce-summary">About</label>
             <textarea
@@ -314,6 +493,16 @@ async function saveEdit() {
         </template>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-if="showMergeConfirm"
+      title="Merge companies?"
+      :message="`${mergeStaged.map(c => c.name).join(', ')} will be folded into ${company.name}. Their applications and list entries move across, and they disappear from the register. You can unmerge them again from this panel.`"
+      confirm-label="Merge"
+      confirm-class="btn-danger"
+      @confirm="confirmMerge"
+      @cancel="showMergeConfirm = false"
+    />
   </div>
 </template>
 
@@ -419,4 +608,31 @@ async function saveEdit() {
 }
 .city-remove { background: none; border: none; cursor: pointer; color: var(--col-subtle); font-size: 1rem; line-height: 1; padding: 0; }
 .city-remove:hover { color: var(--col-error); }
+
+.field-hint { font-size: .75rem; color: var(--col-subtle); line-height: 1.5; margin: 0; }
+
+.merge-panel { border-top: 1px solid var(--col-border); padding-top: 1rem; }
+.merge-results { list-style: none; margin: .375rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; }
+.merge-result {
+  width: 100%; text-align: left; background: none; cursor: pointer;
+  border: 1px solid var(--col-border); border-radius: .375rem; padding: .4rem .625rem;
+  display: flex; flex-direction: column; gap: .1rem;
+}
+.merge-result:hover { background: var(--col-raised); }
+.merge-result-name { font-size: .85rem; color: var(--col-text); }
+.merge-result-meta { font-size: .72rem; color: var(--col-subtle); }
+.merged-list { margin-top: .875rem; display: flex; flex-direction: column; gap: .375rem; }
+.merged-row {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  border: 1px solid var(--col-border); border-radius: .375rem; padding: .4rem .625rem;
+}
+.merge-undo { padding: .25rem .625rem; font-size: .72rem; }
+.merge-submit { margin-top: .625rem; align-self: flex-start; }
+.merge-notice { font-size: .8rem; color: #2a9d58; margin: 0; }
+.btn-danger {
+  background: var(--col-error); color: #fff; border: none; border-radius: .375rem;
+  padding: .45rem 1rem; font-size: .8rem; font-weight: 600; cursor: pointer;
+}
+.btn-danger:disabled { opacity: .55; cursor: not-allowed; }
+.btn-danger:not(:disabled):hover { opacity: .88; }
 </style>

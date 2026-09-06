@@ -1,4 +1,4 @@
-using backend.Models;
+﻿using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -291,6 +291,17 @@ public sealed class AdminController : ApiControllerBase
             return (uri.ToString(), null);
         }
 
+        // Name is the one field that cannot be cleared: omitted / null keeps the
+        // current name, but a blank string is a mistake, not a "clear this".
+        string? name = null;
+        if (body.Name is not null)
+        {
+            name = body.Name.Trim();
+            if (name.Length == 0) return (null, "name must not be blank");
+            if (name.Length > TextFieldMax)
+                return (null, $"name must not exceed {TextFieldMax} characters");
+        }
+
         var (summary, e1) = Bounded(body.Summary, "summary", SummaryMax);
         if (e1 is not null) return (null, e1);
         var (city, e2) = Bounded(body.City, "city", TextFieldMax);
@@ -328,7 +339,105 @@ public sealed class AdminController : ApiControllerBase
             CompanySize:       companySize,
             RemotePolicy:      remotePolicy,
             ParentCompanyName: parentCompanyName,
-            TargetMarket:      targetMarket), null);
+            TargetMarket:      targetMarket,
+            Name:              name), null);
+    }
+
+    [HttpGet("companies/{id}/merged")]
+    public async Task<IActionResult> GetMergedCompanies(string id)
+    {
+        if (CheckAdmin() is { } err) return err;
+        try
+        {
+            if (await _sponsorStore.GetAsync(id) is null) return Error(404, "Company not found");
+            return Ok((await _sponsorStore.GetMergedIntoAsync(id)).ToArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in GetMergedCompanies");
+            return Error(500, $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    [HttpPost("companies/merge")]
+    public async Task<IActionResult> MergeCompanies([FromBody] MergeCompaniesRequest? body)
+    {
+        if (CheckAdmin() is { } err) return err;
+        try
+        {
+            var (targetId, sourceIds, validationError) = NormalizeMerge(body);
+            if (validationError is not null) return Error(400, validationError);
+
+            var (result, mergeError) = await _sponsorStore.MergeCompaniesAsync(targetId!, sourceIds!);
+            if (mergeError is not null)
+                return Error(mergeError.Contains("not found") ? 404 : 400, mergeError);
+
+            _logger.LogInformation(
+                "Admin merged {Count} companies into {TargetId} — applications moved: {Apps}, list entries moved: {Moved}, dropped: {Dropped}",
+                result!.MergedIds.Length, targetId, result.MovedApplications, result.MovedListEntries, result.DroppedListEntries);
+
+            return Ok(new MergeCompaniesResponse
+            {
+                Target             = result.Target,
+                MergedIds          = result.MergedIds,
+                MovedApplications  = result.MovedApplications,
+                MovedListEntries   = result.MovedListEntries,
+                DroppedListEntries = result.DroppedListEntries,
+                Message            = $"Merged {result.MergedIds.Length} " +
+                                     $"{(result.MergedIds.Length == 1 ? "company" : "companies")} into {result.Target.Name}.",
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in MergeCompanies");
+            return Error(500, $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    [HttpPost("companies/{id}/unmerge")]
+    public async Task<IActionResult> UnmergeCompany(string id)
+    {
+        if (CheckAdmin() is { } err) return err;
+        try
+        {
+            var (restored, error) = await _sponsorStore.UnmergeCompanyAsync(id);
+            if (error is not null) return Error(error == "Company not found" ? 404 : 400, error);
+
+            _logger.LogInformation("Admin unmerged company {CompanyId}", id);
+            return Ok(restored);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in UnmergeCompany");
+            return Error(500, $"Internal error: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    // Trims and validates a merge request: a target, at least one source, no
+    // duplicates, and the target never merged into itself.
+    internal static (string? targetId, string[]? sourceIds, string? error) NormalizeMerge(MergeCompaniesRequest? body)
+    {
+        if (body is null) return (null, null, "request body is required");
+
+        var targetId = body.TargetId?.Trim();
+        if (string.IsNullOrEmpty(targetId)) return (null, null, "targetId is required");
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var sourceIds = new List<string>();
+        foreach (var raw in body.SourceIds ?? [])
+        {
+            var sourceId = raw?.Trim();
+            if (string.IsNullOrEmpty(sourceId)) continue;
+            if (sourceId == targetId)
+                return (null, null, "a company cannot be merged into itself");
+            if (seen.Add(sourceId)) sourceIds.Add(sourceId);
+        }
+
+        if (sourceIds.Count == 0) return (null, null, "sourceIds must contain at least one company");
+        if (sourceIds.Count > SponsorStore.MaxMergeSources)
+            return (null, null, $"at most {SponsorStore.MaxMergeSources} companies can be merged at once");
+
+        return (targetId, sourceIds.ToArray(), null);
     }
 
     [HttpGet("sync-logs")]
