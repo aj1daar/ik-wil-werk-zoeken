@@ -31,4 +31,15 @@ public sealed class SponsorCompany
 
     // Soft-delete: set when a KvK number disappears from the IND register
     public DateTimeOffset? RemovedAt { get; set; }
+
+    // Previous names of this company plus the names of every company merged into
+    // it. Used only for lookup — an application saved under an old or duplicate
+    // name still resolves to this company. Never shown as the company's own name.
+    public string[]? AliasNames { get; set; }
+
+    // Set on the losing side of an admin merge: the Id of the company this one
+    // was merged into. A merged company is hidden from the register and skipped
+    // by enrichment, but the row is kept so the merge can be undone and so the
+    // monthly IND sync does not re-create it.
+    public string? MergedIntoId { get; set; }
 }

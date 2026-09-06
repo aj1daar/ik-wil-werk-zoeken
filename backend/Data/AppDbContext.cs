@@ -40,6 +40,8 @@ public sealed class AppDbContext : DbContext
             e.Property(s => s.Locations).HasColumnType("text[]");
             e.Property(s => s.TechStackTags).HasColumnType("text[]");
             e.Property(s => s.FunctionalTags).HasColumnType("text[]");
+            e.Property(s => s.AliasNames).HasColumnType("text[]");
+            e.HasIndex(s => s.MergedIntoId);
         });
 
         modelBuilder.Entity<ActivityLog>(e =>
