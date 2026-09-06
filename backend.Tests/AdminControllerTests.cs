@@ -1,4 +1,4 @@
-using backend.Controllers;
+﻿using backend.Controllers;
 using backend.Models;
 using Xunit;
 
@@ -225,5 +225,133 @@ public sealed class AdminControllerTests
         Assert.Equal(["Rotterdam", "Delft"], edit.Locations!);
         Assert.Equal("Logistics", edit.CoreIndustry);
         Assert.Equal("EU", edit.TargetMarket);
+    }
+
+    // ── name ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void NameIsTrimmed()
+    {
+        var (edit, error) = Normalize(new UpdateCompanyRequest { Name = "  Acme Holding  " });
+
+        Assert.Null(error);
+        Assert.Equal("Acme Holding", edit!.Name);
+    }
+
+    [Fact]
+    public void OmittedNameStaysNullSoTheCurrentNameIsKept()
+    {
+        var (edit, error) = Normalize(new UpdateCompanyRequest { City = "Utrecht" });
+
+        Assert.Null(error);
+        Assert.Null(edit!.Name);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t\n")]
+    public void BlankNameIsRejected(string value)
+    {
+        var (edit, error) = Normalize(new UpdateCompanyRequest { Name = value });
+
+        Assert.Null(edit);
+        Assert.Equal("name must not be blank", error);
+    }
+
+    [Fact]
+    public void NameAt200CharsIsAccepted()
+    {
+        var (edit, error) = Normalize(new UpdateCompanyRequest { Name = new string('a', 200) });
+
+        Assert.Null(error);
+        Assert.Equal(200, edit!.Name!.Length);
+    }
+
+    [Fact]
+    public void NameOver200CharsIsRejected()
+    {
+        var (edit, error) = Normalize(new UpdateCompanyRequest { Name = new string('a', 201) });
+
+        Assert.Null(edit);
+        Assert.Equal("name must not exceed 200 characters", error);
+    }
+
+    // ── merge request normalization ──────────────────────────────────────────
+
+    private static (string? targetId, string[]? sourceIds, string? error) NormalizeMerge(MergeCompaniesRequest? body) =>
+        AdminController.NormalizeMerge(body);
+
+    [Fact]
+    public void MergeNullBodyIsRejected()
+    {
+        var (_, _, error) = NormalizeMerge(null);
+        Assert.Equal("request body is required", error);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void MergeBlankTargetIsRejected(string? targetId)
+    {
+        var (_, _, error) = NormalizeMerge(new MergeCompaniesRequest { TargetId = targetId!, SourceIds = ["a"] });
+        Assert.Equal("targetId is required", error);
+    }
+
+    [Fact]
+    public void MergeWithoutSourcesIsRejected()
+    {
+        var (_, _, error) = NormalizeMerge(new MergeCompaniesRequest { TargetId = "t", SourceIds = [] });
+        Assert.Equal("sourceIds must contain at least one company", error);
+    }
+
+    [Fact]
+    public void MergeWithOnlyBlankSourcesIsRejected()
+    {
+        var (_, _, error) = NormalizeMerge(new MergeCompaniesRequest { TargetId = "t", SourceIds = ["", "  ", null!] });
+        Assert.Equal("sourceIds must contain at least one company", error);
+    }
+
+    [Fact]
+    public void MergeIntoItselfIsRejected()
+    {
+        var (_, _, error) = NormalizeMerge(new MergeCompaniesRequest { TargetId = "t", SourceIds = ["a", " t "] });
+        Assert.Equal("a company cannot be merged into itself", error);
+    }
+
+    [Fact]
+    public void MergeTrimsAndDeduplicatesSourceIds()
+    {
+        var (targetId, sourceIds, error) = NormalizeMerge(new MergeCompaniesRequest
+        {
+            TargetId = "  t  ",
+            SourceIds = [" a ", "a", "b", ""],
+        });
+
+        Assert.Null(error);
+        Assert.Equal("t", targetId);
+        Assert.Equal(["a", "b"], sourceIds!);
+    }
+
+    [Fact]
+    public void MergeAt50SourcesIsAccepted()
+    {
+        var ids = Enumerable.Range(0, 50).Select(i => $"c{i}").ToArray();
+
+        var (_, sourceIds, error) = NormalizeMerge(new MergeCompaniesRequest { TargetId = "t", SourceIds = ids });
+
+        Assert.Null(error);
+        Assert.Equal(50, sourceIds!.Length);
+    }
+
+    [Fact]
+    public void MergeOver50SourcesIsRejected()
+    {
+        var ids = Enumerable.Range(0, 51).Select(i => $"c{i}").ToArray();
+
+        var (_, _, error) = NormalizeMerge(new MergeCompaniesRequest { TargetId = "t", SourceIds = ids });
+
+        Assert.Equal("at most 50 companies can be merged at once", error);
     }
 }
