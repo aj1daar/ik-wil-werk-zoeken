@@ -7,6 +7,8 @@ vi.mock('../../api', () => ({
   api: {
     getCompanies: vi.fn(),
     adminUpdateCompany: vi.fn(),
+    adminMergeCompanies: vi.fn(),
+    adminUnmergeCompany: vi.fn(),
     getCompanyLists: vi.fn(),
     setCompanyList: vi.fn(),
   }
@@ -698,5 +700,133 @@ describe('useCompaniesStore – company lists', () => {
     await store.loadLists()
     expect(api.setCompanyList).not.toHaveBeenCalled()
     expect(localStorage.getItem('iwwz_hidden_companies')).toBeNull()
+  })
+})
+
+
+// ── mergeCompanies / unmergeCompany ──────────────────────────────────────────
+
+describe('useCompaniesStore – mergeCompanies', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  function mergeResult(target: SponsorCompany, mergedIds: string[], counts: Partial<{
+    movedApplications: number; movedListEntries: number; droppedListEntries: number
+  }> = {}) {
+    return {
+      target,
+      mergedIds,
+      movedApplications:  counts.movedApplications  ?? 0,
+      movedListEntries:   counts.movedListEntries   ?? 0,
+      droppedListEntries: counts.droppedListEntries ?? 0,
+      message: `Merged ${mergedIds.length} companies into ${target.name}.`,
+    }
+  }
+
+  it('calls the API with the target and the source ids', async () => {
+    const store = seedStore([
+      makeCompany({ id: 'keep', name: 'Acme' }),
+      makeCompany({ id: 'dupe', name: 'Acme BV' }),
+    ])
+    vi.mocked(api.adminMergeCompanies).mockResolvedValue(
+      mergeResult(makeCompany({ id: 'keep', name: 'Acme', aliasNames: ['Acme BV'] }), ['dupe'])
+    )
+
+    await store.mergeCompanies('keep', ['dupe'])
+
+    expect(api.adminMergeCompanies).toHaveBeenCalledWith('keep', ['dupe'])
+  })
+
+  it('drops the merged companies from the list and refreshes the survivor', async () => {
+    const store = seedStore([
+      makeCompany({ id: 'keep', name: 'Acme' }),
+      makeCompany({ id: 'd1', name: 'Acme BV' }),
+      makeCompany({ id: 'd2', name: 'Acme Group' }),
+      makeCompany({ id: 'other', name: 'Unrelated' }),
+    ])
+    vi.mocked(api.adminMergeCompanies).mockResolvedValue(
+      mergeResult(makeCompany({ id: 'keep', name: 'Acme', aliasNames: ['Acme BV', 'Acme Group'] }), ['d1', 'd2'])
+    )
+
+    await store.mergeCompanies('keep', ['d1', 'd2'])
+
+    expect(store.companies.map(c => c.id)).toEqual(['keep', 'other'])
+    expect(store.companies.find(c => c.id === 'keep')?.aliasNames).toEqual(['Acme BV', 'Acme Group'])
+  })
+
+  it('returns the merge result so the caller can report the counts', async () => {
+    const store = seedStore([makeCompany({ id: 'keep', name: 'Acme' })])
+    vi.mocked(api.adminMergeCompanies).mockResolvedValue(
+      mergeResult(makeCompany({ id: 'keep', name: 'Acme' }), ['dupe'], { movedApplications: 3, movedListEntries: 2 })
+    )
+
+    const result = await store.mergeCompanies('keep', ['dupe'])
+
+    expect(result.movedApplications).toBe(3)
+    expect(result.movedListEntries).toBe(2)
+  })
+
+  it('re-reads the user lists, because entries moved to the survivor', async () => {
+    const store = seedStore([makeCompany({ id: 'keep', name: 'Acme' })])
+    store.listsLoaded = true
+    vi.mocked(api.adminMergeCompanies).mockResolvedValue(
+      mergeResult(makeCompany({ id: 'keep', name: 'Acme' }), ['dupe'])
+    )
+    vi.mocked(api.getCompanyLists).mockResolvedValue({ interested: ['keep'], hidden: [] })
+
+    await store.mergeCompanies('keep', ['dupe'])
+
+    expect(api.getCompanyLists).toHaveBeenCalled()
+    expect([...store.interestedIds]).toEqual(['keep'])
+  })
+
+  it('does not fetch lists that were never loaded', async () => {
+    const store = seedStore([makeCompany({ id: 'keep', name: 'Acme' })])
+    vi.mocked(api.adminMergeCompanies).mockResolvedValue(
+      mergeResult(makeCompany({ id: 'keep', name: 'Acme' }), ['dupe'])
+    )
+
+    await store.mergeCompanies('keep', ['dupe'])
+
+    expect(api.getCompanyLists).not.toHaveBeenCalled()
+  })
+
+  it('leaves the list untouched when the merge fails', async () => {
+    const store = seedStore([
+      makeCompany({ id: 'keep', name: 'Acme' }),
+      makeCompany({ id: 'dupe', name: 'Acme BV' }),
+    ])
+    vi.mocked(api.adminMergeCompanies).mockRejectedValue(new Error('403 Forbidden'))
+
+    await expect(store.mergeCompanies('keep', ['dupe'])).rejects.toThrow('403 Forbidden')
+    expect(store.companies.map(c => c.id)).toEqual(['keep', 'dupe'])
+  })
+})
+
+describe('useCompaniesStore – unmergeCompany', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('re-reads the register so the restored company and the cleaned-up aliases both show', async () => {
+    const store = seedStore([makeCompany({ id: 'keep', name: 'Acme', aliasNames: ['Acme BV'] })])
+    vi.mocked(api.adminUnmergeCompany).mockResolvedValue(makeCompany({ id: 'dupe', name: 'Acme BV' }))
+    vi.mocked(api.getCompanies).mockResolvedValue([
+      makeCompany({ id: 'keep', name: 'Acme' }),
+      makeCompany({ id: 'dupe', name: 'Acme BV' }),
+    ])
+
+    const restored = await store.unmergeCompany('dupe')
+
+    expect(api.adminUnmergeCompany).toHaveBeenCalledWith('dupe')
+    expect(restored.id).toBe('dupe')
+    expect(store.companies.map(c => c.id)).toEqual(['keep', 'dupe'])
+    expect(store.companies.find(c => c.id === 'keep')?.aliasNames).toBeUndefined()
+  })
+
+  it('leaves the list untouched when the unmerge fails', async () => {
+    const store = seedStore([makeCompany({ id: 'keep', name: 'Acme', aliasNames: ['Acme BV'] })])
+    vi.mocked(api.adminUnmergeCompany).mockRejectedValue(new Error('404 Not Found'))
+
+    await expect(store.unmergeCompany('dupe')).rejects.toThrow('404 Not Found')
+    expect(api.getCompanies).not.toHaveBeenCalled()
+    expect(store.companies).toHaveLength(1)
   })
 })

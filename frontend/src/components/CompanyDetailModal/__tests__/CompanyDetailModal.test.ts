@@ -2,12 +2,17 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CompanyDetailModal from '../CompanyDetailModal.vue'
+import { useCompaniesStore } from '../../../stores/companies'
 import type { Application, SponsorCompany } from '../../../api'
 
 vi.mock('../../../api', () => ({
   api: {
-    adminUpdateCompany: vi.fn(),
-    getCompanies:       vi.fn(),
+    adminUpdateCompany:      vi.fn(),
+    adminGetMergedCompanies: vi.fn(),
+    adminMergeCompanies:     vi.fn(),
+    adminUnmergeCompany:     vi.fn(),
+    getCompanies:            vi.fn(),
+    getCompanyLists:         vi.fn(),
   },
 }))
 
@@ -285,5 +290,220 @@ describe('CompanyDetailModal – admin edit', () => {
     await flushPromises()
     expect(w.text()).toContain('403 Forbidden')
     expect(w.find('.summary-textarea').exists()).toBe(true)
+  })
+})
+
+
+// ── admin rename ─────────────────────────────────────────────────────────────
+
+describe('CompanyDetailModal – admin rename', () => {
+  it('the edit form is pre-filled with the current name', async () => {
+    const w = mountModal({ isAdmin: true, company: makeCompany({ name: 'Acme B.V.' }) })
+    await w.find('.panel-edit-btn').trigger('click')
+    expect((w.find('#ce-name').element as HTMLInputElement).value).toBe('Acme B.V.')
+  })
+
+  it('Save sends the trimmed new name', async () => {
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(makeCompany({ name: 'Acme Netherlands' }))
+    const w = mountModal({ isAdmin: true, company: makeCompany({ name: 'Acme B.V.' }) })
+    await w.find('.panel-edit-btn').trigger('click')
+    await w.find('#ce-name').setValue('  Acme Netherlands  ')
+    await w.findAll('button').find(b => b.text() === 'Save changes')!.trigger('click')
+    await flushPromises()
+    expect(api.adminUpdateCompany).toHaveBeenCalledWith('sp-1', expect.objectContaining({ name: 'Acme Netherlands' }))
+  })
+
+  it('an unchanged name is still sent, so the server keeps it as-is', async () => {
+    vi.mocked(api.adminUpdateCompany).mockResolvedValue(makeCompany({}))
+    const w = mountModal({ isAdmin: true, company: makeCompany({ name: 'Acme B.V.' }) })
+    await w.find('.panel-edit-btn').trigger('click')
+    await w.findAll('button').find(b => b.text() === 'Save changes')!.trigger('click')
+    await flushPromises()
+    expect(api.adminUpdateCompany).toHaveBeenCalledWith('sp-1', expect.objectContaining({ name: 'Acme B.V.' }))
+  })
+
+  it('a blank name is refused before anything is sent', async () => {
+    const w = mountModal({ isAdmin: true, company: makeCompany({ name: 'Acme B.V.' }) })
+    await w.find('.panel-edit-btn').trigger('click')
+    await w.find('#ce-name').setValue('   ')
+    await w.findAll('button').find(b => b.text() === 'Save changes')!.trigger('click')
+    await flushPromises()
+    expect(api.adminUpdateCompany).not.toHaveBeenCalled()
+    expect(w.text()).toContain('Name is required.')
+    expect(w.find('#ce-name').exists()).toBe(true)
+  })
+
+  it('shows previous names to an admin only', () => {
+    const company = makeCompany({ aliasNames: ['Acme B.V.', 'Acme Holland'] })
+    expect(mountModal({ isAdmin: true, company }).text()).toContain('Acme Holland')
+    expect(mountModal({ isAdmin: false, company }).text()).not.toContain('Acme Holland')
+  })
+})
+
+// ── admin merge ──────────────────────────────────────────────────────────────
+
+describe('CompanyDetailModal – admin merge', () => {
+  function mountAdmin(companies: SponsorCompany[] = [], company = makeCompany()) {
+    setActivePinia(createPinia())
+    const store = useCompaniesStore()
+    store.$patch({ companies: [company, ...companies] })
+    const wrapper = mount(CompanyDetailModal, {
+      props: { company, application: null, isAdmin: true, isHidden: false, isInterested: false },
+      global: { stubs: { teleport: true } },
+    })
+    return { wrapper, store }
+  }
+
+  const mergeResult = (overrides: Record<string, unknown> = {}) => ({
+    target: makeCompany({ aliasNames: ['Acme Netherlands'] }),
+    mergedIds: ['sp-2'],
+    movedApplications: 0,
+    movedListEntries: 0,
+    droppedListEntries: 0,
+    message: 'Merged 1 company into Acme B.V.',
+    ...overrides,
+  })
+
+  beforeEach(() => {
+    vi.mocked(api.adminGetMergedCompanies).mockResolvedValue([])
+  })
+
+  it('the merge panel is admin-only', async () => {
+    expect(mountModal({ isAdmin: false }).find('#ce-merge-search').exists()).toBe(false)
+    const { wrapper } = mountAdmin()
+    await flushPromises()
+    expect(wrapper.find('#ce-merge-search').exists()).toBe(true)
+  })
+
+  it('searching lists other companies but never this one', async () => {
+    const { wrapper } = mountAdmin([
+      makeCompany({ id: 'sp-2', name: 'Acme Netherlands' }),
+      makeCompany({ id: 'sp-3', name: 'Bigcorp' }),
+    ])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    const names = wrapper.findAll('.merge-result-name').map(n => n.text())
+    expect(names).toEqual(['Acme Netherlands'])
+  })
+
+  it('a one-character query searches nothing', async () => {
+    const { wrapper } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('a')
+    expect(wrapper.findAll('.merge-result')).toHaveLength(0)
+  })
+
+  it('picking a result stages it and clears the search box', async () => {
+    const { wrapper } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    await wrapper.find('.merge-result').trigger('click')
+    expect(wrapper.find('.city-chip').text()).toContain('Acme Netherlands')
+    expect((wrapper.find('#ce-merge-search').element as HTMLInputElement).value).toBe('')
+  })
+
+  it('a staged company is not offered again', async () => {
+    const { wrapper } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    await wrapper.find('.merge-result').trigger('click')
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    expect(wrapper.findAll('.merge-result')).toHaveLength(0)
+  })
+
+  it('a staged company can be removed again', async () => {
+    const { wrapper } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    await wrapper.find('.merge-result').trigger('click')
+    await wrapper.find('.city-remove').trigger('click')
+    expect(wrapper.find('.city-chip').exists()).toBe(false)
+    expect(wrapper.find('.merge-submit').exists()).toBe(false)
+  })
+
+  it('nothing is merged until the confirmation is accepted', async () => {
+    const { wrapper } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    await wrapper.find('.merge-result').trigger('click')
+    await wrapper.find('.merge-submit').trigger('click')
+    expect(api.adminMergeCompanies).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Merge companies?')
+  })
+
+  it('confirming merges the staged companies into this one', async () => {
+    vi.mocked(api.adminMergeCompanies).mockResolvedValue(mergeResult({ movedApplications: 2, movedListEntries: 1 }))
+    const { wrapper, store } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    await wrapper.find('.merge-result').trigger('click')
+    await wrapper.find('.merge-submit').trigger('click')
+    await wrapper.find('.cd-confirm').trigger('click')
+    await flushPromises()
+
+    expect(api.adminMergeCompanies).toHaveBeenCalledWith('sp-1', ['sp-2'])
+    expect(store.companies.map(c => c.id)).toEqual(['sp-1'])
+    expect(wrapper.find('.merge-notice').text()).toContain('2 applications')
+    expect(wrapper.find('.city-chip').exists()).toBe(false)
+  })
+
+  it('cancelling the confirmation keeps the staged companies', async () => {
+    const { wrapper } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    await wrapper.find('.merge-result').trigger('click')
+    await wrapper.find('.merge-submit').trigger('click')
+    await wrapper.find('.cd-cancel').trigger('click')
+    await flushPromises()
+    expect(api.adminMergeCompanies).not.toHaveBeenCalled()
+    expect(wrapper.find('.city-chip').text()).toContain('Acme Netherlands')
+  })
+
+  it('reports a failed merge and keeps the staged companies', async () => {
+    vi.mocked(api.adminMergeCompanies).mockRejectedValue(new Error('403 Forbidden'))
+    const { wrapper } = mountAdmin([makeCompany({ id: 'sp-2', name: 'Acme Netherlands' })])
+    await wrapper.find('#ce-merge-search').setValue('acme')
+    await wrapper.find('.merge-result').trigger('click')
+    await wrapper.find('.merge-submit').trigger('click')
+    await wrapper.find('.cd-confirm').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.summary-error').text()).toContain('403 Forbidden')
+    expect(wrapper.find('.city-chip').text()).toContain('Acme Netherlands')
+  })
+
+  it('lists the companies already merged into this one', async () => {
+    vi.mocked(api.adminGetMergedCompanies).mockResolvedValue([makeCompany({ id: 'sp-9', name: 'Acme Holland' })])
+    const { wrapper } = mountAdmin()
+    await flushPromises()
+    expect(wrapper.find('.merged-row').text()).toContain('Acme Holland')
+  })
+
+  it('unmerging restores the company and refreshes the list', async () => {
+    vi.mocked(api.adminGetMergedCompanies)
+      .mockResolvedValueOnce([makeCompany({ id: 'sp-9', name: 'Acme Holland' })])
+      .mockResolvedValueOnce([])
+    vi.mocked(api.adminUnmergeCompany).mockResolvedValue(makeCompany({ id: 'sp-9', name: 'Acme Holland' }))
+    vi.mocked(api.getCompanies).mockResolvedValue([makeCompany(), makeCompany({ id: 'sp-9', name: 'Acme Holland' })])
+
+    const { wrapper } = mountAdmin()
+    await flushPromises()
+    await wrapper.find('.merge-undo').trigger('click')
+    await flushPromises()
+
+    expect(api.adminUnmergeCompany).toHaveBeenCalledWith('sp-9')
+    expect(wrapper.find('.merge-notice').text()).toContain('Acme Holland')
+    expect(wrapper.find('.merged-row').exists()).toBe(false)
+  })
+
+  it('reports a failed unmerge', async () => {
+    vi.mocked(api.adminGetMergedCompanies).mockResolvedValue([makeCompany({ id: 'sp-9', name: 'Acme Holland' })])
+    vi.mocked(api.adminUnmergeCompany).mockRejectedValue(new Error('404 Not Found'))
+
+    const { wrapper } = mountAdmin()
+    await flushPromises()
+    await wrapper.find('.merge-undo').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.summary-error').text()).toContain('404 Not Found')
+    expect(wrapper.find('.merged-row').exists()).toBe(true)
+  })
+
+  it('the merge panel is hidden while the edit form is open', async () => {
+    const { wrapper } = mountAdmin()
+    await flushPromises()
+    await wrapper.find('.panel-edit-btn').trigger('click')
+    expect(wrapper.find('#ce-merge-search').exists()).toBe(false)
   })
 })
