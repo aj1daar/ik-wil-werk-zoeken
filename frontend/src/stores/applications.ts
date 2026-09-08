@@ -39,6 +39,7 @@ export const REJECTION_REASON_LABELS: Record<string, string> = {
   internal_hire:        'Position filled internally',
   failed_assessment:    'Did not pass the assessment',
   no_vacancies:         'No vacancies at the moment',
+  no_hsm_sponsorship:   'Does not sponsor HSM visa',
   other:                'Other',
 }
 
