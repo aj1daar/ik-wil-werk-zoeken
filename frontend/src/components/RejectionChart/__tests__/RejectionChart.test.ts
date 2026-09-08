@@ -128,7 +128,7 @@ describe('RejectionChart – rejection counting', () => {
   })
 
   it('legend shows only top 2 when more than 2 reasons exist', () => {
-    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'no_vacancies', 'other'] as const
+    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'no_vacancies', 'no_hsm_sponsorship', 'other'] as const
     const apps = reasons.map(r => makeApp({ rejectionReason: r }))
     const w = mountChart(apps)
     expect(w.findAll('.donut-legend-item')).toHaveLength(2)
@@ -154,6 +154,28 @@ describe('RejectionChart – rejection counting', () => {
     const counts = items.map(i => i.find('.donut-legend-count').text())
     expect(counts[labels.indexOf('Did not pass assessment')]).toBe('2')
     expect(counts[labels.indexOf('Other')]).toBe('1')
+  })
+
+  it('no_hsm_sponsorship is recognised as a distinct rejection reason', () => {
+    const w = mountChart([makeApp({ rejectionReason: 'no_hsm_sponsorship' })])
+    const items = w.findAll('.donut-legend-item')
+    const labels = items.map(i => i.find('.donut-legend-label').text())
+    expect(labels).toContain('No HSM visa sponsorship')
+    expect(items[labels.indexOf('No HSM visa sponsorship')].find('.donut-legend-count').text()).toBe('1')
+  })
+
+  it('no_hsm_sponsorship is not conflated with no_vacancies', () => {
+    const apps = [
+      makeApp({ rejectionReason: 'no_hsm_sponsorship' }),
+      makeApp({ rejectionReason: 'no_hsm_sponsorship' }),
+      makeApp({ rejectionReason: 'no_vacancies' }),
+    ]
+    const w = mountChart(apps)
+    const items = w.findAll('.donut-legend-item')
+    const labels = items.map(i => i.find('.donut-legend-label').text())
+    const counts = items.map(i => i.find('.donut-legend-count').text())
+    expect(counts[labels.indexOf('No HSM visa sponsorship')]).toBe('2')
+    expect(counts[labels.indexOf('No vacancies at the moment')]).toBe('1')
   })
 })
 

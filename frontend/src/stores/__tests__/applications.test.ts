@@ -79,10 +79,17 @@ describe('STATUS_COLOR', () => {
 })
 
 describe('REJECTION_REASON_LABELS', () => {
-  it('covers all eight reasons', () => {
-    const expected = ['dutch_language','another_candidate','incompatible_profile','salary_mismatch','internal_hire','failed_assessment','no_vacancies','other']
+  it('covers all nine reasons', () => {
+    const expected = ['dutch_language','another_candidate','incompatible_profile','salary_mismatch','internal_hire','failed_assessment','no_vacancies','no_hsm_sponsorship','other']
     expect(Object.keys(REJECTION_REASON_LABELS)).toEqual(expect.arrayContaining(expected))
-    expect(Object.keys(REJECTION_REASON_LABELS)).toHaveLength(8)
+    expect(Object.keys(REJECTION_REASON_LABELS)).toHaveLength(9)
+  })
+
+  it('labels no_hsm_sponsorship distinctly from every other reason', () => {
+    const label = REJECTION_REASON_LABELS.no_hsm_sponsorship
+    expect(label).toBe('Does not sponsor HSM visa')
+    const others = Object.entries(REJECTION_REASON_LABELS).filter(([k]) => k !== 'no_hsm_sponsorship').map(([, v]) => v)
+    expect(others).not.toContain(label)
   })
 })
 

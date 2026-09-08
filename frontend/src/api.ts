@@ -287,6 +287,7 @@ export type RejectionReason =
   | 'internal_hire'
   | 'failed_assessment'
   | 'no_vacancies'
+  | 'no_hsm_sponsorship'
   | 'other'
 
 export interface Stats {

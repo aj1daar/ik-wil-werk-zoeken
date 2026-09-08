@@ -1,4 +1,4 @@
-using backend.Controllers;
+﻿using backend.Controllers;
 using backend.Models;
 using Xunit;
 
@@ -248,6 +248,8 @@ public sealed class DashboardFunctionTests
     [InlineData("salary_mismatch")]
     [InlineData("internal_hire")]
     [InlineData("failed_assessment")]
+    [InlineData("no_vacancies")]
+    [InlineData("no_hsm_sponsorship")]
     [InlineData("other")]
     public void ValidateStage_AllValidRejectionReasons_ReturnsTrue(string reason)
     {
