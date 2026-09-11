@@ -14,8 +14,19 @@ import { LineChart } from 'echarts/charts'
 import { TooltipComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import type { Application } from '../../api'
+import { useTheme } from '../../composables/useTheme'
 
 use([CanvasRenderer, LineChart, TooltipComponent, GridComponent])
+
+const { theme } = useTheme()
+
+// ECharts paints to canvas and can't read CSS custom properties, so these
+// mirror the style.css tokens: route blue for the one series, recessive
+// hairline grid and muted axis labels, surface-coloured ring on markers.
+const CHART_INK = {
+  light: { line: '#1F4FA3', label: '#6F7A89', grid: '#DDE2E7', axis: '#CBD2D9', surface: '#F1F3F5' },
+  dark:  { line: '#7FA6F0', label: '#8590A0', grid: '#2A3341', axis: '#364152', surface: '#1B222C' },
+} as const
 
 const props = defineProps<{
   applications: Application[]
@@ -71,45 +82,53 @@ const weeksData = computed(() => {
 
 const isEmpty = computed(() => weeksData.value.length === 0)
 
-const option = computed(() => ({
-  tooltip: { trigger: 'axis', formatter: (p: any[]) => `${p[0].axisValue}: ${p[0].value}` },
-  grid: { left: '3%', right: '3%', bottom: '3%', top: '8%', containLabel: true },
-  xAxis: {
-    type: 'category',
-    boundaryGap: false,
-    data: weeksData.value.map(w => w.week),
-    axisLabel: { rotate: 35, fontSize: 11 },
-  },
-  yAxis: { type: 'value', minInterval: 1 },
-  series: [{
-    type: 'line',
-    data: weeksData.value.map(w => w.count),
-    smooth: true,
-    areaStyle: { opacity: 0.25 },
-    color: '#f97316',
-    symbol: 'circle',
-    symbolSize: 5,
-  }],
-}))
+const option = computed(() => {
+  const ink = CHART_INK[theme.value === 'dark' ? 'dark' : 'light']
+  return {
+    textStyle: { fontFamily: "'IBM Plex Sans', system-ui, sans-serif" },
+    tooltip: { trigger: 'axis', formatter: (p: any[]) => `${p[0].axisValue}: ${p[0].value}` },
+    grid: { left: '3%', right: '3%', bottom: '3%', top: '8%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: weeksData.value.map(w => w.week),
+      axisLabel: { rotate: 35, fontSize: 11, color: ink.label },
+      axisLine: { lineStyle: { color: ink.axis } },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: { fontSize: 11, color: ink.label },
+      splitLine: { lineStyle: { color: ink.grid } },
+    },
+    series: [{
+      type: 'line',
+      data: weeksData.value.map(w => w.count),
+      smooth: true,
+      color: ink.line,
+      lineStyle: { width: 2 },
+      areaStyle: { opacity: 0.12 },
+      symbol: 'circle',
+      symbolSize: 8,
+      itemStyle: { borderColor: ink.surface, borderWidth: 2 },
+    }],
+  }
+})
 </script>
 
 <style scoped>
 .area-wrap {
   background: var(--col-surface);
-  border: 1px solid var(--col-border);
-  border-radius: .75rem;
+  border: 1px solid var(--col-border-lt);
+  border-radius: var(--radius-lg);
   padding: 1.25rem 1rem 1rem;
-  box-shadow:
-    0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
-    0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
 }
 
 .chart-title {
-  font-size: .8rem;
+  font-size: .9375rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--col-muted);
+  color: var(--col-text);
   margin: 0 0 .75rem;
 }
 

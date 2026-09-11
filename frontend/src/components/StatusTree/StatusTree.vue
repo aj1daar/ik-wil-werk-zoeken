@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { StatusFlow, ApplicationStatus } from '../../api'
+import { statusMark } from '../../stores/applications'
 
 const props = defineProps<{ flow: StatusFlow | null }>()
 
@@ -11,17 +12,18 @@ interface StatusMeta { label: string; color: string; rank: number }
 // Rejected) or run sideways (Interviewing to Assessment). Left-to-right
 // position within a row is not fixed here — see orderedRows, which picks the
 // column order that draws best for the data at hand and falls back to this
-// declaration order to break ties.
+// declaration order to break ties. Colours are the shared status tokens
+// (CSS custom properties), so they follow the theme and match the chips.
 const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
-  Applied:             { label: 'Applied',        color: '#60A5FA', rank: 0 },
-  InterviewScheduled:  { label: 'Interviewing',   color: '#A78BFA', rank: 1 },
-  Assessment:          { label: 'Assessment',     color: '#FB923C', rank: 1 },
-  OfferReceived:       { label: 'Offer Received', color: '#34D399', rank: 2 },
-  Accepted:            { label: 'Accepted',       color: '#10B981', rank: 3 },
-  OnHold:              { label: 'On Hold',        color: '#FBBF24', rank: 3 },
-  Rejected:            { label: 'Rejected',       color: '#F87171', rank: 3 },
-  Withdrawn:           { label: 'Withdrawn',      color: '#9CA3AF', rank: 3 },
-  Ghosted:             { label: 'Ghosted',        color: '#71717A', rank: 3 },
+  Applied:             { label: 'Applied',        color: statusMark('Applied'),            rank: 0 },
+  InterviewScheduled:  { label: 'Interviewing',   color: statusMark('InterviewScheduled'), rank: 1 },
+  Assessment:          { label: 'Assessment',     color: statusMark('Assessment'),         rank: 1 },
+  OfferReceived:       { label: 'Offer Received', color: statusMark('OfferReceived'),      rank: 2 },
+  Accepted:            { label: 'Accepted',       color: statusMark('Accepted'),           rank: 3 },
+  OnHold:              { label: 'On Hold',        color: statusMark('OnHold'),             rank: 3 },
+  Rejected:            { label: 'Rejected',       color: statusMark('Rejected'),           rank: 3 },
+  Withdrawn:           { label: 'Withdrawn',      color: statusMark('Withdrawn'),          rank: 3 },
+  Ghosted:             { label: 'Ghosted',        color: statusMark('Ghosted'),            rank: 3 },
 }
 const STATUS_ORDER = Object.keys(STATUS_META) as ApplicationStatus[]
 
@@ -368,7 +370,7 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 <template>
   <div class="st-wrap">
     <div class="st-header">
-      <h3 class="st-title">Application Journey</h3>
+      <h3 class="st-title">Application journey</h3>
       <span v-if="!isEmpty" class="st-total"><strong>{{ total }}</strong> total</span>
     </div>
 
@@ -383,7 +385,9 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
         aria-label="Application status flow, showing how applications branch from Applied into later stages. Scroll to pan, or pinch / ctrl-scroll to zoom."
       >
         <g v-for="e in edgePaths" :key="`${e.from}-${e.to}`" :class="{ 'st-edge--dim': edgeDim(e.from, e.to) }">
-          <path :d="e.d" fill="none" :stroke="e.color" stroke-opacity="0.45" :stroke-width="e.strokeWidth" stroke-linecap="round" />
+          <!-- var() only resolves in CSS, not in SVG presentation attributes,
+               so the token colours go through style bindings -->
+          <path :d="e.d" fill="none" :style="{ stroke: e.color }" stroke-opacity="0.45" :stroke-width="e.strokeWidth" stroke-linecap="round" />
           <rect :x="e.mx - 12" :y="e.my - 9" width="24" height="18" rx="5" class="st-edge-badge-bg" />
           <text :x="e.mx" :y="e.my + 4" class="st-edge-label" text-anchor="middle">{{ e.count }}</text>
         </g>
@@ -399,11 +403,11 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
         >
           <rect
             :x="p.x - NODE_W / 2" :y="p.y - NODE_H / 2"
-            :width="NODE_W" :height="NODE_H" rx="10"
+            :width="NODE_W" :height="NODE_H" rx="6"
             class="st-node-rect"
             :style="{ stroke: STATUS_META[p.status].color }"
           />
-          <circle :cx="p.x - NODE_W / 2 + 14" :cy="p.y - NODE_H / 2 + 14" r="4" :fill="STATUS_META[p.status].color" />
+          <circle :cx="p.x - NODE_W / 2 + 14" :cy="p.y - NODE_H / 2 + 14" r="4" :style="{ fill: STATUS_META[p.status].color }" />
           <text :x="p.x - NODE_W / 2 + 24" :y="p.y - NODE_H / 2 + 18" class="st-node-label">{{ STATUS_META[p.status].label }}</text>
           <text :x="p.x - NODE_W / 2 + 12" :y="p.y + 18" class="st-node-count">{{ p.total }}</text>
           <text v-if="p.current !== p.total" :x="p.x + NODE_W / 2 - 12" :y="p.y + 18" text-anchor="end" class="st-node-current">
@@ -437,12 +441,9 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   min-width: 0;
   min-height: 0;
   background: var(--col-surface);
-  border: 1px solid var(--col-border);
-  border-radius: .75rem;
+  border: 1px solid var(--col-border-lt);
+  border-radius: var(--radius-lg);
   padding: 1.25rem 1rem 1rem;
-  box-shadow:
-    0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
-    0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
 }
 
 .st-header {
@@ -453,11 +454,9 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   flex-shrink: 0;
 }
 .st-title {
-  font-size: .8rem;
+  font-size: .9375rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--col-muted);
+  color: var(--col-text);
   margin: 0;
 }
 .st-total { font-size: .8125rem; color: var(--col-muted); }
@@ -485,7 +484,7 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 .st-node--dim { opacity: .35; }
 .st-node-rect { fill: var(--col-bg); stroke-width: 2; }
 .st-node-label { font-size: 11px; font-weight: 600; fill: var(--col-text); }
-.st-node-count { font-size: 15px; font-weight: 700; fill: var(--col-text); }
+.st-node-count { font-size: 15px; font-weight: 600; fill: var(--col-text); font-variant-numeric: tabular-nums; }
 .st-node-current { font-size: 10.5px; font-weight: 600; fill: var(--col-muted); }
 
 .st-edge--dim { opacity: .2; }
