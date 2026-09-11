@@ -19,16 +19,27 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   Ghosted:             'Ghosted',
 }
 
-export const STATUS_COLOR: Record<ApplicationStatus, string> = {
-  Applied:             'chip-applied',
-  InterviewScheduled:  'chip-interview',
-  Assessment:          'chip-assessment',
-  OfferReceived:       'chip-offer',
-  OnHold:              'chip-hold',
-  Rejected:            'chip-rejected',
-  Withdrawn:           'chip-withdrawn',
-  Accepted:            'chip-accepted',
-  Ghosted:             'chip-ghosted',
+// Suffix of the --status-<token>-{bg,fg,bd,mark} colour tokens in style.css.
+// Chips, list-card stripes and the journey tree all key off this, so a
+// status reads as the same colour everywhere.
+export const STATUS_TOKEN: Record<ApplicationStatus, string> = {
+  Applied:             'applied',
+  InterviewScheduled:  'interview',
+  Assessment:          'assessment',
+  OfferReceived:       'offer',
+  OnHold:              'hold',
+  Rejected:            'rejected',
+  Withdrawn:           'withdrawn',
+  Accepted:            'accepted',
+  Ghosted:             'ghosted',
+}
+
+export const STATUS_COLOR = Object.fromEntries(
+  Object.entries(STATUS_TOKEN).map(([status, token]) => [status, `chip-${token}`]),
+) as Record<ApplicationStatus, string>
+
+export function statusMark(status: ApplicationStatus): string {
+  return `var(--status-${STATUS_TOKEN[status]}-mark)`
 }
 
 export const REJECTION_REASON_LABELS: Record<string, string> = {

@@ -2,60 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Warm Neutral Palette ─────────────────────────────────────── */
+/* ─── Palette ──────────────────────────────────────────────────────
+   Wayfinding palette: cool paper, slate ink, one signal yellow (Dutch
+   rail / Schiphol signage) spent only on "look here" moments, and a
+   route blue for links, focus and selection. Every colour in the app
+   comes from these tokens — components never hardcode hex. */
 :root {
-  --col-desktop:    #D4C9B8;
+  --col-desktop:    #E6E9ED;
+  --col-bg:         #FBFBFC;
+  --col-surface:    #F1F3F5;
+  --col-raised:     #E4E8EC;
+  --col-border:     #CBD2D9;
+  --col-border-lt:  #DDE2E7;
+  --col-text:       #1B2330;
+  --col-muted:      #4E5968;
+  --col-subtle:     #6F7A89;
+  --col-accent:     #1F4FA3;
+  --col-accent-dk:  #173D80;
+  --col-accent-lt:  #E3EAF6;
+  --col-on-accent:  #FFFFFF;
+  --col-focus:      #1F4FA3;
+  --col-signal:     #FFC917;
+  --col-signal-lt:  #FFF4D1;
+  --col-on-signal:  #1B2330;
+  --col-star:       #B07800;
+  --col-nav:        #1B2330;
+  --col-nav-text:   #F4F5F7;
+  --col-nav-muted:  #9AA4B2;
+  --col-nav-active: #FFC917;
+  --col-error:      #B3261E;
+  --col-error-lt:   #FBE9E7;
+  --col-success:    #1E7A46;
+  --col-success-lt: #E3F3EA;
+  --col-warning:    #8A5A00;
+  --col-warning-lt: #FFF4D1;
+  --col-invert-bg:   #1B2330; /* primary action: ink button on light surfaces */
+  --col-invert-text: #F4F5F7;
+  --col-overlay:    rgb(15 20 28 / 0.45);
+
+  --shadow-sm: 0 1px 2px rgb(27 35 48 / 0.06);
+  --shadow-lg: 0 12px 40px rgb(15 20 28 / 0.22);
   --island-shadow:
-    0 0 0 1px color-mix(in srgb, var(--col-text) 6%, transparent),
-    0 2px 8px  color-mix(in srgb, var(--col-text) 4%, transparent),
-    0 8px 32px color-mix(in srgb, var(--col-text) 7%, transparent);
-  --col-bg:         #FAF7F2;
-  --col-surface:    #F0EAE0;
-  --col-raised:     #E5D9CC;
-  --col-border:     #D0C4B4;
-  --col-border-lt:  #E0D6C8;
-  --col-text:       #2A1F15;
-  --col-muted:      #7A6555;
-  --col-subtle:     #A8958A;
-  --col-accent:     #B25E2A;
-  --col-accent-dk:  #8F4A1C;
-  --col-accent-lt:  #F5E0CC;
-  --col-nav:        #2A1F15;
-  --col-nav-text:   #FAF7F2;
-  --col-nav-muted:  #A8958A;
-  --col-nav-active: #D4845A;
-  --col-error:      #C04A30;
-  --col-error-lt:   #FAEAE6;
-  --col-success:    #2E6E4A;
-  --col-success-lt: #E8F4EE;
-  --col-invert-bg:   #2A1F15; /* always-dark bg for pill/badge on light surfaces */
-  --col-invert-text: #FAF7F2; /* always-light text on col-invert-bg */
+    0 0 0 1px color-mix(in srgb, var(--col-text) 7%, transparent),
+    0 1px 3px color-mix(in srgb, var(--col-text) 5%, transparent);
+
+  --radius-sm: 4px;
+  --radius:    6px;
+  --radius-lg: 10px;
+
+  /* Status: chip background / text / border, plus a solid "mark" for
+     stripes, tree nodes and dots. Keyed by STATUS_TOKEN in the store. */
+  --status-applied-bg:    #E3EAF6; --status-applied-fg:    #1F4FA3; --status-applied-bd:    #B7C8E8; --status-applied-mark:    #1F4FA3;
+  --status-interview-bg:  #FFF1BF; --status-interview-fg:  #6B4D00; --status-interview-bd:  #F2D270; --status-interview-mark:  #D9A300;
+  --status-assessment-bg: #FDE6D2; --status-assessment-fg: #8A3F0A; --status-assessment-bd: #F1BE93; --status-assessment-mark: #D9731F;
+  --status-offer-bg:      #DFF2E6; --status-offer-fg:      #1E6B3F; --status-offer-bd:      #A6D8B8; --status-offer-mark:      #2E9E5B;
+  --status-accepted-bg:   #1E7A46; --status-accepted-fg:   #FFFFFF; --status-accepted-bd:   #1E7A46; --status-accepted-mark:   #1E7A46;
+  --status-hold-bg:       #E6EAF0; --status-hold-fg:       #3F4A5A; --status-hold-bd:       #C3CBD6; --status-hold-mark:       #7A8594;
+  --status-rejected-bg:   #FBE4E1; --status-rejected-fg:   #9A2A20; --status-rejected-bd:   #EDB1A9; --status-rejected-mark:   #C2412F;
+  --status-withdrawn-bg:  #EEF0F2; --status-withdrawn-fg:  #5B6472; --status-withdrawn-bd:  #D2D7DD; --status-withdrawn-mark:  #9AA3AF;
+  --status-ghosted-bg:    transparent; --status-ghosted-fg: #5F6875; --status-ghosted-bd:   #AEB6C1; --status-ghosted-mark:    #B3BAC4;
 }
 
 /* ─── Dark Theme ────────────────────────────────────────────────── */
 :root[data-theme="dark"] {
-  --col-desktop:    #120E08;
-  --col-bg:         #1C1410;
-  --col-surface:    #251D16;
-  --col-raised:     #302520;
-  --col-border:     #4A3828;
-  --col-border-lt:  #3D3028;
-  --col-text:       #F0E8DC;
-  --col-muted:      #B09070;
-  --col-subtle:     #7A6048;
-  --col-accent:     #D4784A;
-  --col-accent-dk:  #E89060;
-  --col-accent-lt:  #2A160A;
-  --col-nav:        #120E08;
-  --col-nav-text:   #F0E8DC;
-  --col-nav-muted:  #8A7050;
-  --col-nav-active: #E08060;
-  --col-error:      #E06050;
-  --col-error-lt:   #2A0E0A;
-  --col-success:    #5AB070;
-  --col-success-lt: #0A2014;
-  --col-invert-bg:   #D4784A; /* accent orange — contrast on dark surfaces */
-  --col-invert-text: #FAF7F2;
+  --col-desktop:    #0E1218;
+  --col-bg:         #151A22;
+  --col-surface:    #1B222C;
+  --col-raised:     #252D39;
+  --col-border:     #364152;
+  --col-border-lt:  #2A3341;
+  --col-text:       #E8ECF1;
+  --col-muted:      #A9B3C1;
+  --col-subtle:     #8590A0;
+  --col-accent:     #7FA6F0;
+  --col-accent-dk:  #A5C1F5;
+  --col-accent-lt:  #1C2B45;
+  --col-on-accent:  #0E1218;
+  --col-focus:      #7FA6F0;
+  --col-signal:     #FFC917;
+  --col-signal-lt:  #3A2F0A;
+  --col-on-signal:  #1B2330;
+  --col-star:       #FFC917;
+  --col-nav:        #0B0F14;
+  --col-nav-text:   #E8ECF1;
+  --col-nav-muted:  #8893A3;
+  --col-nav-active: #FFC917;
+  --col-error:      #F08A80;
+  --col-error-lt:   #3A1714;
+  --col-success:    #6CCB93;
+  --col-success-lt: #10301F;
+  --col-warning:    #F2C14E;
+  --col-warning-lt: #3A2C08;
+  --col-invert-bg:   #E8ECF1; /* primary action flips to a light button on dark */
+  --col-invert-text: #151A22;
+  --col-overlay:    rgb(0 0 0 / 0.6);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 12px 40px rgb(0 0 0 / 0.5);
+
+  --status-applied-bg:    #1C2B45; --status-applied-fg:    #A5C1F5; --status-applied-bd:    #34507F; --status-applied-mark:    #7FA6F0;
+  --status-interview-bg:  #3A2F0A; --status-interview-fg:  #FFD95A; --status-interview-bd:  #6B5716; --status-interview-mark:  #FFC917;
+  --status-assessment-bg: #3A2212; --status-assessment-fg: #F7B27A; --status-assessment-bd: #6E4020; --status-assessment-mark: #F29A55;
+  --status-offer-bg:      #10301F; --status-offer-fg:      #7FD6A2; --status-offer-bd:      #245C3C; --status-offer-mark:      #5CC98A;
+  --status-accepted-bg:   #2F9E5E; --status-accepted-fg:   #07140C; --status-accepted-bd:   #2F9E5E; --status-accepted-mark:   #3DB36E;
+  --status-hold-bg:       #252D39; --status-hold-fg:       #B8C1CE; --status-hold-bd:       #3E4858; --status-hold-mark:       #8893A3;
+  --status-rejected-bg:   #3A1714; --status-rejected-fg:   #F4A097; --status-rejected-bd:   #6E2D27; --status-rejected-mark:   #E8705F;
+  --status-withdrawn-bg:  #222831; --status-withdrawn-fg:  #9AA3AF; --status-withdrawn-bd:  #3A424E; --status-withdrawn-mark:  #6E7887;
+  --status-ghosted-bg:    transparent; --status-ghosted-fg: #8C96A3; --status-ghosted-bd:   #4A5361; --status-ghosted-mark:    #5A6472;
 }
 
 /* ─── Base ──────────────────────────────────────────────────────── */
@@ -65,12 +118,22 @@ html {
 body {
   margin: 0;
   overflow-x: hidden;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.45;
   background-color: var(--col-desktop);
   color: var(--col-text);
+  -webkit-font-smoothing: antialiased;
 }
 @media (max-width: 767px) {
   body { background-color: transparent; }
+}
+
+/* One focus ring for everything keyboard-reachable. Text fields keep their
+   own border + halo below; this covers links, buttons and the
+   role="button" cards that previously showed no focus at all. */
+:where(a, button, summary, [role="button"], [tabindex]:not([tabindex="-1"]), input[type="checkbox"], input[type="radio"]):focus-visible {
+  outline: 2px solid var(--col-focus);
+  outline-offset: 2px;
 }
 
 /* Global form element baseline — gives every native input/select/textarea the
@@ -79,7 +142,7 @@ body {
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
 textarea,
 select {
-  border-radius: 6px;
+  border-radius: var(--radius);
   border: 1px solid var(--col-border);
   background: var(--col-bg);
   color: var(--col-text);
@@ -116,11 +179,10 @@ textarea::placeholder { color: var(--col-subtle); }
   /* Labels */
   .field-label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--col-muted);
     margin-bottom: 0.375rem;
-    letter-spacing: 0.02em;
   }
 
   /* Panel / form inputs */
@@ -128,7 +190,7 @@ textarea::placeholder { color: var(--col-subtle); }
     width: 100%;
     background: var(--col-bg);
     border: 1px solid var(--col-border);
-    border-radius: 6px;
+    border-radius: var(--radius);
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
     color: var(--col-text);
@@ -144,9 +206,9 @@ textarea::placeholder { color: var(--col-subtle); }
   /* Toolbar filter inputs */
   .filter-input {
     width: 100%;
-    background: var(--col-surface);
+    background: var(--col-bg);
     border: 1px solid var(--col-border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     color: var(--col-text);
@@ -159,9 +221,9 @@ textarea::placeholder { color: var(--col-subtle); }
   /* Auth page inputs */
   .auth-input {
     width: 100%;
-    background: var(--col-surface);
+    background: var(--col-bg);
     border: 1px solid var(--col-border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 0.75rem 3rem 0.75rem 1rem;
     color: var(--col-text);
     font-size: 1rem;
@@ -174,47 +236,35 @@ textarea::placeholder { color: var(--col-subtle); }
     box-shadow: 0 0 0 3px var(--col-accent-lt);
   }
 
-  /* Buttons */
+  /* Buttons — primary actions are ink, not a brand colour, so the signal
+     yellow stays reserved for the things that need attention. */
   .btn-primary {
-    background: var(--col-accent);
-    color: #fff;
+    background: var(--col-invert-bg);
+    color: var(--col-invert-text);
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     padding: 0.5rem 1rem;
-    border-radius: 6px;
+    border-radius: var(--radius);
     border: none;
     cursor: pointer;
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--col-accent) 30%, transparent);
-    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+    transition: opacity 0.15s;
   }
-  .btn-primary:hover:not(:disabled) {
-    background: var(--col-accent-dk);
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--col-accent) 40%, transparent);
-    transform: translateY(-1px);
-  }
-  .btn-primary:active:not(:disabled) { transform: scale(0.97) translateY(0); transition: transform 80ms; }
+  .btn-primary:hover:not(:disabled) { opacity: 0.88; }
   .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-submit {
     width: 100%;
-    background: var(--col-accent);
-    color: #fff;
+    background: var(--col-invert-bg);
+    color: var(--col-invert-text);
     font-weight: 600;
     padding: 0.75rem;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: none;
     cursor: pointer;
     font-size: 1rem;
-    letter-spacing: 0.01em;
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--col-accent) 30%, transparent);
-    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+    transition: opacity 0.15s;
   }
-  .btn-submit:hover:not(:disabled) {
-    background: var(--col-accent-dk);
-    box-shadow: 0 6px 22px color-mix(in srgb, var(--col-accent) 42%, transparent);
-    transform: translateY(-1px);
-  }
-  .btn-submit:active:not(:disabled) { transform: scale(0.97) translateY(0); transition: transform 80ms; }
+  .btn-submit:hover:not(:disabled) { opacity: 0.88; }
   .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-danger {
@@ -223,7 +273,7 @@ textarea::placeholder { color: var(--col-subtle); }
     color: var(--col-error);
     background: transparent;
     border: 1px solid color-mix(in srgb, var(--col-error) 35%, transparent);
-    border-radius: 6px;
+    border-radius: var(--radius);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
   }
@@ -248,16 +298,16 @@ textarea::placeholder { color: var(--col-subtle); }
     font-size: 0.875rem;
     font-weight: 500;
     padding: 0.375rem 0.75rem;
-    border-radius: 6px;
+    border-radius: var(--radius);
     border: 1px solid var(--col-border);
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
   }
   .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
 
-  /* Status chip flash after save */
+  /* Status chip flash after save — answers the user's own action */
   @keyframes chip-flash {
-    0%   { filter: brightness(1.7); }
+    0%   { filter: brightness(1.4); }
     100% { filter: brightness(1); }
   }
   .chip-updated { animation: chip-flash 600ms ease-out; }
@@ -265,32 +315,29 @@ textarea::placeholder { color: var(--col-subtle); }
     .chip-updated { animation: none; }
   }
 
-  /* Application list stagger transition */
-  .list-enter-active {
-    transition: opacity 200ms ease, transform 200ms ease;
-    transition-delay: calc(var(--i, 0) * 20ms);
-  }
-  .list-leave-active  { transition: opacity 150ms ease; }
-  .list-enter-from    { opacity: 0; transform: translateY(6px); }
+  /* Application list: a quick fade only — no per-card slide or stagger */
+  .list-enter-active  { transition: opacity 120ms ease; }
+  .list-leave-active  { transition: opacity 120ms ease; }
+  .list-enter-from,
   .list-leave-to      { opacity: 0; }
   @media (prefers-reduced-motion: reduce) {
     .list-enter-active,
-    .list-leave-active { transition: none; transition-delay: 0ms; }
+    .list-leave-active { transition: none; }
   }
 
   /* Modal open/close transition */
   .modal-enter-active,
-  .modal-leave-active { transition: opacity 200ms ease; }
+  .modal-leave-active { transition: opacity 180ms ease; }
   .modal-enter-from,
   .modal-leave-to     { opacity: 0; }
   .modal-enter-active .modal,
   .modal-enter-active .modal-box,
   .modal-leave-active .modal,
-  .modal-leave-active .modal-box { transition: transform 200ms ease-out; }
+  .modal-leave-active .modal-box { transition: transform 180ms ease-out; }
   .modal-enter-from .modal,
   .modal-enter-from .modal-box,
   .modal-leave-to   .modal,
-  .modal-leave-to   .modal-box   { transform: scale(0.96); }
+  .modal-leave-to   .modal-box   { transform: scale(0.98); }
   @media (prefers-reduced-motion: reduce) {
     .modal-enter-active,
     .modal-leave-active { transition: none; }
@@ -316,18 +363,12 @@ textarea::placeholder { color: var(--col-subtle); }
      (pagination, filter toggles, etc.) */
   button { touch-action: manipulation; }
 
-  /* Global button press feedback */
-  button:active:not(:disabled) { transform: scale(0.97); transition: transform 80ms; }
-  @media (prefers-reduced-motion: reduce) {
-    button:active { transform: none; transition: none; }
-  }
-
   /* Tags */
   .tag {
     display: inline-flex;
     align-items: center;
     padding: 0.15rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
     background: var(--col-accent-lt);
     color: var(--col-accent-dk);
@@ -338,7 +379,7 @@ textarea::placeholder { color: var(--col-subtle); }
     display: inline-flex;
     align-items: center;
     padding: 0.15rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
     background: var(--col-raised);
     color: var(--col-muted);
@@ -352,9 +393,9 @@ textarea::placeholder { color: var(--col-subtle); }
     align-items: center;
     gap: 0.25rem;
     padding: 0.15rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
-    border: 1px solid;
+    border: 1px solid transparent;
     white-space: nowrap;
     transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
   }
@@ -362,47 +403,40 @@ textarea::placeholder { color: var(--col-subtle); }
     .chip { transition: none; }
   }
 
-  .status-bookmarked   { background:#FFF4E8; color:#8A450A; border-color:#DDB580; }
-  .status-viewed       { background:#EEE6DC; color:#6A5545; border-color:#C5B09E; }
-  .status-abandoned    { background:#E8E0D6; color:#8A7868; border-color:#C0B09E; }
-  .status-applied      { background:#FFFBE8; color:#7A5E00; border-color:#DDD080; }
-  .status-interview    { background:#E8F4EE; color:#1E6040; border-color:#80C0A0; }
-  .status-rejected     { background:var(--col-error-lt); color:var(--col-error); border-color:#E0A898; }
-  .status-declined     { background:#F8EAE8; color:#8E3828; border-color:#D09890; }
-  .status-proposed     { background:#F4EEFB; color:#622E8A; border-color:#B888D8; }
-  .status-accepted     { background:var(--col-success-lt); color:var(--col-success); border-color:#88C090; }
+  /* The one status colour system — every view (list, panel, company tile,
+     company modal) uses these classes via STATUS_COLOR, in both themes. */
+  .chip-applied    { background: var(--status-applied-bg);    color: var(--status-applied-fg);    border-color: var(--status-applied-bd); }
+  .chip-interview  { background: var(--status-interview-bg);  color: var(--status-interview-fg);  border-color: var(--status-interview-bd); }
+  .chip-assessment { background: var(--status-assessment-bg); color: var(--status-assessment-fg); border-color: var(--status-assessment-bd); }
+  .chip-offer      { background: var(--status-offer-bg);      color: var(--status-offer-fg);      border-color: var(--status-offer-bd); }
+  .chip-accepted   { background: var(--status-accepted-bg);   color: var(--status-accepted-fg);   border-color: var(--status-accepted-bd); }
+  .chip-hold       { background: var(--status-hold-bg);       color: var(--status-hold-fg);       border-color: var(--status-hold-bd); }
+  .chip-rejected   { background: var(--status-rejected-bg);   color: var(--status-rejected-fg);   border-color: var(--status-rejected-bd); }
+  .chip-withdrawn  { background: var(--status-withdrawn-bg);  color: var(--status-withdrawn-fg);  border-color: var(--status-withdrawn-bd); }
+  /* Ghosted = the company went quiet: an outline with nothing inside */
+  .chip-ghosted    { background: var(--status-ghosted-bg);    color: var(--status-ghosted-fg);    border: 1px dashed var(--status-ghosted-bd); }
 
-  /* Application status chips — light mode */
-  .chip-applied     { background: #DBEAFE; color: #1E3A8A; border-color: #BFDBFE; }
-  .chip-interview   { background: #EDE9FE; color: #4C1D95; border-color: #DDD6FE; }
-  .chip-assessment  { background: #FEE0C4; color: #7C2D12; border-color: #FDBA74; }
-  .chip-offer       { background: #D1FAE5; color: #065F46; border-color: #A7F3D0; }
-  .chip-hold        { background: #FEF3C7; color: #78350F; border-color: #FDE68A; }
-  .chip-rejected    { background: #FEE2E2; color: #7F1D1D; border-color: #FCA5A5; }
-  .chip-withdrawn   { background: #F3F4F6; color: #374151; border-color: #D1D5DB; }
-  .chip-accepted    { background: #D1FAE5; color: #064E3B; border-color: #6EE7B7; }
-  .chip-ghosted     { background: #E4E4E7; color: #3F3F46; border-color: #D4D4D8; }
+  /* HSM sponsor flag. A company that is not an IND-recognised sponsor
+     cannot hire on an HSM permit, so that is the case that gets the
+     warning tone; being a sponsor is the quiet, expected case. */
+  .sponsor-chip--yes { background: var(--col-accent-lt);  color: var(--col-accent-dk); border-color: transparent; }
+  .sponsor-chip--no  { background: var(--col-warning-lt); color: var(--col-warning);   border-color: color-mix(in srgb, var(--col-warning) 30%, transparent); }
 
   /* Section card */
   .card {
     background: var(--col-surface);
-    border: 1px solid var(--col-border);
-    border-radius: 10px;
+    border: 1px solid var(--col-border-lt);
+    border-radius: var(--radius-lg);
     padding: 1.25rem;
-    box-shadow:
-      0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
-      0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
   }
 
   /* Auth card wrapper */
   .auth-card {
-    background: var(--col-surface);
+    background: var(--col-bg);
     border: 1px solid var(--col-border);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     padding: 2rem;
-    box-shadow:
-      0 4px 16px color-mix(in srgb, var(--col-text) 6%, transparent),
-      0 16px 48px color-mix(in srgb, var(--col-text) 8%, transparent);
+    box-shadow: var(--shadow-sm);
   }
 
   /* ── Auth page layout ─────────────────────────────── */
@@ -413,15 +447,15 @@ textarea::placeholder { color: var(--col-subtle); }
     align-items: center;
     justify-content: center;
     padding: 2rem 1.5rem;
-    background: var(--col-bg);
+    background: var(--col-desktop);
   }
-  .auth-title    { font-size: 1.375rem; font-weight: 700; color: var(--col-text); margin: 0 0 0.25rem; }
+  .auth-title    { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; color: var(--col-text); margin: 0 0 0.25rem; }
   .auth-subtitle { font-size: 0.875rem; color: var(--col-muted); margin: 0 0 1.5rem; }
   .auth-form     { display: flex; flex-direction: column; gap: 1rem; }
   .auth-footer   { margin-top: 1.25rem; font-size: 0.875rem; color: var(--col-muted); text-align: center; }
   .auth-link     { color: var(--col-accent); font-weight: 500; text-decoration: none; }
   .auth-link:hover { text-decoration: underline; }
-  .auth-error    { font-size: 0.875rem; color: var(--col-error); margin: 0; padding: 0.5rem 0.75rem; background: var(--col-error-lt); border-radius: 6px; }
+  .auth-error    { font-size: 0.875rem; color: var(--col-error); margin: 0; padding: 0.5rem 0.75rem; background: var(--col-error-lt); border-radius: var(--radius); }
 
   /* ── Page layout ──────────────────────────────────── */
   .page        { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
@@ -430,14 +464,14 @@ textarea::placeholder { color: var(--col-subtle); }
   .dashboard {
     margin: 10px auto 16px;
     max-width: 1280px;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     box-shadow: var(--island-shadow);
   }
   @media (max-width: 767px) {
     .dashboard { margin: 0; border-radius: 0; box-shadow: none; }
   }
   .page-header { margin-bottom: 2rem; }
-  .page-title  { font-size: 1.5rem; font-weight: 700; color: var(--col-text); margin: 0 0 0.25rem; }
+  .page-title  { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; color: var(--col-text); margin: 0 0 0.25rem; }
   .page-subtitle { font-size: 0.875rem; color: var(--col-muted); margin: 0; }
 
   /* ── Form utilities ───────────────────────────────── */
@@ -450,7 +484,7 @@ textarea::placeholder { color: var(--col-subtle); }
   .password-eye   { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); z-index: 1; }
 
   /* ── Status / feedback messages ──────────────────── */
-  .form-msg       { padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem; }
+  .form-msg       { padding: 0.5rem 0.75rem; border-radius: var(--radius); font-size: 0.875rem; }
   .form-msg--ok   { background: var(--col-success-lt); color: var(--col-success); }
   .form-msg--err  { background: var(--col-error-lt);   color: var(--col-error); }
   .state-msg      { padding: 2rem; text-align: center; font-size: 0.875rem; color: var(--col-subtle); }
@@ -471,17 +505,6 @@ textarea::placeholder { color: var(--col-subtle); }
    don't overlap our custom toggle and intercept clicks ── */
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear { display: none; }
-
-/* ── Dark mode chip overrides (outside @layer so they win the specificity battle) ── */
-:root[data-theme="dark"] .chip-applied    { background: #1E3059; color: #93C5FD; border-color: #3B5998; }
-:root[data-theme="dark"] .chip-interview  { background: #2E1B4E; color: #C4B5FD; border-color: #553E8E; }
-:root[data-theme="dark"] .chip-assessment { background: #3D1800; color: #FB923C; border-color: #7C3500; }
-:root[data-theme="dark"] .chip-offer      { background: #0E3826; color: #6EE7B7; border-color: #1E6045; }
-:root[data-theme="dark"] .chip-hold       { background: #3D2800; color: #FCD34D; border-color: #6B4500; }
-:root[data-theme="dark"] .chip-rejected   { background: #3B0E0E; color: #FCA5A5; border-color: #7F1D1D; }
-:root[data-theme="dark"] .chip-withdrawn  { background: #2A2A2A; color: #9CA3AF; border-color: #4B5563; }
-:root[data-theme="dark"] .chip-accepted   { background: #0A2A1A; color: #34D399; border-color: #065F46; }
-:root[data-theme="dark"] .chip-ghosted    { background: #27272A; color: #A1A1AA; border-color: #52525B; }
 
 /* ── Session expiry warning banner ── */
 .session-expiry-banner {
