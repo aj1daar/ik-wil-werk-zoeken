@@ -127,11 +127,61 @@ describe('RejectionChart – rejection counting', () => {
     expect(items[0].find('.donut-legend-count').text()).toBe('1')
   })
 
-  it('legend shows only top 2 when more than 2 reasons exist', () => {
+  // Several slice colours are below 3:1 contrast on the light card, so the
+  // legend is what identifies a slice — every slice needs its own row.
+  it('legend lists every reason that has at least one rejection', () => {
     const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'no_vacancies', 'no_hsm_sponsorship', 'other'] as const
     const apps = reasons.map(r => makeApp({ rejectionReason: r }))
     const w = mountChart(apps)
-    expect(w.findAll('.donut-legend-item')).toHaveLength(2)
+    expect(w.findAll('.donut-legend-item')).toHaveLength(reasons.length)
+  })
+
+  it('legend and chart data have one entry per slice, including "No reason given"', () => {
+    const apps = [
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+      makeApp({ rejectionReason: 'other' }),
+      makeApp({ rejectionReason: undefined }),
+    ]
+    const w = mountChart(apps)
+    const labels = w.findAll('.donut-legend-label').map(l => l.text())
+    const data = getOption(w).series[0].data
+    expect(labels).toHaveLength(data.length)
+    expect(labels).toContain('No reason given')
+  })
+
+  it('legend is sorted by count, largest first', () => {
+    const apps = [
+      makeApp({ rejectionReason: 'other' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+    ]
+    const counts = mountChart(apps).findAll('.donut-legend-count').map(c => Number(c.text()))
+    expect(counts).toEqual([3, 2, 1])
+  })
+
+  it('a reason keeps the same colour whichever other reasons are present', () => {
+    const colourOf = (apps: ReturnType<typeof makeApp>[]) =>
+      getOption(mountChart(apps)).series[0].data
+        .find((d: any) => d.name === 'Dutch language requirement')?.itemStyle.color
+    const alone = colourOf([makeApp({ rejectionReason: 'dutch_language' })])
+    const mixed = colourOf([
+      makeApp({ rejectionReason: 'another_candidate' }),
+      makeApp({ rejectionReason: 'another_candidate' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+    ])
+    expect(alone).toBeTruthy()
+    expect(mixed).toBe(alone)
+  })
+
+  it('every reason gets a distinct slice colour', () => {
+    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'no_vacancies', 'no_hsm_sponsorship', 'other'] as const
+    const apps = [...reasons.map(r => makeApp({ rejectionReason: r })), makeApp({ rejectionReason: undefined })]
+    const colours = getOption(mountChart(apps)).series[0].data.map((d: any) => d.itemStyle.color)
+    expect(new Set(colours).size).toBe(colours.length)
   })
 
   it('failed_assessment is recognised as a distinct rejection reason', () => {
