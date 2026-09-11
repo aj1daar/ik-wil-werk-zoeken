@@ -261,6 +261,83 @@ describe('ApplicationsView – follow-up badge always reserves its row slot', ()
     await flushPromises()
     expect(wrapper.findAll('.followup-badge')).toHaveLength(3)
   })
+
+  it('overdue badge reads "Follow up now"', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: '2020-01-01T00:00:00Z' })])
+    await flushPromises()
+    expect(wrapper.find('.followup-badge').text()).toBe('Follow up now')
+  })
+
+  it('due-today badge reads "Follow up today"', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: new Date().toISOString() })])
+    await flushPromises()
+    expect(wrapper.find('.followup-badge').text()).toBe('Follow up today')
+  })
+
+  it('badges use words, not emoji', async () => {
+    const wrapper = mountView([
+      makeApp({ id: 'a', followUpDate: '2020-01-01T00:00:00Z' }),
+      makeApp({ id: 'b', followUpDate: new Date().toISOString() }),
+    ])
+    await flushPromises()
+    for (const badge of wrapper.findAll('.followup-badge')) {
+      expect(badge.text()).not.toMatch(/[☀-➿\u{1F300}-\u{1FAFF}]/u)
+    }
+  })
+
+  it('the empty slot still holds a non-breaking space so the row keeps its height', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: undefined })])
+    await flushPromises()
+    expect(wrapper.find('.followup-badge').element.textContent).toBe(' ')
+  })
+})
+
+// ── status stripe ─────────────────────────────────────────────────────────────
+
+describe('ApplicationsView – status stripe', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it.each([
+    ['Applied',            'applied'],
+    ['InterviewScheduled', 'interview'],
+    ['Assessment',         'assessment'],
+    ['OfferReceived',      'offer'],
+    ['OnHold',             'hold'],
+    ['Rejected',           'rejected'],
+    ['Withdrawn',          'withdrawn'],
+    ['Accepted',           'accepted'],
+    ['Ghosted',            'ghosted'],
+  ] as const)('a %s row gets the %s status colour as its stripe', async (status, token) => {
+    const wrapper = mountView([makeApp({ status })])
+    await flushPromises()
+    expect(wrapper.find('.company-row').attributes('style')).toContain(`--stripe: var(--status-${token}-mark)`)
+  })
+
+  it('each row gets the stripe of its own status', async () => {
+    const wrapper = mountView([
+      makeApp({ id: 'a', status: 'Applied',  appliedAt: '2026-03-01T00:00:00Z' }),
+      makeApp({ id: 'b', status: 'Rejected', appliedAt: '2026-02-01T00:00:00Z' }),
+    ])
+    await flushPromises()
+    const rows = wrapper.findAll('.company-row')
+    expect(rows[0].attributes('style')).toContain('--status-applied-mark')
+    expect(rows[1].attributes('style')).toContain('--status-rejected-mark')
+  })
+})
+
+// ── empty state ───────────────────────────────────────────────────────────────
+
+describe('ApplicationsView – empty state', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('offers an "Add an application" button that opens the new-application modal', async () => {
+    const wrapper = mountView([])
+    await flushPromises()
+    const btn = wrapper.find('button.add-first-link')
+    expect(btn.text()).toBe('Add an application')
+    await btn.trigger('click')
+    expect(wrapper.findComponent({ name: 'NewApplicationModal' }).exists()).toBe(true)
+  })
 })
 
 // ── list stagger transition ───────────────────────────────────────────────────
@@ -284,17 +361,15 @@ describe('ApplicationsView – list stagger transition', () => {
     expect(group?.props('tag')).toBe('ul')
   })
 
-  it('each row has a --i CSS variable capped at 9', async () => {
-    // PAGE_SIZE starts at 10 (ResizeObserver doesn't fire in jsdom)
+  it('rows no longer carry a per-row stagger delay', async () => {
     const apps = Array.from({ length: 10 }, (_, i) =>
       makeApp({ id: `app-${i}`, companyName: `Co ${i}` })
     )
     const wrapper = mountView(apps)
     await flushPromises()
-    const rows = wrapper.findAll('.company-row')
-    expect(rows).toHaveLength(10)
-    expect(rows[0].attributes('style')).toContain('--i: 0')
-    expect(rows[9].attributes('style')).toContain('--i: 9')
+    for (const row of wrapper.findAll('.company-row')) {
+      expect(row.attributes('style') ?? '').not.toContain('--i')
+    }
   })
 
   it('rows are hidden after search filter removes all matches', async () => {
