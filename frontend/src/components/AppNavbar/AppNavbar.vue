@@ -23,7 +23,7 @@ function closeMenu() { menuOpen.value = false }
 
 const NAV_LINKS = [
   { to: '/',             label: 'Home' },
-  { to: '/applications', label: 'My Applications' },
+  { to: '/applications', label: 'My applications' },
   { to: '/companies',    label: 'Companies' },
   { to: '/profile',      label: 'Profile' },
 ]
