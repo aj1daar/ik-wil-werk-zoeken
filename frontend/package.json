@@ -8,7 +8,8 @@
     "build": "vue-tsc -b && vite build",
     "type-check": "vue-tsc -b",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "^5.3.0",
@@ -26,6 +27,7 @@
     "@vue/tsconfig": "^0.9.1",
     "autoprefixer": "^10.4.22",
     "happy-dom": "^20.10.2",
+    "playwright-core": "^1.63.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",
     "typescript": "~6.0.2",

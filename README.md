@@ -22,7 +22,11 @@ Needs `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `ALLOWED_ORIGIN`, `ADMIN_E
 (local defaults live in `backend/Properties/launchSettings.json`). `RESEND_API_KEY` is optional —
 without it, emails just get skipped.
 
-Tests: `dotnet test backend.Tests` (295), `cd frontend && pnpm test` (565).
+Tests: `dotnet test backend.Tests` (295), `cd frontend && pnpm test` (848).
+
+Screenshots: with the app running, `cd frontend && IWWZ_EMAIL=... IWWZ_PASSWORD=... pnpm screenshots`
+captures every page at desktop and phone size in light and dark into `frontend/screenshots/`, and
+fails on page errors, console errors or sideways scrolling. It drives your installed Chrome.
 
 ## Known limitations
 

@@ -42,6 +42,9 @@ iwwz-logs/
 .idea/
 .claude/
 
+# Output of `pnpm screenshots`
+frontend/screenshots/
+
 # .NET test coverage output
 TestResults/
 *.coverage
