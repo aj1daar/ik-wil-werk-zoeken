@@ -462,10 +462,10 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .promote-input:focus { border-color: var(--col-accent); }
 
 .btn-primary {
-  background: var(--col-accent);
-  color: #fff;
+  background: var(--col-invert-bg);
+  color: var(--col-invert-text);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 0.55rem 1.25rem;
   font-size: 0.9rem;
   font-weight: 600;
@@ -478,7 +478,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .btn-primary:not(:disabled):hover { opacity: 0.88; }
 
 .form-error   { font-size: 0.85rem; color: var(--col-error); margin: 0.25rem 0 0; }
-.form-success { font-size: 0.85rem; color: #2a9d58; margin: 0.25rem 0 0; }
+.form-success { font-size: 0.85rem; color: var(--col-success); margin: 0.25rem 0 0; }
 .muted        { color: var(--col-muted); font-size: 0.9rem; }
 
 .table-wrap { overflow-x: auto; }
@@ -503,28 +503,26 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .users-table th {
   font-weight: 600;
   color: var(--col-muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.8125rem;
 }
 
 .users-table tbody tr:last-child td { border-bottom: none; }
 
 .role-badge {
   display: inline-block;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-sm);
   font-size: 0.78rem;
   font-weight: 600;
 }
 
 .role-badge--admin {
-  background: #fff3cd;
-  color: #7a5300;
+  background: var(--col-signal-lt);
+  color: var(--col-warning);
 }
 
 .role-badge--user {
-  background: var(--col-subtle);
+  background: var(--col-raised);
   color: var(--col-muted);
 }
 
@@ -533,13 +531,13 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
 /* Enrichment modal */
 .enrich-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  position: fixed; inset: 0; background: var(--col-overlay);
   display: flex; align-items: center; justify-content: center; z-index: 200;
 }
 .enrich-modal {
-  background: var(--col-bg); border-radius: 14px; padding: 2rem 2.25rem;
+  background: var(--col-bg); border-radius: var(--radius-lg); padding: 2rem 2.25rem;
   min-width: 320px; max-width: 420px; width: 90%;
-  box-shadow: 0 8px 40px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column; gap: 1.5rem;
 }
 .enrich-modal-title { font-size: 1.15rem; font-weight: 700; color: var(--col-text); margin: 0; }

@@ -508,14 +508,13 @@ onMounted(loadMerged)
 
 <style scoped>
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.4);
+  position: fixed; inset: 0; background: var(--col-overlay);
   display: flex; align-items: center; justify-content: center; z-index: 50;
   padding: 1rem;
 }
 .modal {
-  background: var(--col-bg); border-radius: .75rem; width: 100%; max-width: 560px;
-  box-shadow: 0 8px 32px color-mix(in srgb, var(--col-text) 12%, transparent),
-              0 24px 64px color-mix(in srgb, var(--col-text) 16%, transparent);
+  background: var(--col-bg); border-radius: var(--radius-lg); width: 100%; max-width: 560px;
+  box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column;
   max-height: 90vh;
   max-height: 90dvh;
@@ -526,7 +525,7 @@ onMounted(loadMerged)
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border); gap: 1rem;
 }
 .modal-title-block { flex: 1; min-width: 0; }
-.modal-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); }
+.modal-title { font-size: 1.125rem; font-weight: 600; color: var(--col-text); }
 .modal-subtitle { font-size: .75rem; color: var(--col-subtle); margin-top: .125rem; }
 .subtitle-link { color: var(--col-accent); text-decoration: none; display: inline-flex; align-items: center; gap: .15rem; }
 .subtitle-link:hover { text-decoration: underline; }
@@ -534,9 +533,8 @@ onMounted(loadMerged)
 .modal-header-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
 .panel-edit-btn {
   background: none; border: 1px solid var(--col-border); cursor: pointer;
-  color: var(--col-accent); font-size: .72rem; font-weight: 600;
-  padding: .25rem .6rem; border-radius: .375rem;
-  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--col-accent); font-size: .8rem; font-weight: 500;
+  padding: .25rem .6rem; border-radius: var(--radius);
 }
 .panel-edit-btn:hover { background: var(--col-raised); }
 .icon { width: 1.25rem; height: 1.25rem; }
@@ -554,43 +552,34 @@ onMounted(loadMerged)
 .btn-icon-sm { width: .9rem; height: .9rem; }
 .btn-list {
   background: none; border: 1px solid var(--col-border); color: var(--col-muted);
-  border-radius: .375rem; padding: .45rem .875rem; font-size: .8rem; cursor: pointer;
+  border-radius: var(--radius); padding: .45rem .875rem; font-size: .8rem; cursor: pointer;
   flex-shrink: 0; white-space: nowrap;
 }
 .btn-list:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-list--on {
-  border-color: color-mix(in srgb, #f59e0b 45%, transparent);
-  color: #b45309; background: color-mix(in srgb, #f59e0b 10%, transparent);
+  border-color: color-mix(in srgb, var(--col-warning) 45%, transparent);
+  color: var(--col-warning); background: var(--col-warning-lt);
 }
-.btn-list--on:hover { color: #b45309; background: color-mix(in srgb, #f59e0b 16%, transparent); }
+.btn-list--on:hover { color: var(--col-warning); background: color-mix(in srgb, var(--col-warning) 16%, var(--col-warning-lt)); }
 
 .field { display: flex; flex-direction: column; gap: .375rem; }
-.field-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--col-subtle); }
+.field-label { font-size: .8125rem; font-weight: 500; color: var(--col-muted); }
 
 .applied-badge-row { display: flex; align-items: center; gap: .5rem; }
 .applied-position { font-size: .8rem; color: var(--col-muted); }
 
-.status-chip { display: inline-block; padding: .15rem .5rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
-.chip-applied     { background: #dbeafe; color: #1e40af; }
-.chip-interview   { background: #ede9fe; color: #5b21b6; }
-.chip-offer       { background: #d1fae5; color: #065f46; }
-.chip-hold        { background: #fef3c7; color: #92400e; }
-.chip-rejected    { background: #fee2e2; color: #991b1b; }
-.chip-withdrawn   { background: var(--col-raised); color: var(--col-muted); }
-.chip-accepted    { background: #bbf7d0; color: #14532d; }
-.chip-ghosted     { background: var(--col-raised); color: var(--col-subtle); }
+/* Colours come from the global .chip-* status classes (style.css) */
+.status-chip { display: inline-block; padding: .1rem .45rem; border-radius: var(--radius-sm); border: 1px solid transparent; font-size: .75rem; font-weight: 500; white-space: nowrap; }
 
+/* Company facts are plain facts, not categories to tell apart by colour —
+   one neutral chip style; the parent company is set apart by an outline. */
 .meta-chips { display: flex; flex-wrap: wrap; gap: .375rem; }
 .meta-chip {
   display: inline-flex; align-items: center;
-  padding: .2rem .6rem; border-radius: 9999px; font-size: .72rem; font-weight: 500;
-  background: var(--col-raised); color: var(--col-muted); border: 1px solid var(--col-border);
+  padding: .15rem .5rem; border-radius: var(--radius-sm); font-size: .75rem; font-weight: 500;
+  background: var(--col-raised); color: var(--col-muted); border: 1px solid var(--col-border-lt);
 }
-.meta-chip--lang   { background: color-mix(in srgb, #3b82f6 12%, transparent); color: #1d4ed8; border-color: color-mix(in srgb, #3b82f6 25%, transparent); }
-.meta-chip--remote { background: color-mix(in srgb, #10b981 12%, transparent); color: #065f46; border-color: color-mix(in srgb, #10b981 25%, transparent); }
-.meta-chip--size   { background: color-mix(in srgb, #f59e0b 12%, transparent); color: #92400e; border-color: color-mix(in srgb, #f59e0b 25%, transparent); }
-.meta-chip--market { background: color-mix(in srgb, #8b5cf6 12%, transparent); color: #4c1d95; border-color: color-mix(in srgb, #8b5cf6 25%, transparent); }
-.meta-chip--parent { background: var(--col-subtle); color: var(--col-muted); font-style: italic; }
+.meta-chip--parent { background: transparent; border-style: dashed; border-color: var(--col-border); }
 
 .tag-row { display: flex; flex-wrap: wrap; gap: .375rem; }
 .tag { background: var(--col-accent-lt); color: var(--col-accent-dk); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 500; }
@@ -628,9 +617,9 @@ onMounted(loadMerged)
 }
 .merge-undo { padding: .25rem .625rem; font-size: .72rem; }
 .merge-submit { margin-top: .625rem; align-self: flex-start; }
-.merge-notice { font-size: .8rem; color: #2a9d58; margin: 0; }
+.merge-notice { font-size: .8rem; color: var(--col-success); margin: 0; }
 .btn-danger {
-  background: var(--col-error); color: #fff; border: none; border-radius: .375rem;
+  background: var(--col-error); color: var(--col-bg); border: none; border-radius: var(--radius);
   padding: .45rem 1rem; font-size: .8rem; font-weight: 600; cursor: pointer;
 }
 .btn-danger:disabled { opacity: .55; cursor: not-allowed; }

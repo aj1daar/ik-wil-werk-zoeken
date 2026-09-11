@@ -508,8 +508,8 @@ const activeDropdownCount = computed(() =>
 
 .btn-filter-toggle {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-surface); color: var(--col-muted);
-  border: 1px solid var(--col-border); border-radius: .375rem;
+  background: var(--col-bg); color: var(--col-muted);
+  border: 1px solid var(--col-border); border-radius: var(--radius);
   padding: .4rem .75rem; font-size: .8rem; cursor: pointer; white-space: nowrap;
   transition: background .15s, color .15s;
 }
@@ -519,9 +519,9 @@ const activeDropdownCount = computed(() =>
 .btn-chevron { transition: transform .2s ease; }
 .btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
-  background: var(--col-accent); color: #fff;
-  border-radius: 9999px; font-size: .7rem; font-weight: 700;
-  padding: .05rem .45rem; line-height: 1.4;
+  background: var(--col-accent); color: var(--col-on-accent);
+  border-radius: var(--radius-sm); font-size: .7rem; font-weight: 600;
+  padding: .05rem .4rem; line-height: 1.4; font-variant-numeric: tabular-nums;
 }
 
 .btn-clear-filters {
@@ -574,8 +574,8 @@ const activeDropdownCount = computed(() =>
   background: var(--col-raised); color: var(--col-muted);
   transition: background .12s, color .12s, border-color .12s;
 }
-.tag-toggle--include { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
-.tag-toggle--exclude { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.tag-toggle--include { background: var(--col-success-lt); color: var(--col-success); border-color: color-mix(in srgb, var(--col-success) 40%, transparent); }
+.tag-toggle--exclude { background: var(--col-error-lt);   color: var(--col-error);   border-color: color-mix(in srgb, var(--col-error) 40%, transparent); text-decoration: line-through; }
 
 /* ── company grid ─────────────────────────────────────────────────────────── */
 
@@ -620,7 +620,7 @@ const activeDropdownCount = computed(() =>
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tile-name-line > .status-chip { flex-shrink: 0; }
-.tile-star { flex-shrink: 0; color: #f59e0b; font-size: .8rem; line-height: 1; }
+.tile-star { flex-shrink: 0; color: var(--col-star); font-size: .8rem; line-height: 1; }
 .tile-website {
   flex-shrink: 0; margin-left: auto;
   font-size: .68rem; color: var(--col-accent); text-decoration: none; white-space: nowrap;
@@ -632,25 +632,18 @@ const activeDropdownCount = computed(() =>
 .tile-chips { display: flex; flex-wrap: nowrap; gap: .3rem; overflow: hidden; }
 .tile-chip {
   flex-shrink: 0;
-  font-size: .68rem; padding: .12rem .45rem; border-radius: 9999px; white-space: nowrap;
+  font-size: .7rem; padding: .1rem .45rem; border-radius: var(--radius-sm); white-space: nowrap;
   background: var(--col-raised); color: var(--col-muted);
 }
 .tile-chip--city { background: var(--col-accent-lt); color: var(--col-accent-dk); }
-.tile-chip--lang { background: color-mix(in srgb, #3b82f6 12%, transparent); color: #1d4ed8; }
 .tile-empty { font-size: .72rem; color: var(--col-subtle); font-style: italic; margin: 0; }
 
+/* Colours come from the global .chip-* status classes (style.css) */
 .status-chip {
-  display: inline-block; padding: .15rem .5rem; border-radius: 9999px;
-  font-size: .7rem; font-weight: 600; white-space: nowrap;
+  display: inline-block; padding: .1rem .45rem; border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: .7rem; font-weight: 500; white-space: nowrap;
 }
-.chip-applied     { background: #dbeafe; color: #1e40af; }
-.chip-interview   { background: #ede9fe; color: #5b21b6; }
-.chip-offer       { background: #d1fae5; color: #065f46; }
-.chip-hold        { background: #fef3c7; color: #92400e; }
-.chip-rejected    { background: #fee2e2; color: #991b1b; }
-.chip-withdrawn   { background: var(--col-raised); color: var(--col-muted); }
-.chip-accepted    { background: #bbf7d0; color: #14532d; }
-.chip-ghosted     { background: var(--col-raised); color: var(--col-subtle); }
 
 @media (max-width: 767px) {
   /* One column, natural tile height, page scrolls. */
@@ -708,15 +701,16 @@ const activeDropdownCount = computed(() =>
   height: 2rem;
   padding: 0 .4rem;
   border: 1px solid var(--col-border);
-  border-radius: .375rem;
-  background: var(--col-surface);
+  border-radius: var(--radius);
+  background: var(--col-bg);
   color: var(--col-muted);
   font-size: .8rem;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background .12s, color .12s;
 }
 .page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
-.page-btn--active { background: var(--col-accent); color: #fff; border-color: var(--col-accent); font-weight: 600; }
+.page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
 .page-btn:disabled { opacity: .35; cursor: default; }
 .page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 </style>
