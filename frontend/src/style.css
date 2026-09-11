@@ -124,8 +124,11 @@ body {
   color: var(--col-text);
   -webkit-font-smoothing: antialiased;
 }
+/* Phones drop the floating-panel look, so the page itself becomes the panel.
+   Painting it (not leaving it transparent) keeps any gap from showing the
+   browser's white canvas in dark mode. */
 @media (max-width: 767px) {
-  body { background-color: transparent; }
+  body { background-color: var(--col-bg); }
 }
 
 /* One focus ring for everything keyboard-reachable. Text fields keep their

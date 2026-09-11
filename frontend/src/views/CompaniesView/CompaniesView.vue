@@ -654,6 +654,8 @@ const activeDropdownCount = computed(() =>
     height: auto;
   }
   .company-tile { min-height: 60px; }
+  /* Full-bleed on phones (the scoped margin above outranks style.css's) */
+  .dashboard { margin: 0; }
   .page-btn { min-width: 2.75rem; height: 2.75rem; }  /* Apple HIG 44pt tap target */
 }
 

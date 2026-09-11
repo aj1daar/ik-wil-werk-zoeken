@@ -698,6 +698,10 @@ function printPage() {
 .page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 
 @media (max-width: 767px) {
+  /* Full-bleed on phones: the scoped .dashboard margin above would otherwise
+     beat style.css's mobile margin: 0 and leave a strip under the nav. */
+  .dashboard { margin: 0; }
+
   /* Apple HIG minimum 44x44pt tap target */
   .page-btn { min-width: 2.75rem; height: 2.75rem; }
 
