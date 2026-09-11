@@ -107,6 +107,26 @@ describe('STATUS_TOKEN / statusMark', () => {
     expect(statusMark('Ghosted')).toBe('var(--status-ghosted-mark)')
   })
 
+  // STATUS_COLOR builds the class names at runtime, so Tailwind's content
+  // scan never sees "chip-applied" etc. literally. Rules inside
+  // `@layer components` are dropped when unseen, which once shipped a build
+  // where every status chip had lost its colour.
+  it('defines the status chip classes outside @layer components, so Tailwind cannot drop them', () => {
+    const start = styleCss.indexOf('@layer components {')
+    expect(start).toBeGreaterThan(-1)
+    let depth = 0
+    let end = start
+    for (let i = styleCss.indexOf('{', start); i < styleCss.length; i++) {
+      if (styleCss[i] === '{') depth++
+      else if (styleCss[i] === '}' && --depth === 0) { end = i; break }
+    }
+    const layer = styleCss.slice(start, end).replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const token of Object.values(STATUS_TOKEN)) {
+      expect(layer, `.chip-${token} is inside @layer components`).not.toContain(`.chip-${token}`)
+      expect(styleCss.slice(end)).toContain(`.chip-${token}`)
+    }
+  })
+
   it.each(Object.values(STATUS_TOKEN))('style.css defines the %s colours for light and dark', (token) => {
     for (const part of ['bg', 'fg', 'bd', 'mark']) {
       const defs = styleCss.match(new RegExp(`--status-${token}-${part}:`, 'g')) ?? []
