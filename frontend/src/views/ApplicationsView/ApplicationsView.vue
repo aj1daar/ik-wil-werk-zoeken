@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
+import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
 import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel.vue'
@@ -265,7 +265,7 @@ function printPage() {
             <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            New Application
+            New application
           </button>
         </div>
       </div>
@@ -335,16 +335,16 @@ function printPage() {
           <div v-else-if="filtered.length === 0" class="state-msg">
             <template v-if="store.applications.length === 0">
               No applications yet.
-              <button @click="modalOpen = true" class="add-first-link">Add your first application →</button>
+              <button @click="modalOpen = true" class="add-first-link">Add an application</button>
             </template>
             <template v-else>No applications match your filters.</template>
           </div>
 
           <TransitionGroup v-else tag="ul" name="list" class="app-grid">
             <li
-              v-for="(app, index) in pagedFiltered"
+              v-for="app in pagedFiltered"
               :key="app.id"
-              :style="{ '--i': Math.min(index, 9) }"
+              :style="{ '--stripe': statusMark(app.status) }"
               @click="selectRow(app.id)"
               :class="['company-row', { 'company-row--active': selectedId === app.id, 'company-row--checked': checkedIds.has(app.id) }]"
               role="button"
@@ -390,7 +390,7 @@ function printPage() {
                 <span
                   :class="['followup-badge', isOverdue(app) ? 'followup-badge--overdue' : isDueToday(app) ? 'followup-badge--today' : 'followup-badge--none']"
                   :title="isOverdue(app) ? 'Follow-up overdue' : isDueToday(app) ? 'Follow-up due today' : undefined"
-                >{{ isOverdue(app) ? '⚠ Follow up' : isDueToday(app) ? '📅 Today' : ' ' }}</span>
+                >{{ isOverdue(app) ? 'Follow up now' : isDueToday(app) ? 'Follow up today' : ' ' }}</span>
               </div>
               <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -483,15 +483,13 @@ function printPage() {
 }
 .company-row--checked { background: color-mix(in srgb, var(--col-accent) 8%, transparent); }
 
-.followup-badge { font-size: .65rem; font-weight: 700; padding: .1rem .4rem; border-radius: 9999px; white-space: nowrap; }
-.followup-badge--overdue { background: #fee2e2; color: #b91c1c; }
-.followup-badge--today   { background: #fef3c7; color: #92400e; }
+.followup-badge { font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: var(--radius-sm); white-space: nowrap; }
+.followup-badge--overdue { background: var(--col-error-lt);   color: var(--col-error); }
+.followup-badge--today   { background: var(--col-warning-lt); color: var(--col-warning); }
 .followup-badge--none    { visibility: hidden; }
 
-.success-rate-chip { background: var(--col-raised); color: var(--col-muted); }
+.success-rate-chip { background: var(--col-raised); color: var(--col-muted); font-variant-numeric: tabular-nums; }
 .success-rate-chip--none { visibility: hidden; }
-.sponsor-chip--yes { background: color-mix(in srgb, var(--col-accent) 18%, transparent); color: var(--col-accent-dk); }
-.sponsor-chip--no { background: var(--col-raised); color: var(--col-subtle); }
 
 /* Sponsor status lives next to the company name, not buried in the meta
    column — overrides split-panel.css's plain-text .row-name so the name
@@ -510,7 +508,7 @@ function printPage() {
 }
 .sponsor-chip--inline {
   flex-shrink: 0;
-  font-size: .6rem;
+  font-size: .6875rem;
   padding: .05rem .4rem;
 }
 
@@ -534,16 +532,16 @@ function printPage() {
   padding: .35rem .5rem; font-size: .8rem; flex: 1; min-width: 140px; max-width: 220px;
 }
 .bulk-apply {
-  background: var(--col-accent); color: #fff; border: none; border-radius: .375rem;
+  background: var(--col-signal); color: var(--col-on-signal); border: none; border-radius: var(--radius);
   padding: .35rem .75rem; font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .bulk-apply:disabled { opacity: .5; cursor: not-allowed; }
 .bulk-clear {
-  background: none; border: 1px solid rgba(255,255,255,.3); color: var(--col-invert-text);
-  border-radius: .375rem; padding: .35rem .75rem; font-size: .8rem; cursor: pointer;
+  background: none; border: 1px solid color-mix(in srgb, var(--col-invert-text) 35%, transparent); color: var(--col-invert-text);
+  border-radius: var(--radius); padding: .35rem .75rem; font-size: .8rem; cursor: pointer;
 }
-.bulk-clear:hover { background: rgba(255,255,255,.1); }
-.bulk-error { font-size: .8rem; color: #fca5a5; }
+.bulk-clear:hover { background: color-mix(in srgb, var(--col-invert-text) 12%, transparent); }
+.bulk-error { font-size: .8rem; font-weight: 600; color: var(--col-invert-text); }
 .bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
 .bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
@@ -553,7 +551,7 @@ function printPage() {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--col-overlay);
   z-index: 40;
   display: flex;
   align-items: center;
@@ -562,7 +560,7 @@ function printPage() {
 }
 .modal-box {
   background: var(--col-bg);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 560px;
   height: 90vh;
@@ -575,7 +573,7 @@ function printPage() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 .app-detail-enter-active,
 .app-detail-leave-active { transition: opacity 0.2s ease; }
@@ -600,7 +598,7 @@ function printPage() {
 
 .btn-new {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: .375rem;
+  background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: var(--radius);
   padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
   white-space: nowrap;
 }
@@ -635,16 +633,13 @@ function printPage() {
   gap: .3rem;
   width: 100%;
 }
-.row-date { font-size: .7rem; color: var(--col-subtle); }
-.chip { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; transition: background-color 150ms ease, color 150ms ease; }
-@media (prefers-reduced-motion: reduce) {
-  .chip { transition: none; }
-}
+.row-date { font-size: .75rem; color: var(--col-subtle); font-variant-numeric: tabular-nums; }
+.chip { font-weight: 500; }
 .add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
 .btn-filter-toggle {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-surface); color: var(--col-muted);
-  border: 1px solid var(--col-border); border-radius: .375rem;
+  background: var(--col-bg); color: var(--col-muted);
+  border: 1px solid var(--col-border); border-radius: var(--radius);
   padding: .45rem .75rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
@@ -653,15 +648,15 @@ function printPage() {
 .btn-chevron { transition: transform .2s ease; }
 .btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
-  background: var(--col-accent); color: #fff;
-  border-radius: 9999px; font-size: .7rem; font-weight: 700;
-  padding: .05rem .45rem; line-height: 1.4;
+  background: var(--col-accent); color: var(--col-on-accent);
+  border-radius: var(--radius-sm); font-size: .7rem; font-weight: 600;
+  padding: .05rem .4rem; line-height: 1.4; font-variant-numeric: tabular-nums;
 }
 
 .btn-export {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-surface); color: var(--col-muted); border: 1px solid var(--col-border);
-  border-radius: .375rem; padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
+  background: var(--col-bg); color: var(--col-muted); border: 1px solid var(--col-border);
+  border-radius: var(--radius); padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
 }
 .btn-export:hover { background: var(--col-raised); }
 
@@ -689,15 +684,16 @@ function printPage() {
   height: 2rem;
   padding: 0 .4rem;
   border: 1px solid var(--col-border);
-  border-radius: .375rem;
-  background: var(--col-surface);
+  border-radius: var(--radius);
+  background: var(--col-bg);
   color: var(--col-muted);
   font-size: .8rem;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background .12s, color .12s;
 }
 .page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
-.page-btn--active { background: var(--col-accent); color: #fff; border-color: var(--col-accent); font-weight: 600; }
+.page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
 .page-btn:disabled { opacity: .35; cursor: default; }
 .page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 
@@ -748,23 +744,24 @@ function printPage() {
     gap: 1.25rem;
   }
   .company-row {
-    padding: 1.125rem 1.5rem;
+    padding: 1.125rem 1.5rem 1.125rem 1.625rem;
     border: 1px solid var(--col-border-lt);
-    border-radius: .75rem;
+    border-radius: var(--radius-lg);
     background: var(--col-surface);
-    transition: background .12s, border-color .12s, transform .15s ease, box-shadow .15s ease;
+    transition: background .12s, border-color .12s;
   }
   .company-row:hover {
     background: var(--col-raised);
     border-color: var(--col-border);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px color-mix(in srgb, var(--col-text) 10%, transparent);
   }
   .company-row--active { border-color: var(--col-accent); }
-  @media (prefers-reduced-motion: reduce) {
-    .company-row:hover { transform: none; }
-  }
 }
+
+/* Status stripe down the left edge of every row/card, in the status's own
+   colour — the list can be scanned by status without reading the chips.
+   An inset shadow rather than a border, so it follows the card's rounded
+   corners and never changes the row's box size. */
+.company-row { box-shadow: inset 3px 0 0 var(--stripe, transparent); }
 
 /* Changing page (or filtering) swaps the whole set of keys at once — every
    old card leaves while every new one enters in the same tick. .list-leave
@@ -783,14 +780,14 @@ function printPage() {
 
 .toast-error {
   position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
-  background: var(--col-error); color: #fff;
-  padding: .75rem 1rem; border-radius: .5rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  background: var(--col-error); color: var(--col-bg);
+  padding: .75rem 1rem; border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   display: flex; align-items: center; gap: .75rem;
   font-size: .875rem; font-weight: 500; z-index: 200;
   max-width: 480px; min-width: 280px;
 }
-.toast-close { background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+.toast-close { background: none; border: none; color: inherit; font-size: 1.4rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
 .toast-close:hover { opacity: .75; }
 /* .toast-enter/leave-* transition now lives in style.css (was duplicated
    verbatim here and in ApplicationPanel.vue). */
