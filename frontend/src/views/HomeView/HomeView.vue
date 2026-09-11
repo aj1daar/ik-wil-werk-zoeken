@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useApplicationsStore } from '../../stores/applications'
+import type { Application } from '../../api'
 import StatusTree from '../../components/StatusTree/StatusTree.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
@@ -8,22 +9,84 @@ import DatePicker from '../../components/DatePicker/DatePicker.vue'
 
 const store = useApplicationsStore()
 
-const showBanner   = ref(false)
-const showOverdue  = ref(true)
+const showBanner = ref(false)
 
 const TERMINAL = new Set(['Rejected', 'Withdrawn', 'Accepted', 'Ghosted'])
 
-const overdueApps = computed(() => {
-  const today = new Date().toISOString().slice(0, 10)
-  return store.applications
-    .filter(a => !TERMINAL.has(a.status) && a.followUpDate && a.followUpDate.slice(0, 10) < today)
-    .sort((a, b) => (a.followUpDate ?? '').localeCompare(b.followUpDate ?? ''))
-    .slice(0, 5)
+// ── Next up board ─────────────────────────────────────────────────────────────
+// The first thing on the dashboard is what to chase: every open application
+// whose follow-up date is overdue or falls within the look-ahead window,
+// soonest first.
+
+const LOOKAHEAD_DAYS = 14
+const BOARD_LIMIT    = 6
+const DAY_MS         = 86_400_000
+
+interface BoardRow { app: Application; due: Date; daysFromToday: number }
+
+// followUpDate is stored as a calendar date (midnight UTC). Read the date part
+// as a *local* calendar day — parsing the full ISO string would shift it to
+// the previous day for anyone west of UTC.
+function parseDueDate(iso: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return null
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function startOfToday(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+const nextUp = computed<BoardRow[]>(() => {
+  const today = startOfToday().getTime()
+  const rows: BoardRow[] = []
+  for (const app of store.applications) {
+    if (TERMINAL.has(app.status) || !app.followUpDate) continue
+    const due = parseDueDate(app.followUpDate)
+    if (!due) continue
+    // Math.round absorbs the 23h/25h days around a DST switch
+    const daysFromToday = Math.round((due.getTime() - today) / DAY_MS)
+    if (daysFromToday > LOOKAHEAD_DAYS) continue
+    rows.push({ app, due, daysFromToday })
+  }
+  return rows.sort((a, b) =>
+    a.daysFromToday - b.daysFromToday || a.app.companyName.localeCompare(b.app.companyName))
 })
+
+const boardRows    = computed(() => nextUp.value.slice(0, BOARD_LIMIT))
+const hiddenCount  = computed(() => nextUp.value.length - boardRows.value.length)
+const overdueCount = computed(() => nextUp.value.filter(r => r.daysFromToday < 0).length)
+
+const boardSummary = computed(() => {
+  const overdue  = overdueCount.value
+  const upcoming = nextUp.value.length - overdue
+  const parts: string[] = []
+  if (overdue)  parts.push(`${overdue} overdue`)
+  if (upcoming) parts.push(`${upcoming} coming up`)
+  return parts.join(', ')
+})
+
+function dueLabel(days: number): string {
+  if (days < -1)  return `${-days} days late`
+  if (days === -1) return '1 day late'
+  if (days === 0) return 'Due today'
+  if (days === 1) return 'Due tomorrow'
+  return `In ${days} days`
+}
+
+function dateLabel(d: Date): string {
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+}
+
 function dismissBanner() {
   showBanner.value = false
   window.localStorage?.setItem('iwwz_onboarded', '1')
 }
+
+// ── Pipeline range ────────────────────────────────────────────────────────────
 
 type RangeKey = 'all' | '1w' | '1m' | '3m' | '6m' | '1y' | 'custom'
 
@@ -137,25 +200,63 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 
 <template>
   <div class="page">
-    <div class="page-header">
-      <h1 class="page-title">Dashboard</h1>
-    </div>
-
-    <div v-if="showBanner" class="onboarding-banner" role="status" aria-label="Welcome tip">
+    <div v-if="showBanner" class="onboarding-banner" role="status" aria-label="Getting started">
       <div class="banner-body">
-        <strong>Welcome to IK WIL WERK ZOEKEN!</strong>
-        <p>Track every job application, explore IND-registered sponsors, and see your progress at a glance. Start by adding your first application from the Applications tab.</p>
+        <strong>Keep your whole job search in one place</strong>
+        <p>Log each application you send, check whether a company is an IND-recognised sponsor before you apply, and give applications a follow-up date so none of them go quiet. Start on the My applications page.</p>
       </div>
-      <button class="banner-close" @click="dismissBanner" aria-label="Dismiss welcome banner">×</button>
+      <button class="banner-close" @click="dismissBanner" aria-label="Dismiss">×</button>
     </div>
 
-    <div class="range-bar">
-      <button
-        v-for="opt in RANGE_OPTIONS"
-        :key="opt.key"
-        :class="['range-btn', range === opt.key && 'range-btn--active']"
-        @click="range = opt.key"
-      >{{ opt.label }}</button>
+    <section class="board" aria-labelledby="board-title">
+      <header class="board-head">
+        <h1 id="board-title" class="board-title">Next up</h1>
+        <p v-if="boardSummary" class="board-summary">{{ boardSummary }}</p>
+      </header>
+
+      <p v-if="store.loading && store.applications.length === 0" class="board-empty">Loading follow-ups…</p>
+
+      <ol v-else-if="boardRows.length > 0" class="board-rows">
+        <li
+          v-for="r in boardRows"
+          :key="r.app.id"
+          :class="['board-row', { 'board-row--late': r.daysFromToday < 0, 'board-row--today': r.daysFromToday === 0 }]"
+        >
+          <span class="board-date">{{ dateLabel(r.due) }}</span>
+          <span class="board-what">
+            <span class="board-company">{{ r.app.companyName }}</span>
+            <span class="board-position">{{ r.app.position }}</span>
+          </span>
+          <span class="board-when">{{ dueLabel(r.daysFromToday) }}</span>
+        </li>
+      </ol>
+
+      <p v-else-if="store.applications.length === 0" class="board-empty">
+        Add your first application and give it a follow-up date. It shows up here when it's due.
+      </p>
+      <p v-else class="board-empty">
+        Nothing to chase in the next two weeks. Give an application a follow-up date and it shows up here.
+      </p>
+
+      <footer class="board-foot">
+        <router-link to="/applications" class="board-link">
+          {{ store.applications.length === 0 ? 'Add an application' : 'Open my applications' }}
+        </router-link>
+        <span v-if="hiddenCount > 0" class="board-more">{{ hiddenCount }} more not shown</span>
+      </footer>
+    </section>
+
+    <div class="pipeline-head">
+      <h2 class="pipeline-title">Pipeline</h2>
+      <div class="range-bar" role="group" aria-label="Time range for the pipeline charts">
+        <button
+          v-for="opt in RANGE_OPTIONS"
+          :key="opt.key"
+          :class="['range-btn', range === opt.key && 'range-btn--active']"
+          :aria-pressed="range === opt.key"
+          @click="range = opt.key"
+        >{{ opt.label }}</button>
+      </div>
     </div>
 
     <div v-if="range === 'custom'" class="custom-range">
@@ -180,28 +281,6 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
     <div v-else-if="store.statusFlowError" class="state-msg state-msg--error" role="alert">{{ store.statusFlowError }}</div>
 
     <div v-else-if="store.statusFlow" :class="['content-area', { 'content-area--updating': store.statusFlowLoading }]">
-      <div v-if="overdueApps.length > 0" class="overdue-card">
-        <button class="overdue-header" @click="showOverdue = !showOverdue" :aria-expanded="showOverdue">
-          <span class="overdue-title">
-            Follow-ups overdue
-            <span class="overdue-badge">{{ overdueApps.length }}</span>
-          </span>
-          <svg class="overdue-chevron" :class="{ 'chevron-up': showOverdue }" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        <ul v-if="showOverdue" class="overdue-list">
-          <li v-for="app in overdueApps" :key="app.id" class="overdue-item">
-            <div class="overdue-app-name">
-              <span class="overdue-company">{{ app.companyName }}</span>
-              <span class="overdue-sep">·</span>
-              <span class="overdue-position">{{ app.position }}</span>
-            </div>
-            <span class="overdue-date">Due {{ app.followUpDate!.slice(0, 10) }}</span>
-          </li>
-        </ul>
-      </div>
-
       <div class="journey-layout">
         <StatusTree :flow="store.statusFlow" class="funnel-section" :style="journeyStyle" />
 
@@ -218,34 +297,148 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 .page {
   max-width: 860px;
   margin: 10px auto 16px;
-  padding: 2rem 1rem;
-  border-radius: 16px;
+  padding: 1.5rem 1rem 2rem;
+  border-radius: var(--radius-lg);
   box-shadow: var(--island-shadow);
   background: var(--col-bg);
 }
 @media (max-width: 640px) {
   .page { margin: 0; border-radius: 0; box-shadow: none; }
 }
-.page-header { margin-bottom: 1.5rem; }
-.page-title { font-size: 1.5rem; font-weight: 700; color: var(--col-text); }
 
-.range-bar { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+/* ── Next up board ─────────────────────────────────────────────────────────
+   The one loud element on the page: a departures-board panel in nav ink
+   with dates in signal yellow. Everything below it stays quiet. */
+.board {
+  background: var(--col-nav);
+  color: var(--col-nav-text);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem 1rem;
+  margin-bottom: 2rem;
+}
+.board-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: .75rem;
+}
+.board-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+}
+.board-summary { margin: 0; font-size: .875rem; color: var(--col-nav-muted); }
+
+.board-rows { list-style: none; margin: 0; padding: 0; }
+.board-row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 1rem;
+  padding: .625rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--col-nav-text) 12%, transparent);
+}
+.board-date {
+  font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--col-signal);
+  white-space: nowrap;
+}
+.board-what { display: flex; align-items: baseline; gap: .625rem; min-width: 0; }
+.board-company {
+  font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex-shrink: 1; min-width: 0;
+}
+.board-position {
+  color: var(--col-nav-muted);
+  font-size: .875rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex-shrink: 2; min-width: 0;
+}
+.board-when { font-size: .875rem; color: var(--col-nav-muted); white-space: nowrap; }
+.board-row--late .board-when,
+.board-row--today .board-when { color: var(--col-signal); font-weight: 600; }
+
+.board-empty {
+  margin: 0;
+  padding: .75rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--col-nav-text) 12%, transparent);
+  font-size: .9375rem;
+  color: var(--col-nav-muted);
+  max-width: 60ch;
+}
+
+.board-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: .75rem;
+  border-top: 1px solid color-mix(in srgb, var(--col-nav-text) 12%, transparent);
+  font-size: .875rem;
+}
+.board-link { color: var(--col-nav-text); font-weight: 500; text-underline-offset: 3px; }
+.board-link:hover { color: var(--col-signal); }
+.board-link:focus-visible { outline-color: var(--col-signal); }
+.board-more { color: var(--col-nav-muted); }
+
+@media (max-width: 560px) {
+  .board { padding: 1rem 1rem .75rem; border-radius: var(--radius); }
+  .board-row {
+    grid-template-columns: 4rem minmax(0, 1fr);
+    grid-template-areas: "date what" "date when";
+    row-gap: .125rem;
+  }
+  .board-date { grid-area: date; }
+  .board-what { grid-area: what; flex-direction: column; gap: 0; }
+  .board-when { grid-area: when; }
+}
+
+/* ── Pipeline ──────────────────────────────────────────────────────────── */
+.pipeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.pipeline-title { font-size: 1.125rem; font-weight: 600; margin: 0; }
+
+/* Segmented control: one bordered strip, the active segment filled in ink */
+.range-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--col-bg);
+}
 .range-btn {
-  padding: .375rem .875rem; border-radius: 9999px; border: 1px solid var(--col-border);
-  background: var(--col-bg); cursor: pointer; font-size: .875rem; color: var(--col-muted);
-  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
-  box-shadow: none;
+  padding: .375rem .75rem;
+  border: none;
+  border-left: 1px solid var(--col-border);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: .8125rem;
+  color: var(--col-muted);
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.range-btn:not(.range-btn--active):hover {
-  background: var(--col-surface);
-  border-color: var(--col-border);
-  color: var(--col-text);
-}
-.range-btn--active {
-  background: var(--col-invert-bg);
-  color: var(--col-invert-text);
-  border-color: var(--col-invert-bg);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--col-invert-bg) 35%, transparent);
+.range-btn:first-child { border-left: none; }
+.range-btn:focus-visible { outline-offset: -2px; }
+.range-btn:not(.range-btn--active):hover { background: var(--col-surface); color: var(--col-text); }
+.range-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); font-weight: 500; }
+@media (max-width: 640px) {
+  .range-bar { width: 100%; }
+  .range-btn { flex: 1 1 auto; }
 }
 
 .custom-range { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
@@ -259,13 +452,13 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 
 .onboarding-banner {
   display: flex; align-items: flex-start; gap: 1rem;
-  background: var(--col-accent-lt); border: 1px solid var(--col-accent);
-  border-radius: .75rem; padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
+  background: var(--col-surface); border: 1px solid var(--col-border-lt);
+  border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
 }
 .banner-body { flex: 1; font-size: .875rem; color: var(--col-text); }
-.banner-body strong { display: block; margin-bottom: .25rem; }
-.banner-body p { color: var(--col-muted); margin: 0; line-height: 1.5; }
+.banner-body strong { display: block; margin-bottom: .25rem; font-weight: 600; }
+.banner-body p { color: var(--col-muted); margin: 0; line-height: 1.55; max-width: 72ch; }
 .banner-close {
   background: none; border: none; cursor: pointer;
   font-size: 1.5rem; line-height: 1; color: var(--col-muted);
@@ -275,7 +468,6 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 
 .state-msg { color: var(--col-muted); padding: 2rem 0; text-align: center; }
 .state-msg--error { color: var(--col-error); }
-
 
 .funnel-section { margin-bottom: 1.5rem; }
 
@@ -294,7 +486,7 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 /* Desktop: tree on the right, rejection + over-time stacked on the left —
    keeps the dashboard from growing taller as charts are added. */
 @media (min-width: 900px) {
-  .page { max-width: 1180px; }
+  .page { max-width: 1180px; padding: 1.75rem 1.75rem 2rem; }
   .journey-layout {
     display: grid;
     grid-template-columns: minmax(320px, 380px) 1fr;
@@ -308,35 +500,6 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
     margin-bottom: 0;
   }
 }
-
-.overdue-card {
-  background: color-mix(in srgb, #f59e0b 8%, var(--col-surface));
-  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
-  border-radius: .75rem; margin-bottom: 1.5rem; overflow: hidden;
-}
-.overdue-header {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%; background: none; border: none; cursor: pointer;
-  padding: .875rem 1.25rem; text-align: left; gap: .5rem;
-}
-.overdue-title { font-size: .875rem; font-weight: 600; color: #92400e; display: flex; align-items: center; gap: .5rem; }
-.overdue-badge {
-  background: #f59e0b; color: #fff;
-  border-radius: 9999px; font-size: .7rem; font-weight: 700; padding: .1rem .45rem;
-}
-.overdue-chevron { width: 1rem; height: 1rem; color: #92400e; transition: transform .2s; flex-shrink: 0; }
-.chevron-up { transform: rotate(180deg); }
-.overdue-list { list-style: none; margin: 0; padding: 0 1.25rem .75rem; display: flex; flex-direction: column; gap: .5rem; }
-.overdue-item {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  background: var(--col-bg); border: 1px solid var(--col-border);
-  border-radius: .5rem; padding: .5rem .875rem; font-size: .8rem;
-}
-.overdue-app-name { display: flex; align-items: center; gap: .375rem; min-width: 0; }
-.overdue-company { font-weight: 600; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.overdue-sep { color: var(--col-subtle); }
-.overdue-position { color: var(--col-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.overdue-date { font-size: .75rem; color: #b45309; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
 
 .content-area { transition: opacity 200ms ease; }
 .content-area--updating { opacity: 0.4; pointer-events: none; }
