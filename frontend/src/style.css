@@ -403,18 +403,8 @@ textarea::placeholder { color: var(--col-subtle); }
     .chip { transition: none; }
   }
 
-  /* The one status colour system — every view (list, panel, company tile,
-     company modal) uses these classes via STATUS_COLOR, in both themes. */
-  .chip-applied    { background: var(--status-applied-bg);    color: var(--status-applied-fg);    border-color: var(--status-applied-bd); }
-  .chip-interview  { background: var(--status-interview-bg);  color: var(--status-interview-fg);  border-color: var(--status-interview-bd); }
-  .chip-assessment { background: var(--status-assessment-bg); color: var(--status-assessment-fg); border-color: var(--status-assessment-bd); }
-  .chip-offer      { background: var(--status-offer-bg);      color: var(--status-offer-fg);      border-color: var(--status-offer-bd); }
-  .chip-accepted   { background: var(--status-accepted-bg);   color: var(--status-accepted-fg);   border-color: var(--status-accepted-bd); }
-  .chip-hold       { background: var(--status-hold-bg);       color: var(--status-hold-fg);       border-color: var(--status-hold-bd); }
-  .chip-rejected   { background: var(--status-rejected-bg);   color: var(--status-rejected-fg);   border-color: var(--status-rejected-bd); }
-  .chip-withdrawn  { background: var(--status-withdrawn-bg);  color: var(--status-withdrawn-fg);  border-color: var(--status-withdrawn-bd); }
-  /* Ghosted = the company went quiet: an outline with nothing inside */
-  .chip-ghosted    { background: var(--status-ghosted-bg);    color: var(--status-ghosted-fg);    border: 1px dashed var(--status-ghosted-bd); }
+  /* Status colour classes (.chip-applied …) live below, outside this layer —
+     see the note there. */
 
   /* HSM sponsor flag. A company that is not an IND-recognised sponsor
      cannot hire on an HSM permit, so that is the case that gets the
@@ -490,6 +480,24 @@ textarea::placeholder { color: var(--col-subtle); }
   .state-msg      { padding: 2rem; text-align: center; font-size: 0.875rem; color: var(--col-subtle); }
   .state-msg--error { color: var(--col-error); }
 }
+
+/* ── Status chips ────────────────────────────────────────────────────
+   The one status colour system — every view (list, panel, company tile,
+   company modal) uses these classes via STATUS_COLOR, in both themes.
+   Deliberately OUTSIDE @layer components: Tailwind drops layer rules whose
+   class name never appears literally in the source, and these names are
+   built at runtime (`chip-${STATUS_TOKEN[status]}`), so inside the layer
+   they would silently vanish from the build. */
+.chip-applied    { background: var(--status-applied-bg);    color: var(--status-applied-fg);    border-color: var(--status-applied-bd); }
+.chip-interview  { background: var(--status-interview-bg);  color: var(--status-interview-fg);  border-color: var(--status-interview-bd); }
+.chip-assessment { background: var(--status-assessment-bg); color: var(--status-assessment-fg); border-color: var(--status-assessment-bd); }
+.chip-offer      { background: var(--status-offer-bg);      color: var(--status-offer-fg);      border-color: var(--status-offer-bd); }
+.chip-accepted   { background: var(--status-accepted-bg);   color: var(--status-accepted-fg);   border-color: var(--status-accepted-bd); }
+.chip-hold       { background: var(--status-hold-bg);       color: var(--status-hold-fg);       border-color: var(--status-hold-bd); }
+.chip-rejected   { background: var(--status-rejected-bg);   color: var(--status-rejected-fg);   border-color: var(--status-rejected-bd); }
+.chip-withdrawn  { background: var(--status-withdrawn-bg);  color: var(--status-withdrawn-fg);  border-color: var(--status-withdrawn-bd); }
+/* Ghosted = the company went quiet: an outline with nothing inside */
+.chip-ghosted    { background: var(--status-ghosted-bg);    color: var(--status-ghosted-fg);    border: 1px dashed var(--status-ghosted-bd); }
 
 /* ── Thin styled scrollbar ───────────────────────────────────────── */
 * {
