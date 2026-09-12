@@ -120,3 +120,5 @@ Pick the simplest form that answers the question, and prefer text over canvas:
    desktop and mobile in light and dark mode into `frontend/screenshots/` and exits non-zero on
    page errors, console errors, sideways scrolling or serious axe-core accessibility problems
    (including colour contrast in each theme). Look at the shots, especially mobile and dark.
+   The `iwwz-run` skill has the start-up order, ports and flags; `iwwz-testing` has how the
+   tests themselves are written.
