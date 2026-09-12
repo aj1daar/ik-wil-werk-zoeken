@@ -115,6 +115,51 @@ Pick the simplest form that answers the question, and prefer text over canvas:
 - A number with no label (like the nav count badge) gets `aria-hidden` plus `sr-only` text that
   says what it counts.
 
+## Phones and tablets
+
+The app is used on an **iPhone 15 Pro Max**, so that is the reference screen: 430 x 932 CSS
+pixels at DPR 3. `pnpm screenshots` carries a profile for it and for the screens either side of
+it, in CSS pixels (what the layout sees, not the marketing resolution):
+
+| Profile | CSS size | DPR | Why it is in the set |
+|---|---|---|---|
+| `iphone-15-pro-max` | 430 x 932 | 3 | the reference phone |
+| `iphone-15` | 393 x 852 | 3 | the common iPhone width |
+| `iphone-se` | 375 x 667 | 2 | shortest screen still worth passing |
+| `galaxy-s24` | 360 x 780 | 3 | narrowest width in real use |
+| `pixel-8` | 412 x 915 | 2.625 | a non-integer DPR, which catches hairline rounding |
+| `ipad-mini` | 744 x 1133 | 2 | between the phone rules and the desktop ones |
+| `ipad-pro-11` | 834 x 1194 | 2 | tablet portrait, still not desktop |
+| `desktop` / `wide` | 1440 x 900, 1920 x 1080 | 1 | |
+
+Groups: `--viewports=phones`, `--viewports=tablets`, `--viewports=all`. `mobile` still means the
+reference phone.
+
+**Breakpoints.** 767px is the house phone breakpoint and 900px switches the dashboard to two
+columns. Everything else in the codebase (640, 600, 560, 520, 480) is a one-off from earlier work —
+don't add more; reach for the existing two first.
+
+**A media query adds no specificity.** A phone rule written *above* the plain rule it means to
+override does nothing at all. `.page-btn` in CompaniesView sat like that and quietly kept a 32px tap
+target on phones. Put phone overrides after the rule they override, and check the shot.
+
+**Touch targets.** `@media (pointer: coarse)` in `style.css` holds every control to 44px (Apple's
+HIG minimum) — buttons, inputs, selects, status tabs, range buttons, icon buttons, pagination.
+It keys off the pointer, not the width, so a touchscreen laptop counts. Two deliberate exceptions:
+a checkbox takes the 24px WCAG 2.5.8 floor rather than pushing the row apart, and the name button
+inside an application row or company tile stays text-sized — the row or tile around it is the
+touch target, and the button exists for keyboards and screen readers.
+
+**Safe areas.** `index.html` sets `viewport-fit=cover`, so anything fixed or sticky at the bottom
+must add `env(safe-area-inset-bottom)` to its padding or offset, or the home indicator sits on top
+of it. The bulk bar and both toasts do this.
+
+**What collapses and what scrolls.** Rows stack, the toolbar takes its own full-width line with
+pagination centred under it, and the status tabs scroll sideways rather than wrapping. A canvas
+that cannot shrink any further stops shrinking, scrolls with a faded edge, and puts the same
+numbers in text beside it (`StatusTree.vue`). Nothing else may scroll sideways — the screenshot
+run fails if the page is wider than the screen.
+
 ## Verify before calling UI work done
 
 1. `pnpm test` (includes the design-token guard) and `pnpm type-check` in `frontend/`.
