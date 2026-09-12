@@ -74,7 +74,17 @@ The run exits non-zero on any of: an uncaught page error, a console error, conte
 screen, a token that bounced back to `/login`, or a serious/critical axe-core violation (colour
 contrast included, checked separately in each theme). Treat a non-zero exit as a failing test.
 
-Useful flags: `--routes=/,/applications`, `--viewports=mobile`, `--themes=dark`, `--a11y=false`.
+Useful flags: `--routes=/,/applications`, `--themes=dark`, `--a11y=false`, and `--viewports=`,
+which takes device profiles or groups:
+
+- phones: `iphone-15-pro-max` (the reference screen), `iphone-15`, `iphone-se`, `galaxy-s24`, `pixel-8`
+- tablets: `ipad-mini`, `ipad-pro-11`
+- desks: `desktop` (the default) and `wide`
+- groups: `phones`, `tablets`, `all`; `mobile` is the reference phone
+
+So `pnpm screenshots --viewports=phones` sweeps every phone, and
+`--viewports=iphone-15-pro-max,ipad-mini` checks just those two. The design system's
+"Phones and tablets" section says what each profile is for.
 Overrides: `IWWZ_URL`, `IWWZ_API`, `IWWZ_SHOTS_DIR`, and `PW_CHANNEL` when the installed Chrome
 isn't what you want to drive (`msedge`, or `chromium` after `npx playwright install chromium`).
 
