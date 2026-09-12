@@ -1,21 +1,6 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
-import type { VueWrapper } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
 import type { Application } from '../../../api'
-
-vi.mock('echarts/core', () => ({ use: vi.fn() }))
-vi.mock('echarts/renderers', () => ({ CanvasRenderer: {} }))
-vi.mock('echarts/charts', () => ({ PieChart: {} }))
-vi.mock('echarts/components', () => ({ TooltipComponent: {} }))
-vi.mock('vue-echarts', () => ({
-  default: defineComponent({
-    name: 'VChart',
-    props: ['option', 'autoresize'],
-    template: '<div class="mock-chart" />',
-  }),
-}))
-
 import RejectionChart from '../RejectionChart.vue'
 
 function makeApp(overrides: Partial<Application> = {}): Application {
@@ -36,9 +21,11 @@ function mountChart(applications: Application[] = [], from?: string, to?: string
   return mount(RejectionChart, { props: { applications, from, to } })
 }
 
-function getOption(w: VueWrapper<any>) {
-  return w.findComponent({ name: 'VChart' }).props('option') as any
-}
+const labels = (w: ReturnType<typeof mountChart>) => w.findAll('.reason-label').map(l => l.text())
+const counts = (w: ReturnType<typeof mountChart>) => w.findAll('.reason-count').map(c => c.text())
+const countOf = (w: ReturnType<typeof mountChart>, label: string) => counts(w)[labels(w).indexOf(label)]
+const barWidths = (w: ReturnType<typeof mountChart>) =>
+  w.findAll('.reason-bar').map(b => (b.attributes('style') ?? '').match(/width:\s*([\d.]+)%/)?.[1])
 
 // ── rendering ─────────────────────────────────────────────────────────────────
 
@@ -47,20 +34,18 @@ describe('RejectionChart – rendering', () => {
     expect(() => mountChart()).not.toThrow()
   })
 
-  it('renders the "Rejection breakdown" title', () => {
-    expect(mountChart().find('.chart-title').text()).toBe('Rejection breakdown')
+  it('renders the "Rejection reasons" title', () => {
+    expect(mountChart().find('.chart-title').text()).toBe('Rejection reasons')
   })
 
   it('shows generic empty state when no applications at all', () => {
     const w = mountChart([])
-    expect(w.find('.chart-empty').exists()).toBe(true)
     expect(w.find('.chart-empty').text()).toBe('No rejections yet.')
-    expect(w.find('.mock-chart').exists()).toBe(false)
+    expect(w.find('.reason-list').exists()).toBe(false)
   })
 
   it('shows generic empty state when applications exist but none are Rejected', () => {
     const w = mountChart([makeApp({ status: 'Applied' }), makeApp({ status: 'Accepted' })])
-    expect(w.find('.chart-empty').exists()).toBe(true)
     expect(w.find('.chart-empty').text()).toBe('No rejections yet.')
   })
 
@@ -69,10 +54,26 @@ describe('RejectionChart – rendering', () => {
     expect(w.find('.chart-empty').text()).toBe('No rejections in this period.')
   })
 
-  it('shows chart when at least one Rejected application exists', () => {
+  it('shows the list when at least one Rejected application exists', () => {
     const w = mountChart([makeApp()])
-    expect(w.find('.mock-chart').exists()).toBe(true)
+    expect(w.find('.reason-list').exists()).toBe(true)
     expect(w.find('.chart-empty').exists()).toBe(false)
+  })
+
+  it('is a real ordered list that reads without colour or a key', () => {
+    const w = mountChart([makeApp({ rejectionReason: 'dutch_language' })])
+    expect(w.find('ol.reason-list').exists()).toBe(true)
+    expect(w.find('.reason-row').text()).toContain('Dutch language requirement')
+    expect(w.find('.reason-row').text()).toContain('1')
+  })
+
+  it('hides the decorative bar from assistive tech', () => {
+    const w = mountChart([makeApp()])
+    expect(w.find('.reason-track').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('no longer draws a canvas chart', () => {
+    expect(mountChart([makeApp()]).findComponent({ name: 'VChart' }).exists()).toBe(false)
   })
 })
 
@@ -80,152 +81,120 @@ describe('RejectionChart – rendering', () => {
 
 describe('RejectionChart – rejection counting', () => {
   it('counts rejections by known reason', () => {
-    const apps = [
+    const w = mountChart([
       makeApp({ rejectionReason: 'another_candidate' }),
       makeApp({ rejectionReason: 'another_candidate' }),
       makeApp({ rejectionReason: 'salary_mismatch' }),
-    ]
-    const w = mountChart(apps)
-    const items = w.findAll('.donut-legend-item')
-    const labels = items.map(i => i.find('.donut-legend-label').text())
-    const counts = items.map(i => i.find('.donut-legend-count').text())
-    expect(labels).toContain('Another candidate selected')
-    expect(counts[labels.indexOf('Another candidate selected')]).toBe('2')
-    expect(labels).toContain('Salary mismatch')
-    expect(counts[labels.indexOf('Salary mismatch')]).toBe('1')
+    ])
+    expect(countOf(w, 'Another candidate selected')).toBe('2')
+    expect(countOf(w, 'Salary mismatch')).toBe('1')
   })
 
   it('groups applications with no reason under "No reason given"', () => {
-    const apps = [makeApp(), makeApp()]
-    const w = mountChart(apps)
-    const items = w.findAll('.donut-legend-item')
-    const labels = items.map(i => i.find('.donut-legend-label').text())
-    const counts = items.map(i => i.find('.donut-legend-count').text())
-    expect(labels).toContain('No reason given')
-    expect(counts[labels.indexOf('No reason given')]).toBe('2')
+    const w = mountChart([makeApp(), makeApp()])
+    expect(countOf(w, 'No reason given')).toBe('2')
   })
 
-  it('only renders legend items with value > 0', () => {
-    const apps = [makeApp({ rejectionReason: 'other' })]
-    const w = mountChart(apps)
-    const labels = w.findAll('.donut-legend-label').map(l => l.text())
-    expect(labels).toContain('Other')
-    expect(labels).not.toContain('Dutch language requirement')
-    expect(labels).not.toContain('Salary mismatch')
+  it('only lists reasons that occurred', () => {
+    const w = mountChart([makeApp({ rejectionReason: 'other' })])
+    expect(labels(w)).toEqual(['Other'])
   })
 
   it('ignores non-Rejected applications', () => {
-    const apps = [
+    const w = mountChart([
       makeApp({ status: 'Applied' }),
       makeApp({ status: 'Accepted' }),
       makeApp({ status: 'Rejected', rejectionReason: 'internal_hire' }),
-    ]
-    const w = mountChart(apps)
-    const items = w.findAll('.donut-legend-item')
-    expect(items).toHaveLength(1)
-    expect(items[0].find('.donut-legend-label').text()).toBe('Filled internally')
-    expect(items[0].find('.donut-legend-count').text()).toBe('1')
-  })
-
-  // Several slice colours are below 3:1 contrast on the light card, so the
-  // legend is what identifies a slice — every slice needs its own row.
-  it('legend lists every reason that has at least one rejection', () => {
-    const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'no_vacancies', 'no_hsm_sponsorship', 'other'] as const
-    const apps = reasons.map(r => makeApp({ rejectionReason: r }))
-    const w = mountChart(apps)
-    expect(w.findAll('.donut-legend-item')).toHaveLength(reasons.length)
-  })
-
-  it('legend and chart data have one entry per slice, including "No reason given"', () => {
-    const apps = [
-      makeApp({ rejectionReason: 'dutch_language' }),
-      makeApp({ rejectionReason: 'salary_mismatch' }),
-      makeApp({ rejectionReason: 'other' }),
-      makeApp({ rejectionReason: undefined }),
-    ]
-    const w = mountChart(apps)
-    const labels = w.findAll('.donut-legend-label').map(l => l.text())
-    const data = getOption(w).series[0].data
-    expect(labels).toHaveLength(data.length)
-    expect(labels).toContain('No reason given')
-  })
-
-  it('legend is sorted by count, largest first', () => {
-    const apps = [
-      makeApp({ rejectionReason: 'other' }),
-      makeApp({ rejectionReason: 'dutch_language' }),
-      makeApp({ rejectionReason: 'dutch_language' }),
-      makeApp({ rejectionReason: 'dutch_language' }),
-      makeApp({ rejectionReason: 'salary_mismatch' }),
-      makeApp({ rejectionReason: 'salary_mismatch' }),
-    ]
-    const counts = mountChart(apps).findAll('.donut-legend-count').map(c => Number(c.text()))
-    expect(counts).toEqual([3, 2, 1])
-  })
-
-  it('a reason keeps the same colour whichever other reasons are present', () => {
-    const colourOf = (apps: ReturnType<typeof makeApp>[]) =>
-      getOption(mountChart(apps)).series[0].data
-        .find((d: any) => d.name === 'Dutch language requirement')?.itemStyle.color
-    const alone = colourOf([makeApp({ rejectionReason: 'dutch_language' })])
-    const mixed = colourOf([
-      makeApp({ rejectionReason: 'another_candidate' }),
-      makeApp({ rejectionReason: 'another_candidate' }),
-      makeApp({ rejectionReason: 'dutch_language' }),
     ])
-    expect(alone).toBeTruthy()
-    expect(mixed).toBe(alone)
+    expect(labels(w)).toEqual(['Filled internally'])
+    expect(counts(w)).toEqual(['1'])
   })
 
-  it('every reason gets a distinct slice colour', () => {
+  it('ignores a leftover rejection reason on an application that is no longer Rejected', () => {
+    const w = mountChart([makeApp({ status: 'Applied', rejectionReason: 'dutch_language' })])
+    expect(w.find('.chart-empty').exists()).toBe(true)
+  })
+
+  it('lists every reason that occurred, all nine plus "No reason given"', () => {
     const reasons = ['dutch_language', 'another_candidate', 'incompatible_profile', 'salary_mismatch', 'internal_hire', 'failed_assessment', 'no_vacancies', 'no_hsm_sponsorship', 'other'] as const
-    const apps = [...reasons.map(r => makeApp({ rejectionReason: r })), makeApp({ rejectionReason: undefined })]
-    const colours = getOption(mountChart(apps)).series[0].data.map((d: any) => d.itemStyle.color)
-    expect(new Set(colours).size).toBe(colours.length)
+    const w = mountChart([...reasons.map(r => makeApp({ rejectionReason: r })), makeApp()])
+    expect(w.findAll('.reason-row')).toHaveLength(10)
   })
 
-  it('failed_assessment is recognised as a distinct rejection reason', () => {
-    const w = mountChart([makeApp({ rejectionReason: 'failed_assessment' })])
-    const items = w.findAll('.donut-legend-item')
-    const labels = items.map(i => i.find('.donut-legend-label').text())
-    expect(labels).toContain('Did not pass assessment')
-    expect(items[labels.indexOf('Did not pass assessment')].find('.donut-legend-count').text()).toBe('1')
-  })
-
-  it('failed_assessment and other are counted independently', () => {
-    const apps = [
+  it('failed_assessment is counted separately from other', () => {
+    const w = mountChart([
       makeApp({ rejectionReason: 'failed_assessment' }),
       makeApp({ rejectionReason: 'failed_assessment' }),
       makeApp({ rejectionReason: 'other' }),
-    ]
-    const w = mountChart(apps)
-    const items = w.findAll('.donut-legend-item')
-    const labels = items.map(i => i.find('.donut-legend-label').text())
-    const counts = items.map(i => i.find('.donut-legend-count').text())
-    expect(counts[labels.indexOf('Did not pass assessment')]).toBe('2')
-    expect(counts[labels.indexOf('Other')]).toBe('1')
-  })
-
-  it('no_hsm_sponsorship is recognised as a distinct rejection reason', () => {
-    const w = mountChart([makeApp({ rejectionReason: 'no_hsm_sponsorship' })])
-    const items = w.findAll('.donut-legend-item')
-    const labels = items.map(i => i.find('.donut-legend-label').text())
-    expect(labels).toContain('No HSM visa sponsorship')
-    expect(items[labels.indexOf('No HSM visa sponsorship')].find('.donut-legend-count').text()).toBe('1')
+    ])
+    expect(countOf(w, 'Did not pass assessment')).toBe('2')
+    expect(countOf(w, 'Other')).toBe('1')
   })
 
   it('no_hsm_sponsorship is not conflated with no_vacancies', () => {
-    const apps = [
+    const w = mountChart([
       makeApp({ rejectionReason: 'no_hsm_sponsorship' }),
       makeApp({ rejectionReason: 'no_hsm_sponsorship' }),
       makeApp({ rejectionReason: 'no_vacancies' }),
-    ]
-    const w = mountChart(apps)
-    const items = w.findAll('.donut-legend-item')
-    const labels = items.map(i => i.find('.donut-legend-label').text())
-    const counts = items.map(i => i.find('.donut-legend-count').text())
-    expect(counts[labels.indexOf('No HSM visa sponsorship')]).toBe('2')
-    expect(counts[labels.indexOf('No vacancies at the moment')]).toBe('1')
+    ])
+    expect(countOf(w, 'No HSM visa sponsorship')).toBe('2')
+    expect(countOf(w, 'No vacancies at the moment')).toBe('1')
+  })
+
+  it('an unrecognised reason from the API does not crash or invent a row', () => {
+    const w = mountChart([makeApp({ rejectionReason: 'made_up_reason' as never }), makeApp({ rejectionReason: 'other' })])
+    expect(labels(w)).toEqual(['Other'])
+  })
+})
+
+// ── ranking and bars ──────────────────────────────────────────────────────────
+
+describe('RejectionChart – ranking and bars', () => {
+  it('ranks reasons by count, largest first', () => {
+    const w = mountChart([
+      makeApp({ rejectionReason: 'other' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+    ])
+    expect(counts(w)).toEqual(['3', '2', '1'])
+    expect(labels(w)[0]).toBe('Dutch language requirement')
+  })
+
+  it('breaks ties in a fixed reason order, not input order', () => {
+    const a = mountChart([makeApp({ rejectionReason: 'salary_mismatch' }), makeApp({ rejectionReason: 'another_candidate' })])
+    const b = mountChart([makeApp({ rejectionReason: 'another_candidate' }), makeApp({ rejectionReason: 'salary_mismatch' })])
+    expect(labels(a)).toEqual(['Another candidate selected', 'Salary mismatch'])
+    expect(labels(b)).toEqual(labels(a))
+  })
+
+  it('sizes each bar relative to the most common reason', () => {
+    const w = mountChart([
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+      makeApp({ rejectionReason: 'salary_mismatch' }),
+      makeApp({ rejectionReason: 'other' }),
+    ])
+    expect(barWidths(w)).toEqual(['100', '50', '25'])
+  })
+
+  it('a single reason fills the full bar', () => {
+    expect(barWidths(mountChart([makeApp({ rejectionReason: 'other' })]))).toEqual(['100'])
+  })
+
+  it('mutes "Other" and "No reason given" so they do not read as findings', () => {
+    const w = mountChart([
+      makeApp({ rejectionReason: 'dutch_language' }),
+      makeApp({ rejectionReason: 'other' }),
+      makeApp(),
+    ])
+    const neutral = w.findAll('.reason-row--neutral').map(r => r.find('.reason-label').text())
+    expect(neutral.sort()).toEqual(['No reason given', 'Other'])
   })
 })
 
@@ -237,8 +206,7 @@ describe('RejectionChart – date range filtering', () => {
 
   it('includes applications within the range', () => {
     const w = mountChart([inside, outside], '2025-05-01T00:00:00Z', '2025-07-01T00:00:00Z')
-    const counts = w.findAll('.donut-legend-count')
-    expect(counts[0].text()).toBe('1')
+    expect(counts(w)).toEqual(['1'])
   })
 
   it('shows empty state when all rejections fall outside the range', () => {
@@ -247,47 +215,7 @@ describe('RejectionChart – date range filtering', () => {
   })
 
   it('applies no filter when from/to are omitted', () => {
-    const w = mountChart([inside, outside])
-    const counts = w.findAll('.donut-legend-count')
-    expect(counts[0].text()).toBe('2')
-  })
-})
-
-// ── chart option ──────────────────────────────────────────────────────────────
-
-describe('RejectionChart – chart option', () => {
-  it('option series type is "pie"', () => {
-    expect(getOption(mountChart([makeApp()])).series[0].type).toBe('pie')
-  })
-
-  it('series radius is donut-shaped', () => {
-    const radius = getOption(mountChart([makeApp()])).series[0].radius
-    expect(Array.isArray(radius)).toBe(true)
-    expect(radius[0]).toBeTruthy()
-  })
-
-  it('chart data contains all non-zero buckets', () => {
-    const apps = [
-      makeApp({ rejectionReason: 'other' }),
-      makeApp({ rejectionReason: 'other' }),
-      makeApp({ rejectionReason: 'salary_mismatch' }),
-    ]
-    const data = getOption(mountChart(apps)).series[0].data
-    expect(data).toHaveLength(2)
-    const names = data.map((d: any) => d.name)
-    expect(names).toContain('Other')
-    expect(names).toContain('Salary mismatch')
-  })
-
-  it('each data entry has an itemStyle color', () => {
-    const data = getOption(mountChart([makeApp()])).series[0].data
-    for (const d of data) {
-      expect(d.itemStyle?.color).toBeTruthy()
-    }
-  })
-
-  it('has a tooltip', () => {
-    expect(getOption(mountChart([makeApp()])).tooltip).toBeTruthy()
+    expect(counts(mountChart([inside, outside]))).toEqual(['2'])
   })
 })
 
@@ -296,7 +224,7 @@ describe('RejectionChart – chart option', () => {
 describe('RejectionChart – reactivity', () => {
   it('updates when applications prop changes', async () => {
     const w = mountChart([makeApp({ rejectionReason: 'other' })])
-    expect(w.findAll('.donut-legend-item')).toHaveLength(1)
+    expect(w.findAll('.reason-row')).toHaveLength(1)
 
     await w.setProps({
       applications: [
@@ -304,12 +232,12 @@ describe('RejectionChart – reactivity', () => {
         makeApp({ rejectionReason: 'salary_mismatch' }),
       ],
     })
-    expect(w.findAll('.donut-legend-item')).toHaveLength(2)
+    expect(w.findAll('.reason-row')).toHaveLength(2)
   })
 
-  it('switches from chart to empty when all rejections are removed', async () => {
+  it('switches from the list to empty when all rejections are removed', async () => {
     const w = mountChart([makeApp()])
-    expect(w.find('.mock-chart').exists()).toBe(true)
+    expect(w.find('.reason-list').exists()).toBe(true)
 
     await w.setProps({ applications: [makeApp({ status: 'Applied' })] })
     expect(w.find('.chart-empty').exists()).toBe(true)
