@@ -406,7 +406,9 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
     row-gap: .125rem;
   }
   .board-date { grid-area: date; }
-  .board-what { grid-area: what; flex-direction: column; gap: 0; }
+  /* stretch, not baseline: stacked lines must take the column's width so a
+     long company name ellipsizes instead of running off the board */
+  .board-what { grid-area: what; flex-direction: column; align-items: stretch; gap: 0; }
   .board-when { grid-area: when; }
 }
 

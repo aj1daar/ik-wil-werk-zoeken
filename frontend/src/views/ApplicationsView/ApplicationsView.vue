@@ -797,6 +797,13 @@ function printPage() {
      beat style.css's mobile margin: 0 and leave a strip under the nav. */
   .dashboard { margin: 0; }
 
+  /* Phone toolbar: the actions take their own full-width row first, then
+     pagination centred under them, instead of three controls wrapping
+     unevenly around each other. */
+  .filter-actions { order: -1; width: 100%; margin-left: 0; }
+  .btn-new { flex: 1; justify-content: center; }
+  .pagination { width: 100%; justify-content: center; }
+
   /* Apple HIG minimum 44x44pt tap target */
   .page-btn { min-width: 2.75rem; height: 2.75rem; }
 
