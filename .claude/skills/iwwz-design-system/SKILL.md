@@ -90,12 +90,27 @@ entrances, no press-shrink on buttons. Route changes are a 120ms fade. Every ani
 
 ## Charts
 
-Categorical colours use the validated eight-slot palette in `RejectionChart.vue`, assigned by entity
-in a fixed order (a reason keeps its colour whatever else is present), with neutral greys for
-"Other" / "No reason given". Every slice gets a legend row with its count, because several slot
-colours are below 3:1 contrast on the light card. Single-series charts use route blue, 2px lines,
-hairline grid. Changing chart colours: load the `dataviz` skill and run its palette validator
-against `--col-surface` for both themes.
+Pick the simplest form that answers the question, and prefer text over canvas:
+- **Rejection reasons** is a ranked HTML list with one bar per reason (`RejectionChart.vue`), not a
+  donut: comparing a few counts is what bars are for, and text rows need no colour key. One series,
+  one colour (route blue); "Other" and "No reason given" are muted.
+- **Applications per week** is an ECharts bar chart (a weekly count is discrete, so no smoothed
+  line), with weeks labelled by their Monday ("12 May") and a visually hidden text summary,
+  since the canvas has none.
+- **Application journey** (`StatusTree.vue`) stops shrinking at 75% and scrolls; when cramped it
+  adds a plain status list with the same numbers.
+- If a chart ever needs several categorical colours, load the `dataviz` skill and run its palette
+  validator against `--col-surface` in both themes before shipping.
+
+## Interaction patterns
+
+- Cards and tiles are mouse targets only; the name inside is the real `<button>` (keyboard,
+  screen readers). Never `role="button"` on a container that holds a checkbox or link.
+- Status filtering on My applications is the row of status tabs with counts (`aria-pressed`),
+  not a dropdown.
+- Link straight to an application with `/applications?open=<id>` (the Next up board does this).
+- A number with no label (like the nav count badge) gets `aria-hidden` plus `sr-only` text that
+  says what it counts.
 
 ## Verify before calling UI work done
 
@@ -103,4 +118,5 @@ against `--col-surface` for both themes.
 2. With `pnpm dev` and the API running, run `pnpm screenshots` in `frontend/` (auth via
    `IWWZ_TOKEN` or `IWWZ_EMAIL`/`IWWZ_PASSWORD`; see `scripts/screenshots.mjs`). It captures
    desktop and mobile in light and dark mode into `frontend/screenshots/` and exits non-zero on
-   page errors, console errors or sideways scrolling. Look at the shots, especially mobile and dark.
+   page errors, console errors, sideways scrolling or serious axe-core accessibility problems
+   (including colour contrast in each theme). Look at the shots, especially mobile and dark.
