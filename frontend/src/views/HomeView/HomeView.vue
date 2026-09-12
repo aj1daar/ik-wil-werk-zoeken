@@ -222,12 +222,15 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
           :key="r.app.id"
           :class="['board-row', { 'board-row--late': r.daysFromToday < 0, 'board-row--today': r.daysFromToday === 0 }]"
         >
-          <span class="board-date">{{ dateLabel(r.due) }}</span>
-          <span class="board-what">
-            <span class="board-company">{{ r.app.companyName }}</span>
-            <span class="board-position">{{ r.app.position }}</span>
-          </span>
-          <span class="board-when">{{ dueLabel(r.daysFromToday) }}</span>
+          <!-- Each row opens that application's panel on My applications -->
+          <router-link :to="{ path: '/applications', query: { open: r.app.id } }" class="board-row-link">
+            <span class="board-date">{{ dateLabel(r.due) }}</span>
+            <span class="board-what">
+              <span class="board-company">{{ r.app.companyName }}</span>
+              <span class="board-position">{{ r.app.position }}</span>
+            </span>
+            <span class="board-when">{{ dueLabel(r.daysFromToday) }}</span>
+          </router-link>
         </li>
       </ol>
 
@@ -335,13 +338,19 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 
 .board-rows { list-style: none; margin: 0; padding: 0; }
 .board-row {
+  border-top: 1px solid color-mix(in srgb, var(--col-nav-text) 12%, transparent);
+}
+.board-row-link {
   display: grid;
   grid-template-columns: 4.5rem minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 1rem;
   padding: .625rem 0;
-  border-top: 1px solid color-mix(in srgb, var(--col-nav-text) 12%, transparent);
+  color: inherit;
+  text-decoration: none;
 }
+.board-row-link:hover .board-company { text-decoration: underline; text-underline-offset: 3px; }
+.board-row-link:focus-visible { outline-color: var(--col-signal); outline-offset: 0; }
 .board-date {
   font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif;
   font-weight: 600;
@@ -391,7 +400,7 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 
 @media (max-width: 560px) {
   .board { padding: 1rem 1rem .75rem; border-radius: var(--radius); }
-  .board-row {
+  .board-row-link {
     grid-template-columns: 4rem minmax(0, 1fr);
     grid-template-areas: "date what" "date when";
     row-gap: .125rem;

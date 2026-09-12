@@ -237,6 +237,25 @@ describe('HomeView – Next up board', () => {
     expect(boardCompanies(w)).toEqual(['Late', 'TodayCo', 'Later'])
   })
 
+  it('each row links to that application on My applications', async () => {
+    const early = makeApp({ id: 'app-early', companyName: 'Early', followUpDate: isoDaysFromToday(-1) })
+    const later = makeApp({ id: 'app-later', companyName: 'Later', followUpDate: isoDaysFromToday(3) })
+    const w = await mountBoard([later, early])
+    const links = w.findAll('.board-row').map(r => r.findComponent(RouterLinkStub))
+    expect(links.map(l => l.props('to'))).toEqual([
+      { path: '/applications', query: { open: 'app-early' } },
+      { path: '/applications', query: { open: 'app-later' } },
+    ])
+  })
+
+  it('the whole row is the link, so its text is the link name', async () => {
+    const w = await mountBoard([makeApp({ companyName: 'Acme', position: 'Data Engineer', followUpDate: isoDaysFromToday(0) })])
+    const link = w.find('.board-row').findComponent(RouterLinkStub)
+    expect(link.text()).toContain('Acme')
+    expect(link.text()).toContain('Data Engineer')
+    expect(link.text()).toContain('Due today')
+  })
+
   it('shows the position next to the company', async () => {
     const w = await mountBoard([makeApp({ companyName: 'Acme', position: 'Data Engineer', followUpDate: isoDaysFromToday(1) })])
     expect(w.find('.board-row .board-position').text()).toBe('Data Engineer')

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
 import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel.vue'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
-const store = useApplicationsStore()
+const store  = useApplicationsStore()
+// Optional-chained below: the view also renders without a router (unit tests)
+const route  = useRoute()
+const router = useRouter()
 
 // Fixed page size: the list renders as a 2-column card grid on desktop (5
 // rows × 2 cards) and a single-column list on mobile — either way, exactly
@@ -39,9 +43,22 @@ function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') { selectedId.value = null; clearSelection() }
 }
 
+// The dashboard's Next up board links here with ?open=<id>. Open that
+// application's panel once the list has loaded, then drop the parameter so
+// closing the panel, or refreshing, doesn't reopen it.
+function openFromQuery() {
+  const id = route?.query.open
+  if (id === undefined) return
+  if (typeof id === 'string' && store.applications.some(a => a.id === id)) selectedId.value = id
+  const query = { ...route.query }
+  delete query.open
+  router?.replace({ query })
+}
+
 onMounted(async () => {
   window.addEventListener('keydown', onKey)
   await store.load()
+  openFromQuery()
 })
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 

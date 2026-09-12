@@ -3,6 +3,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { Transition, TransitionGroup } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import ApplicationsView from '../ApplicationsView.vue'
 import { useApplicationsStore } from '../../../stores/applications'
 
@@ -623,3 +624,71 @@ describe('ApplicationsView – row accessibility', () => {
   })
 })
 
+// ── opening an application from a link (?open=<id>) ─────────────────────────────
+
+async function mountAt(url: string, apps: Application[]) {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  vi.mocked(api.getApplications).mockResolvedValue(apps)
+  vi.mocked(api.getStats).mockResolvedValue(makeStats())
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/applications', component: { template: '<div/>' } }],
+  })
+  await router.push(url)
+  await router.isReady()
+  const wrapper = mount(ApplicationsView, { global: { plugins: [pinia, router] } })
+  await flushPromises()
+  return { wrapper, router }
+}
+
+describe('ApplicationsView – ?open=<id> deep link', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const two = () => [makeApp({ id: 'a', companyName: 'Alpha' }), makeApp({ id: 'b', companyName: 'Beta' })]
+
+  it('opens the panel for the linked application', async () => {
+    const { wrapper } = await mountAt('/applications?open=b', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).props('application').companyName).toBe('Beta')
+  })
+
+  it('removes the parameter so closing the panel or refreshing does not reopen it', async () => {
+    const { router } = await mountAt('/applications?open=b', two())
+    expect(router.currentRoute.value.query.open).toBeUndefined()
+    expect(router.currentRoute.value.path).toBe('/applications')
+  })
+
+  it('keeps any other query parameters', async () => {
+    const { router } = await mountAt('/applications?open=b&ref=board', two())
+    expect(router.currentRoute.value.query).toEqual({ ref: 'board' })
+  })
+
+  it('ignores an id that is not one of your applications', async () => {
+    const { wrapper, router } = await mountAt('/applications?open=someone-elses-id', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(router.currentRoute.value.query.open).toBeUndefined()
+  })
+
+  it('ignores a repeated parameter instead of guessing which one was meant', async () => {
+    const { wrapper, router } = await mountAt('/applications?open=a&open=b', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(router.currentRoute.value.query.open).toBeUndefined()
+  })
+
+  it('ignores an empty parameter', async () => {
+    const { wrapper } = await mountAt('/applications?open=', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+  })
+
+  it('treats a script-looking id as a plain string that matches nothing', async () => {
+    const { wrapper } = await mountAt(`/applications?open=${encodeURIComponent('<script>alert(1)</script>')}`, two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(wrapper.find('script').exists()).toBe(false)
+  })
+
+  it('does nothing when there is no parameter', async () => {
+    const { wrapper, router } = await mountAt('/applications', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(router.currentRoute.value.fullPath).toBe('/applications')
+  })
+})
