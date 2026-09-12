@@ -33,7 +33,8 @@ component stylesheet, and on any `var(--col-…)` that isn't defined.
 
 Rules:
 - **Signal yellow is spent in few places**: the Next up board dates, the nav you-are-here strip,
-  the nav count badge, the logo mark, and the bulk-apply button. Adding it elsewhere dilutes it.
+  the nav count badge, the logo mark, the bulk-apply button, and the "Follow up today" chip on an
+  application row (an overdue follow-up is red instead). Adding it elsewhere dilutes it.
   Never yellow text on a light surface (it fails contrast); yellow is a fill with ink on it, or
   text on the dark board or nav.
 - **Primary buttons are ink** (`.btn-primary`, `.btn-submit`, `AppButton` primary), not blue or
@@ -98,7 +99,9 @@ Pick the simplest form that answers the question, and prefer text over canvas:
   line), with weeks labelled by their Monday ("12 May") and a visually hidden text summary,
   since the canvas has none.
 - **Application journey** (`StatusTree.vue`) stops shrinking at 75% and scrolls; when cramped it
-  adds a plain status list with the same numbers.
+  adds a plain status list with the same numbers. Cramped means too short as well as too narrow —
+  the dashboard pins the card's height to the charts column beside it — and the edge the tree
+  carries on past is faded with a mask, so a half-drawn node reads as "scroll", not "broken".
 - If a chart ever needs several categorical colours, load the `dataviz` skill and run its palette
   validator against `--col-surface` in both themes before shipping.
 
