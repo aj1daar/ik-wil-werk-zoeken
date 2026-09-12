@@ -131,13 +131,24 @@ const filteredRows = computed<SponsorCompany[]>(() => {
 // Sort the WHOLE filtered set, then slice pages from it — so a page is a
 // contiguous, correctly ordered run, not 16 arbitrary tiles ordered only
 // among themselves.
+// Register names can open with quotes or symbols ('"AAE" Advanced…',
+// '@EasePay'), which put them ahead of every A. Sort on the first letter or
+// digit instead, ignore case and accents, and compare digits as numbers so
+// "2 Getthere" files before "10X Genomics".
+function nameKey(name: string) {
+  return name.replace(/^[^\p{L}\p{N}]+/u, '')
+}
+function byName(a: SponsorCompany, b: SponsorCompany) {
+  return nameKey(a.name).localeCompare(nameKey(b.name), undefined, { sensitivity: 'base', numeric: true })
+}
+
 const sortedCompanies = computed<SponsorCompany[]>(() => {
   const list = [...filteredRows.value]
   if (sortOrder.value === 'default') return list
   return list.sort((a, b) => {
-    if (sortOrder.value === 'za') return b.name.localeCompare(a.name)
-    if (sortOrder.value === 'city') return (a.city ?? '').localeCompare(b.city ?? '') || a.name.localeCompare(b.name)
-    return a.name.localeCompare(b.name)
+    if (sortOrder.value === 'za') return byName(b, a)
+    if (sortOrder.value === 'city') return (a.city ?? '').localeCompare(b.city ?? '') || byName(a, b)
+    return byName(a, b)
   })
 })
 
