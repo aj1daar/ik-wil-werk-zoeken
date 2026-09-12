@@ -7,12 +7,15 @@ function mountTree(flow: StatusFlow | null) {
   return mount(StatusTree, { props: { flow } })
 }
 
-// happy-dom never lays anything out, so fake the card width the tree sees
-function stubContainerWidth(width: number) {
+// happy-dom never lays anything out, so fake the card size the tree sees.
+// The default height is taller than any tree here, so a test that only cares
+// about width isn't accidentally testing the short-card path as well.
+type Box = { contentRect: { width: number; height: number } }
+function stubContainerSize(width: number, height = 2000) {
   vi.stubGlobal('ResizeObserver', class {
-    cb: (entries: { contentRect: { width: number } }[]) => void
-    constructor(cb: (entries: { contentRect: { width: number } }[]) => void) { this.cb = cb }
-    observe() { this.cb([{ contentRect: { width } }]) }
+    cb: (entries: Box[]) => void
+    constructor(cb: (entries: Box[]) => void) { this.cb = cb }
+    observe() { this.cb([{ contentRect: { width, height } }]) }
     disconnect() {}
   })
 }
@@ -38,28 +41,28 @@ describe('StatusTree – narrow screens', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('stops shrinking at 75% and scrolls instead of drawing unreadable labels', async () => {
-    stubContainerWidth(300)
+    stubContainerSize(300)
     const w = mountTree(WIDE_FLOW)
     await flushPromises()
     expect(Number(w.find('svg').attributes('width'))).toBeCloseTo(760 * 0.75)
   })
 
   it('shrinks to fit when the card is only a little narrower than the tree', async () => {
-    stubContainerWidth(700)
+    stubContainerSize(700)
     const w = mountTree(WIDE_FLOW)
     await flushPromises()
     expect(Number(w.find('svg').attributes('width'))).toBeCloseTo(700)
   })
 
   it('never scales the tree up past its natural size', async () => {
-    stubContainerWidth(2000)
+    stubContainerSize(2000)
     const w = mountTree(WIDE_FLOW)
     await flushPromises()
     expect(Number(w.find('svg').attributes('width'))).toBeCloseTo(760)
   })
 
   it('adds a plain status list when the tree is cramped', async () => {
-    stubContainerWidth(300)
+    stubContainerSize(300)
     const w = mountTree(WIDE_FLOW)
     await flushPromises()
     const items = w.findAll('.st-list-item')
@@ -70,14 +73,14 @@ describe('StatusTree – narrow screens', () => {
   })
 
   it('leaves the list out when the tree fits comfortably', async () => {
-    stubContainerWidth(1200)
+    stubContainerSize(1200)
     const w = mountTree(WIDE_FLOW)
     await flushPromises()
     expect(w.find('.st-list').exists()).toBe(false)
   })
 
   it('shows no list for an empty flow, however narrow the card', async () => {
-    stubContainerWidth(200)
+    stubContainerSize(200)
     const w = mountTree({ nodes: [], edges: [] })
     await flushPromises()
     expect(w.find('.st-list').exists()).toBe(false)
@@ -92,8 +95,23 @@ describe('StatusTree – narrow screens', () => {
     expect(scroll.attributes('aria-label')).toBe('Application journey tree')
   })
 
+  it('shows the status list when the card is too short, however wide it is', async () => {
+    stubContainerSize(1200, 150)
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    expect(w.find('.st-list').exists()).toBe(true)
+    expect(w.findAll('.st-list-item')).toHaveLength(5)
+  })
+
+  it('leaves the list out when the card is both wide and tall enough', async () => {
+    stubContainerSize(1200, 1000)
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    expect(w.find('.st-list').exists()).toBe(false)
+  })
+
   it('uses sentence-case status labels', async () => {
-    stubContainerWidth(300)
+    stubContainerSize(300)
     const w = mountTree({
       nodes: [{ status: 'Applied', total: 2, current: 0 }, { status: 'OfferReceived', total: 1, current: 1 }, { status: 'OnHold', total: 1, current: 1 }],
       edges: [{ from: 'Applied', to: 'OfferReceived', count: 1 }, { from: 'Applied', to: 'OnHold', count: 1 }],

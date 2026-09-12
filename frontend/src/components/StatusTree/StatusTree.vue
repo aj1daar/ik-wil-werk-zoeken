@@ -319,18 +319,33 @@ const edgePaths = computed(() => {
 // alone so the browser's native overflow scrolling handles panning.
 const scrollRef = ref<HTMLElement | null>(null)
 const containerWidth = ref(0)
+const containerHeight = ref(0)
 let containerResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
   if (scrollRef.value) {
     containerResizeObserver = new ResizeObserver(entries => {
-      const w = entries[0]?.contentRect.width
-      if (w) containerWidth.value = w
+      const box = entries[0]?.contentRect
+      if (box?.width)  containerWidth.value  = box.width
+      if (box?.height) containerHeight.value = box.height
+      updateOverflow()
     })
     containerResizeObserver.observe(scrollRef.value)
   }
 })
 onUnmounted(() => containerResizeObserver?.disconnect())
+
+// There is more tree past this edge. The fade these drive is the only thing
+// that tells a reader a card showing half a node can be scrolled.
+const overflowRight  = ref(false)
+const overflowBottom = ref(false)
+
+function updateOverflow() {
+  const el = scrollRef.value
+  if (!el) return
+  overflowRight.value  = el.scrollWidth  - el.clientWidth  - el.scrollLeft > 1
+  overflowBottom.value = el.scrollHeight - el.clientHeight - el.scrollTop  > 1
+}
 
 // Shrinking a wide tree to a phone's width left 5px node labels. Below this
 // scale the tree stops shrinking and scrolls sideways instead, and the plain
@@ -343,8 +358,15 @@ const fitScale = computed(() =>
     : 1
 )
 
-// The tree no longer fits its card at a comfortable size
-const isCramped = computed(() => containerWidth.value > 0 && containerWidth.value < svgWidth.value * 0.9)
+// The tree no longer fits its card at a comfortable size. Height counts as
+// well as width: on the dashboard the card's height is pinned to the charts
+// column beside it, which cut the outcome row (Rejected, Ghosted, On hold)
+// in half while the card was still wide enough to look fine.
+const isCramped = computed(() => {
+  const tooNarrow = containerWidth.value  > 0 && containerWidth.value  < svgWidth.value * 0.9
+  const tooShort  = containerHeight.value > 0 && containerHeight.value < svgHeight.value * fitScale.value * 0.9
+  return tooNarrow || tooShort
+})
 
 const statusList = computed(() =>
   STATUS_ORDER
@@ -395,12 +417,13 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
     <!-- Focusable so keyboard users can scroll a tree wider than its card -->
     <div
       v-else
-      class="st-scroll"
+      :class="['st-scroll', { 'st-scroll--more-x': overflowRight, 'st-scroll--more-y': overflowBottom }]"
       ref="scrollRef"
       tabindex="0"
       role="region"
       aria-label="Application journey tree"
       @wheel="onWheel"
+      @scroll="updateOverflow"
     >
       <svg
         :viewBox="`0 0 ${svgWidth} ${svgHeight}`"
@@ -513,6 +536,18 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   touch-action: pan-x pan-y pinch-zoom;
 }
 .st-scroll svg { display: block; }
+
+/* Fade the edge the tree carries on past, so half a node reads as "there is
+   more, scroll" instead of as a clipped card. A mask rather than a gradient
+   in a colour, so it works over either theme's surface. */
+.st-scroll--more-x { mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent); }
+.st-scroll--more-y { mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent); }
+.st-scroll--more-x.st-scroll--more-y {
+  mask-image:
+    linear-gradient(to right,  black calc(100% - 2rem), transparent),
+    linear-gradient(to bottom, black calc(100% - 2rem), transparent);
+  mask-composite: intersect;
+}
 
 .st-node { cursor: default; transition: opacity .15s; }
 .st-node--dim { opacity: .35; }
