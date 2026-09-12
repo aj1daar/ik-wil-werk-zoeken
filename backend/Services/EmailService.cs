@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using backend.Models;
 
@@ -7,13 +7,31 @@ namespace backend.Services;
 public sealed class EmailService
 {
     private readonly IHttpClientFactory _http;
+    private readonly IHostEnvironment _env;
+    private readonly ILogger<EmailService> _log;
 
-    public EmailService(IHttpClientFactory http) => _http = http;
+    public EmailService(IHttpClientFactory http, IHostEnvironment env, ILogger<EmailService> log)
+    {
+        _http = http;
+        _env  = env;
+        _log  = log;
+    }
+
+    // Without a Resend key nothing is sent, which locally means a brand new
+    // account can never verify its address and can never sign in. In
+    // Development the link goes to the log instead; anywhere else it stays
+    // secret, because these links are credentials in their own right.
+    private bool SkipSend(string kind, string toEmail, string link)
+    {
+        if (_env.IsDevelopment())
+            _log.LogWarning("No RESEND_API_KEY set - {Kind} link for {Email}: {Link}", kind, toEmail, link);
+        return true;
+    }
 
     public async Task<bool> SendVerificationAsync(string toEmail, string verifyLink)
     {
         var apiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey)) return true;
+        if (string.IsNullOrWhiteSpace(apiKey)) return SkipSend("verification", toEmail, verifyLink);
 
         var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest
@@ -42,7 +60,7 @@ public sealed class EmailService
     public async Task<bool> SendEmailChangeAsync(string toEmail, string confirmLink)
     {
         var apiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey)) return true;
+        if (string.IsNullOrWhiteSpace(apiKey)) return SkipSend("email change", toEmail, confirmLink);
 
         var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest
@@ -72,7 +90,7 @@ public sealed class EmailService
     public async Task<bool> SendPasswordResetAsync(string toEmail, string resetLink)
     {
         var apiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey)) return true;
+        if (string.IsNullOrWhiteSpace(apiKey)) return SkipSend("password reset", toEmail, resetLink);
 
         var from = Environment.GetEnvironmentVariable("RESEND_FROM") ?? "noreply@nogoibay.org";
         var payload = new ResendEmailRequest

@@ -19,8 +19,9 @@ cd frontend && pnpm install && pnpm dev   # http://localhost:5173, proxies /api
 ```
 
 Needs `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `ALLOWED_ORIGIN`, `ADMIN_EMAIL` set
-(local defaults live in `backend/Properties/launchSettings.json`). `RESEND_API_KEY` is optional —
-without it, emails just get skipped.
+(local defaults live in `backend/Properties/launchSettings.json`). `RESEND_API_KEY` is optional — without it no
+email is sent, and in Development the verification, reset and email-change links are written to the
+API log instead, so a local account can still be verified.
 
 Tests: `dotnet test backend.Tests` (295), `cd frontend && pnpm test` (848).
 

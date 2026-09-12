@@ -35,8 +35,12 @@ the schema without starting the app.
 
 `launchSettings.json` supplies the development values for `JWT_SECRET`, `DATABASE_URL`,
 `ALLOWED_ORIGIN` and `ADMIN_EMAIL`, so `dotnet run` needs no environment of its own. `GEMINI_API_KEY`
-and `RESEND_API_KEY` are not set locally: company enrichment and outgoing email are skipped, which
-is fine for everything except working on those two features.
+and `RESEND_API_KEY` are not set locally, so company enrichment and outgoing email are skipped.
+
+Sign-in needs a verified address, and nothing can be verified by email without Resend. In
+Development `EmailService` writes the link it would have sent to the API log instead — register,
+then copy the `No RESEND_API_KEY set - verification link for ...` line out of the `dotnet run`
+output and open it. The same goes for password resets and email changes.
 
 ### On Windows
 
