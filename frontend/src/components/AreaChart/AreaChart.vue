@@ -1,8 +1,12 @@
 <template>
   <div class="area-wrap">
-    <h3 class="chart-title">Applications over time</h3>
+    <h3 class="chart-title">Applications per week</h3>
     <div v-if="isEmpty" class="chart-empty">No applications to display.</div>
-    <v-chart v-else class="area-chart" :option="option" autoresize />
+    <template v-else>
+      <v-chart class="area-chart" :option="option" autoresize aria-hidden="true" />
+      <!-- The canvas has no text of its own; this carries the same facts -->
+      <p class="sr-only">{{ summary }}</p>
+    </template>
   </div>
 </template>
 
@@ -10,22 +14,22 @@
 import { computed } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart } from 'echarts/charts'
+import { BarChart } from 'echarts/charts'
 import { TooltipComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import type { Application } from '../../api'
 import { useTheme } from '../../composables/useTheme'
 
-use([CanvasRenderer, LineChart, TooltipComponent, GridComponent])
+use([CanvasRenderer, BarChart, TooltipComponent, GridComponent])
 
 const { theme } = useTheme()
 
 // ECharts paints to canvas and can't read CSS custom properties, so these
 // mirror the style.css tokens: route blue for the one series, recessive
-// hairline grid and muted axis labels, surface-coloured ring on markers.
+// hairline grid and muted axis labels.
 const CHART_INK = {
-  light: { line: '#1F4FA3', label: '#6F7A89', grid: '#DDE2E7', axis: '#CBD2D9', surface: '#F1F3F5' },
-  dark:  { line: '#7FA6F0', label: '#8590A0', grid: '#2A3341', axis: '#364152', surface: '#1B222C' },
+  light: { bar: '#1F4FA3', label: '#6F7A89', grid: '#DDE2E7', axis: '#CBD2D9' },
+  dark:  { bar: '#7FA6F0', label: '#8590A0', grid: '#2A3341', axis: '#364152' },
 } as const
 
 const props = defineProps<{
@@ -70,11 +74,11 @@ const weeksData = computed(() => {
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
 
-  const result: { week: string; count: number }[] = []
+  const result: { week: string; start: Date; count: number }[] = []
   const cur = new Date(start)
   while (cur <= end) {
     const key = isoWeekKey(cur)
-    result.push({ week: key, count: counts.get(key) ?? 0 })
+    result.push({ week: key, start: new Date(cur), count: counts.get(key) ?? 0 })
     cur.setDate(cur.getDate() + 7)
   }
   return result
@@ -82,17 +86,43 @@ const weeksData = computed(() => {
 
 const isEmpty = computed(() => weeksData.value.length === 0)
 
+// Weeks are labelled by their Monday ("12 May") rather than an ISO week code
+// nobody reads. The year only appears when the range crosses New Year.
+const weekLabels = computed(() => {
+  const weeks = weeksData.value
+  const spansYears = weeks.length > 0 && weeks[0].start.getFullYear() !== weeks[weeks.length - 1].start.getFullYear()
+  const fmt: Intl.DateTimeFormatOptions = spansYears
+    ? { day: 'numeric', month: 'short', year: 'numeric' }
+    : { day: 'numeric', month: 'short' }
+  return weeks.map(w => w.start.toLocaleDateString(undefined, fmt))
+})
+
+const plural = (n: number) => `${n} application${n === 1 ? '' : 's'}`
+
+const summary = computed(() => {
+  const weeks = weeksData.value
+  const total = weeks.reduce((s, w) => s + w.count, 0)
+  const busiest = weeks.reduce((best, w, i) => (w.count > weeks[best].count ? i : best), 0)
+  return `${plural(total)} over ${weeks.length} week${weeks.length === 1 ? '' : 's'}. ` +
+    `Busiest week: ${weekLabels.value[busiest]}, with ${plural(weeks[busiest].count)}.`
+})
+
+// Bars, not a smoothed line: a count per week is a discrete number, and a
+// spline invented values between weeks that never happened.
 const option = computed(() => {
   const ink = CHART_INK[theme.value === 'dark' ? 'dark' : 'light']
   return {
     textStyle: { fontFamily: "'IBM Plex Sans', system-ui, sans-serif" },
-    tooltip: { trigger: 'axis', formatter: (p: any[]) => `${p[0].axisValue}: ${p[0].value}` },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (p: any[]) => `Week of ${p[0].axisValue}: ${plural(p[0].value)}`,
+    },
     grid: { left: '3%', right: '3%', bottom: '3%', top: '8%', containLabel: true },
     xAxis: {
       type: 'category',
-      boundaryGap: false,
-      data: weeksData.value.map(w => w.week),
-      axisLabel: { rotate: 35, fontSize: 11, color: ink.label },
+      data: weekLabels.value,
+      axisLabel: { fontSize: 11, color: ink.label, hideOverlap: true },
       axisLine: { lineStyle: { color: ink.axis } },
       axisTick: { show: false },
     },
@@ -103,15 +133,11 @@ const option = computed(() => {
       splitLine: { lineStyle: { color: ink.grid } },
     },
     series: [{
-      type: 'line',
+      type: 'bar',
       data: weeksData.value.map(w => w.count),
-      smooth: true,
-      color: ink.line,
-      lineStyle: { width: 2 },
-      areaStyle: { opacity: 0.12 },
-      symbol: 'circle',
-      symbolSize: 8,
-      itemStyle: { borderColor: ink.surface, borderWidth: 2 },
+      color: ink.bar,
+      barMaxWidth: 24,
+      itemStyle: { borderRadius: [4, 4, 0, 0] },
     }],
   }
 })
