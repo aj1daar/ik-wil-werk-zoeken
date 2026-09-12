@@ -551,3 +551,51 @@ input[type="password"]::-ms-clear { display: none; }
     scroll-behavior: auto !important;
   }
 }
+
+/* Touch targets: a fingertip is about 9mm across, so a 30px button is a
+   coin toss. Under a coarse pointer every control clears 44px (Apple's HIG
+   minimum, comfortably past the 24px WCAG 2.5.8 floor). Mouse-driven screens
+   keep their denser sizing, which is why this is a pointer query and not a
+   width one — a touchscreen laptop counts as coarse too. */
+@media (pointer: coarse) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger,
+  .btn-submit,
+  .btn-filter-toggle,
+  .btn-new,
+  .status-tab,
+  .range-btn,
+  .field-input,
+  .filter-input {
+    min-height: 44px;
+  }
+
+  /* Text links that act as buttons need a box before they can have a height */
+  .board-link,
+  .nav-logo-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* A checkbox can't grow to 44px without pushing the row apart, so it takes
+     the 24px WCAG 2.5.8 floor instead; the row around it is the real target. */
+  input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+
+  .btn-icon,
+  .page-btn,
+  .banner-close {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  /* The eye sits on top of the input, so widening its hit area would push the
+     icon off-centre without this. */
+  .password-eye { right: .25rem; }
+}

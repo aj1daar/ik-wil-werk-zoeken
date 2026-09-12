@@ -531,6 +531,13 @@ function printPage() {
   cursor: pointer;
   accent-color: var(--col-accent);
 }
+
+/* Scoped, so it can beat the base rule above: a 16px checkbox is a miss
+   waiting to happen on a touchscreen. 24px is the WCAG 2.5.8 floor; the row
+   around it stays the comfortable target. */
+@media (pointer: coarse) {
+  .row-checkbox { width: 24px; height: 24px; }
+}
 .company-row--checked { background: color-mix(in srgb, var(--col-accent) 8%, transparent); }
 
 .followup-badge { font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: var(--radius-sm); white-space: nowrap; }
