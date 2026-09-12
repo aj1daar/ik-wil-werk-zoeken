@@ -1,11 +1,110 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import StatusTree from '../StatusTree.vue'
 import type { StatusFlow } from '../../../api'
 
 function mountTree(flow: StatusFlow | null) {
   return mount(StatusTree, { props: { flow } })
 }
+
+// happy-dom never lays anything out, so fake the card width the tree sees
+function stubContainerWidth(width: number) {
+  vi.stubGlobal('ResizeObserver', class {
+    cb: (entries: { contentRect: { width: number } }[]) => void
+    constructor(cb: (entries: { contentRect: { width: number } }[]) => void) { this.cb = cb }
+    observe() { this.cb([{ contentRect: { width } }]) }
+    disconnect() {}
+  })
+}
+
+// A wide tree: four statuses in the bottom row (svg width 4 × 168 + 88 = 760)
+const WIDE_FLOW: StatusFlow = {
+  nodes: [
+    { status: 'Applied',   total: 10, current: 3 },
+    { status: 'OnHold',    total: 1,  current: 1 },
+    { status: 'Rejected',  total: 4,  current: 4 },
+    { status: 'Withdrawn', total: 1,  current: 1 },
+    { status: 'Ghosted',   total: 1,  current: 1 },
+  ],
+  edges: [
+    { from: 'Applied', to: 'OnHold',    count: 1 },
+    { from: 'Applied', to: 'Rejected',  count: 4 },
+    { from: 'Applied', to: 'Withdrawn', count: 1 },
+    { from: 'Applied', to: 'Ghosted',   count: 1 },
+  ],
+}
+
+describe('StatusTree – narrow screens', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('stops shrinking at 75% and scrolls instead of drawing unreadable labels', async () => {
+    stubContainerWidth(300)
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    expect(Number(w.find('svg').attributes('width'))).toBeCloseTo(760 * 0.75)
+  })
+
+  it('shrinks to fit when the card is only a little narrower than the tree', async () => {
+    stubContainerWidth(700)
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    expect(Number(w.find('svg').attributes('width'))).toBeCloseTo(700)
+  })
+
+  it('never scales the tree up past its natural size', async () => {
+    stubContainerWidth(2000)
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    expect(Number(w.find('svg').attributes('width'))).toBeCloseTo(760)
+  })
+
+  it('adds a plain status list when the tree is cramped', async () => {
+    stubContainerWidth(300)
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    const items = w.findAll('.st-list-item')
+    expect(items.map(i => i.find('.st-list-label').text())).toEqual(['Applied', 'On hold', 'Rejected', 'Withdrawn', 'Ghosted'])
+    expect(items[0].find('.st-list-total').text()).toBe('10')
+    expect(items[0].find('.st-list-now').text()).toBe('3 there now')
+    expect(items[2].find('.st-list-now').exists()).toBe(false) // total === current
+  })
+
+  it('leaves the list out when the tree fits comfortably', async () => {
+    stubContainerWidth(1200)
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    expect(w.find('.st-list').exists()).toBe(false)
+  })
+
+  it('shows no list for an empty flow, however narrow the card', async () => {
+    stubContainerWidth(200)
+    const w = mountTree({ nodes: [], edges: [] })
+    await flushPromises()
+    expect(w.find('.st-list').exists()).toBe(false)
+  })
+
+  it('the scrolling area can take keyboard focus and has a name', async () => {
+    const w = mountTree(WIDE_FLOW)
+    await flushPromises()
+    const scroll = w.find('.st-scroll')
+    expect(scroll.attributes('tabindex')).toBe('0')
+    expect(scroll.attributes('role')).toBe('region')
+    expect(scroll.attributes('aria-label')).toBe('Application journey tree')
+  })
+
+  it('uses sentence-case status labels', async () => {
+    stubContainerWidth(300)
+    const w = mountTree({
+      nodes: [{ status: 'Applied', total: 2, current: 0 }, { status: 'OfferReceived', total: 1, current: 1 }, { status: 'OnHold', total: 1, current: 1 }],
+      edges: [{ from: 'Applied', to: 'OfferReceived', count: 1 }, { from: 'Applied', to: 'OnHold', count: 1 }],
+    })
+    await flushPromises()
+    const text = w.text()
+    expect(text).toContain('Offer received')
+    expect(text).toContain('On hold')
+    expect(text).not.toContain('Offer Received')
+  })
+})
 
 // ── empty state ──────────────────────────────────────────────────────────────
 

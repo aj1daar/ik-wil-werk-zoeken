@@ -332,8 +332,24 @@ onMounted(() => {
 })
 onUnmounted(() => containerResizeObserver?.disconnect())
 
+// Shrinking a wide tree to a phone's width left 5px node labels. Below this
+// scale the tree stops shrinking and scrolls sideways instead, and the plain
+// status list under it (see isCramped) carries the numbers.
+const MIN_FIT_SCALE = 0.75
+
 const fitScale = computed(() =>
-  containerWidth.value && svgWidth.value ? Math.min(1, containerWidth.value / svgWidth.value) : 1
+  containerWidth.value && svgWidth.value
+    ? Math.max(MIN_FIT_SCALE, Math.min(1, containerWidth.value / svgWidth.value))
+    : 1
+)
+
+// The tree no longer fits its card at a comfortable size
+const isCramped = computed(() => containerWidth.value > 0 && containerWidth.value < svgWidth.value * 0.9)
+
+const statusList = computed(() =>
+  STATUS_ORDER
+    .filter(s => nodesByStatus.value.has(s))
+    .map(s => ({ status: s, ...nodesByStatus.value.get(s)! }))
 )
 
 const MIN_ZOOM = 0.5
@@ -376,7 +392,16 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 
     <div v-if="isEmpty" class="st-empty">No applications to display.</div>
 
-    <div v-else class="st-scroll" ref="scrollRef" @wheel="onWheel">
+    <!-- Focusable so keyboard users can scroll a tree wider than its card -->
+    <div
+      v-else
+      class="st-scroll"
+      ref="scrollRef"
+      tabindex="0"
+      role="region"
+      aria-label="Application journey tree"
+      @wheel="onWheel"
+    >
       <svg
         :viewBox="`0 0 ${svgWidth} ${svgHeight}`"
         :width="svgWidth * scale"
@@ -416,6 +441,15 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
         </g>
       </svg>
     </div>
+
+    <ul v-if="!isEmpty && isCramped" class="st-list">
+      <li v-for="s in statusList" :key="s.status" class="st-list-item">
+        <span class="st-hover-dot" :style="{ background: STATUS_META[s.status].color }" aria-hidden="true" />
+        <span class="st-list-label">{{ STATUS_META[s.status].label }}</span>
+        <span class="st-list-total">{{ s.total }}</span>
+        <span v-if="s.current !== s.total" class="st-list-now">{{ s.current }} there now</span>
+      </li>
+    </ul>
 
     <div class="st-hover-label">
       <template v-if="hovered && nodesByStatus.get(hovered)">
@@ -508,4 +542,26 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+.st-list {
+  list-style: none;
+  margin: .75rem 0 0;
+  padding: .5rem 0 0;
+  border-top: 1px solid var(--col-border-lt);
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+}
+.st-list-item {
+  display: grid;
+  grid-template-columns: .5rem minmax(0, 1fr) auto;
+  grid-template-areas: "dot label total" ". now now";
+  align-items: center;
+  column-gap: .5rem;
+  font-size: .875rem;
+}
+.st-list-item .st-hover-dot { grid-area: dot; }
+.st-list-label { grid-area: label; color: var(--col-text); }
+.st-list-total { grid-area: total; font-weight: 600; font-variant-numeric: tabular-nums; }
+.st-list-now   { grid-area: now; font-size: .75rem; color: var(--col-muted); }
 </style>
