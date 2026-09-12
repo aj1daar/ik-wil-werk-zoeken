@@ -376,12 +376,11 @@ function printPage() {
               :style="{ '--stripe': statusMark(app.status) }"
               @click="selectRow(app.id)"
               :class="['company-row', { 'company-row--active': selectedId === app.id, 'company-row--checked': checkedIds.has(app.id) }]"
-              role="button"
-              tabindex="0"
-              :aria-label="`${app.companyName} — ${app.position}`"
-              @keydown.enter="selectRow(app.id)"
-              @keydown.space.prevent="selectRow(app.id)"
             >
+              <!-- The row itself is only a mouse target; keyboard and screen-reader
+                   users open it through the real button on the company name.
+                   (A role="button" row holding a checkbox nests one control
+                   inside another, which assistive tech can't handle.) -->
               <input
                 type="checkbox"
                 class="row-checkbox"
@@ -391,7 +390,12 @@ function printPage() {
               />
               <div class="row-body">
                 <p class="row-name">
-                  <span class="row-name-text">{{ app.companyName }}</span>
+                  <button
+                    type="button"
+                    class="row-name-text row-open"
+                    :aria-label="`Open ${app.companyName}, ${app.position}`"
+                    @click.stop="selectRow(app.id)"
+                  >{{ app.companyName }}</button>
                   <span :class="['chip', 'sponsor-chip', 'sponsor-chip--inline', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
                     {{ app.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
                   </span>
@@ -535,6 +539,17 @@ function printPage() {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.row-open {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row-open:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 /* Status tabs: the quickest way to narrow the list, always in view */
 .status-tabs {

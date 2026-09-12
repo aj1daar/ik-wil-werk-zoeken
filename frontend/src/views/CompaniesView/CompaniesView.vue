@@ -448,17 +448,14 @@ const activeDropdownCount = computed(() =>
         <div
           v-for="c in pagedCompanies"
           :key="c.id"
-          role="button"
-          tabindex="0"
-          :aria-pressed="selectedId === c.id"
           :class="['company-tile', { 'company-tile--active': selectedId === c.id }]"
           @click="openCompany(c.id)"
-          @keydown.enter.prevent="openCompany(c.id)"
-          @keydown.space.prevent="openCompany(c.id)"
         >
+          <!-- The tile is a mouse target only; the name is the real button, so
+               the website link inside the tile isn't nested in another control -->
           <div class="tile-name-line">
-            <span v-if="store.interestedIds.has(c.id)" class="tile-star" title="On your interested list" aria-label="Interested">★</span>
-            <span class="tile-name">{{ c.name }}</span>
+            <span v-if="store.interestedIds.has(c.id)" class="tile-star" role="img" aria-label="On your interested list" title="On your interested list">★</span>
+            <button type="button" class="tile-name" @click.stop="openCompany(c.id)">{{ c.name }}</button>
             <span
               v-if="mostRecentForCompany.has(c.id)"
               :class="['status-chip', STATUS_COLOR[mostRecentForCompany.get(c.id)!.status]]"
@@ -620,7 +617,6 @@ const activeDropdownCount = computed(() =>
 }
 .company-tile:hover { background: var(--col-surface); }
 .company-tile--active { background: var(--col-accent-lt); }
-.company-tile:focus-visible { outline: 2px solid var(--col-accent); outline-offset: -2px; }
 
 /* Header line: name (shrinks first), status chip, then the website link
    pushed to the far right — keeps the whole tile to just two rows. */
@@ -629,7 +625,10 @@ const activeDropdownCount = computed(() =>
   flex: 0 1 auto; min-width: 0;
   font-size: .875rem; font-weight: 600; color: var(--col-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: none; border: 0; padding: 0; margin: 0;
+  font-family: inherit; text-align: left; cursor: pointer;
 }
+.tile-name:hover { text-decoration: underline; text-underline-offset: 2px; }
 .tile-name-line > .status-chip { flex-shrink: 0; }
 .tile-star { flex-shrink: 0; color: var(--col-star); font-size: .8rem; line-height: 1; }
 .tile-website {

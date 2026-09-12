@@ -569,3 +569,57 @@ describe('ApplicationsView – status tabs', () => {
   })
 })
 
+// ── row accessibility ─────────────────────────────────────────────────────────
+
+describe('ApplicationsView – row accessibility', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('rows are not fake buttons wrapping other controls', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    const row = wrapper.find('.company-row')
+    expect(row.attributes('role')).toBeUndefined()
+    expect(row.attributes('tabindex')).toBeUndefined()
+  })
+
+  it('the company name is a real button that opens the panel', async () => {
+    const wrapper = mountView([makeApp({ companyName: 'Acme' })])
+    await flushPromises()
+    const btn = wrapper.find('button.row-open')
+    expect(btn.text()).toBe('Acme')
+    expect(btn.attributes('type')).toBe('button')
+    await btn.trigger('click')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(true)
+  })
+
+  it('the button name says what opens: company and position', async () => {
+    const wrapper = mountView([makeApp({ companyName: 'Acme', position: 'Data Engineer' })])
+    await flushPromises()
+    expect(wrapper.find('button.row-open').attributes('aria-label')).toBe('Open Acme, Data Engineer')
+  })
+
+  it('clicking anywhere else on the row still opens it for mouse users', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    await wrapper.find('.row-industry').trigger('click')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(true)
+  })
+
+  it('ticking the checkbox selects the row without opening it', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    await wrapper.find('.row-checkbox').trigger('click')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(wrapper.find('.bulk-count').text()).toBe('1 selected')
+  })
+
+  it('while selecting, clicking a name adds it to the selection instead of opening it', async () => {
+    const wrapper = mountView([makeApp({ id: 'a', companyName: 'Alpha' }), makeApp({ id: 'b', companyName: 'Beta' })])
+    await flushPromises()
+    await wrapper.findAll('.row-checkbox')[0].trigger('click')
+    await wrapper.findAll('button.row-open')[1].trigger('click')
+    expect(wrapper.find('.bulk-count').text()).toBe('2 selected')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+  })
+})
+

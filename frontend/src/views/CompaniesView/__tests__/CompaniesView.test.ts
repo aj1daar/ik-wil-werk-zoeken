@@ -126,6 +126,37 @@ describe('CompaniesView – name sorting', () => {
   })
 })
 
+// ── tile accessibility ───────────────────────────────────────────────────────
+
+describe('CompaniesView – tile accessibility', () => {
+  it('tiles are not fake buttons wrapping the website link', async () => {
+    const w = mountView([makeSponsor({ websiteUrl: 'https://acme.example' })])
+    await flushPromises()
+    const tile = w.find('.company-tile')
+    expect(tile.attributes('role')).toBeUndefined()
+    expect(tile.attributes('tabindex')).toBeUndefined()
+  })
+
+  it('the company name is a real button that opens the company', async () => {
+    const w = mountView([makeSponsor({ name: 'Acme' })])
+    await flushPromises()
+    const btn = w.find('button.tile-name')
+    expect(btn.attributes('type')).toBe('button')
+    await btn.trigger('click')
+    expect(w.findComponent({ name: 'CompanyDetailModal' }).exists()).toBe(true)
+  })
+
+  it('the website link opens the site without opening the company', async () => {
+    const w = mountView([makeSponsor({ websiteUrl: 'https://acme.example' })])
+    await flushPromises()
+    const link = w.find('.tile-website')
+    // stop happy-dom actually following the link; the click still bubbles
+    link.element.addEventListener('click', e => e.preventDefault())
+    await link.trigger('click')
+    expect(w.findComponent({ name: 'CompanyDetailModal' }).exists()).toBe(false)
+  })
+})
+
 // ── grid rendering ───────────────────────────────────────────────────────────
 
 describe('CompaniesView – company grid', () => {
