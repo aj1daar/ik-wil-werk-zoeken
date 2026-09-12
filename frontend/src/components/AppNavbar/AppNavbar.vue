@@ -47,9 +47,10 @@ const activeCount = () =>
             :class="['nav-link', route.path === link.to && 'nav-link--active']"
           >
             {{ link.label }}
-            <span v-if="link.to === '/applications' && activeCount() > 0" class="nav-badge">
-              {{ activeCount() }}
-            </span>
+            <template v-if="link.to === '/applications' && activeCount() > 0">
+              <span class="nav-badge" aria-hidden="true" :title="`${activeCount()} open applications`">{{ activeCount() }}</span>
+              <span class="sr-only">({{ activeCount() }} open)</span>
+            </template>
           </router-link>
         </li>
       </ul>
@@ -100,9 +101,10 @@ const activeCount = () =>
         role="menuitem"
       >
         {{ link.label }}
-        <span v-if="link.to === '/applications' && activeCount() > 0" class="nav-badge">
-          {{ activeCount() }}
-        </span>
+        <template v-if="link.to === '/applications' && activeCount() > 0">
+          <span class="nav-badge" aria-hidden="true">{{ activeCount() }}</span>
+          <span class="sr-only">({{ activeCount() }} open)</span>
+        </template>
       </router-link>
       <router-link v-if="auth.user?.role === 'admin'" to="/admin" class="mobile-link" @click="closeMenu" role="menuitem">
         Admin Panel
