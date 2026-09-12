@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -324,20 +324,22 @@ public sealed class AuthController : ApiControllerBase
     }
 
     // ── validation helpers ────────────────────────────────────────────────────
+    // internal, not private: these carry the hostile-input rules for register,
+    // profile and password changes, and AuthValidationTests exercises them directly.
 
     private static readonly Regex EmailRegex =
         new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly string[] ValidWorkTypes = ["any", "onsite", "hybrid", "remote"];
 
-    private static bool ValidName(string value, out string error)
+    internal static bool ValidName(string value, out string error)
     {
         if (value.Trim().Length > 100)
         { error = "Name fields must not exceed 100 characters"; return false; }
         error = string.Empty; return true;
     }
 
-    private static bool ValidEmail(string value, out string error)
+    internal static bool ValidEmail(string value, out string error)
     {
         var trimmed = value.Trim();
         if (trimmed.Length > 254)
@@ -347,7 +349,7 @@ public sealed class AuthController : ApiControllerBase
         error = string.Empty; return true;
     }
 
-    private static bool ValidPassword(string value, out string error)
+    internal static bool ValidPassword(string value, out string error)
     {
         if (value.Length < 8)
         { error = "Password must be at least 8 characters"; return false; }
@@ -356,14 +358,14 @@ public sealed class AuthController : ApiControllerBase
         error = string.Empty; return true;
     }
 
-    private static bool ValidGdprDate(string value, out string error)
+    internal static bool ValidGdprDate(string value, out string error)
     {
         if (!DateTimeOffset.TryParse(value.Trim(), out _))
         { error = "gdprConsentAt must be a valid ISO 8601 date-time"; return false; }
         error = string.Empty; return true;
     }
 
-    private static bool ValidWorkType(string? value, out string error)
+    internal static bool ValidWorkType(string? value, out string error)
     {
         if (value is null) { error = string.Empty; return true; }
         if (!ValidWorkTypes.Contains(value.Trim().ToLowerInvariant()))
@@ -371,14 +373,14 @@ public sealed class AuthController : ApiControllerBase
         error = string.Empty; return true;
     }
 
-    private static bool ValidOptionalText(string? value, int maxLen, string field, out string error)
+    internal static bool ValidOptionalText(string? value, int maxLen, string field, out string error)
     {
         if (value is not null && value.Trim().Length > maxLen)
         { error = $"{field} must not exceed {maxLen} characters"; return false; }
         error = string.Empty; return true;
     }
 
-    private static string NormalizeWorkType(string? value) =>
+    internal static string NormalizeWorkType(string? value) =>
         value is not null && ValidWorkTypes.Contains(value.Trim().ToLowerInvariant())
             ? value.Trim().ToLowerInvariant() : "any";
 
