@@ -70,6 +70,57 @@ public sealed class IndSponsorScraperTests
         Assert.Equal("Stichting NFDI", IndSponsorScraper.StripLegalSuffix("Stichting NFDI"));
     }
 
+    // ── CollapseDoubledQuotes ────────────────────────────────────────────────
+    // The register escapes quotes inside a name CSV-style ("" for ").
+
+    [Theory]
+    [InlineData("\"\"Aa-Dee\"\" Machinefabriek en Staalbouw Nederland", "\"Aa-Dee\" Machinefabriek en Staalbouw Nederland")]
+    [InlineData("Applied Micro Electronics \"\"AME\"\"", "Applied Micro Electronics \"AME\"")]
+    [InlineData("Stichting \"\"Institute for International Criminal Investigations Foundation\"\"", "Stichting \"Institute for International Criminal Investigations Foundation\"")]
+    [InlineData("\"AAE\" Advanced Automated Equipment", "\"AAE\" Advanced Automated Equipment")]
+    [InlineData("ASML", "ASML")]
+    [InlineData("", "")]
+    public void CollapseDoubledQuotes_TurnsEscapedPairsBackIntoOneQuote(string input, string expected)
+    {
+        Assert.Equal(expected, IndSponsorScraper.CollapseDoubledQuotes(input));
+    }
+
+    [Fact]
+    public void CollapseDoubledQuotes_RunsOfMoreThanTwoCollapseToOne()
+    {
+        Assert.Equal("\"Foo\"", IndSponsorScraper.CollapseDoubledQuotes("\"\"\"\"Foo\"\"\""));
+    }
+
+    [Fact]
+    public void CollapseDoubledQuotes_LeavesApostrophesAlone()
+    {
+        Assert.Equal("'Petite Amélie' Nederland", IndSponsorScraper.CollapseDoubledQuotes("'Petite Amélie' Nederland"));
+    }
+
+    [Fact]
+    public void ParseHtml_DoubledQuotesInName_AreCollapsed()
+    {
+        var html = @"<table><tr>
+            <td>""""AAE"""" Advanced Automated Equipment B.V.</td>
+            <td>12345678</td>
+        </tr></table>";
+        var results = InvokeParse(html);
+        Assert.Single(results);
+        Assert.Equal("\"AAE\" Advanced Automated Equipment", results[0].Name);
+    }
+
+    [Fact]
+    public void ParseHtml_DoubledQuotesAsHtmlEntities_AreCollapsed()
+    {
+        var html = @"<table><tr>
+            <td>Mariene Informatie Service &quot;&quot;Maris&quot;&quot; B.V.</td>
+            <td>87654321</td>
+        </tr></table>";
+        var results = InvokeParse(html);
+        Assert.Single(results);
+        Assert.Equal("Mariene Informatie Service \"Maris\"", results[0].Name);
+    }
+
     // ── ParseHtml (via reflection) ────────────────────────────────────────────
 
     private static List<backend.Models.SponsorCompany> InvokeParse(string html)
