@@ -1,9 +1,11 @@
 // Screenshot the app's pages at desktop and phone size, in light and dark,
 // and flag the things a screenshot alone hides: page errors, console errors,
-// sideways scrolling on narrow screens, and a token that bounced to /login.
+// sideways scrolling on narrow screens, a token that bounced to /login, and
+// serious accessibility problems (axe-core, including colour contrast).
 //
 //   pnpm screenshots                              # every page, both sizes, both themes
 //   pnpm screenshots --routes=/,/applications --viewports=mobile --themes=dark
+//   pnpm screenshots --a11y=false                 # skip the accessibility check
 //
 // Needs `pnpm dev` and the API running. Signed-in pages need either
 //   IWWZ_TOKEN=<jwt>                 or   IWWZ_EMAIL=... IWWZ_PASSWORD=...
@@ -15,7 +17,10 @@
 
 import { chromium } from 'playwright-core'
 import { mkdir } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
+
+const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js')
 
 const env  = process.env
 const BASE = (env.IWWZ_URL ?? 'http://localhost:5173').replace(/\/$/, '')
@@ -70,6 +75,7 @@ async function main() {
   const routes    = list(args.routes, (token ? APP_ROUTES : PUBLIC_ROUTES).join(','))
   const themes    = list(args.themes, 'light,dark')
   const viewports = list(args.viewports, 'desktop,mobile')
+  const checkA11y = args.a11y !== 'false'
 
   for (const t of themes)    if (!['light', 'dark'].includes(t)) throw new Error(`Unknown theme "${t}" (use light, dark)`)
   for (const v of viewports) if (!VIEWPORTS[v]) throw new Error(`Unknown viewport "${v}" (use ${Object.keys(VIEWPORTS).join(', ')})`)
@@ -109,6 +115,24 @@ async function main() {
           const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
           if (overflow > 1) problems.push(`${label}: content is ${overflow}px wider than the screen`)
 
+          // Accessibility: axe-core against the real rendered page, so colour
+          // contrast is checked in each theme. Serious and critical only.
+          if (checkA11y) {
+            await page.addScriptTag({ path: AXE_PATH })
+            const violations = await page.evaluate(async () => {
+              const { violations } = await window.axe.run(document, { resultTypes: ['violations'] })
+              return violations.map(v => ({
+                id: v.id, impact: v.impact, help: v.help, count: v.nodes.length,
+                example: v.nodes[0]?.target?.join(' '),
+              }))
+            })
+            for (const v of violations) {
+              if (v.impact === 'serious' || v.impact === 'critical') {
+                problems.push(`${label}: accessibility (${v.impact}) ${v.help} [${v.id}, ${v.count} element(s), e.g. ${v.example}]`)
+              }
+            }
+          }
+
           const file = join(OUT, `${vp}-${theme}-${slug(route)}.png`)
           await page.screenshot({ path: file, fullPage: true })
           console.log(`saved ${file}`)
@@ -125,7 +149,7 @@ async function main() {
     for (const p of problems) console.log(`  - ${p}`)
     process.exitCode = 1
   } else {
-    console.log('\nNo page errors, console errors or sideways scrolling found.')
+    console.log(`\nNo page errors, console errors, sideways scrolling${checkA11y ? ' or serious accessibility problems' : ''} found.`)
   }
 }
 
