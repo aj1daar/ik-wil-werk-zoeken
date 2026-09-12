@@ -536,3 +536,18 @@ input[type="password"]::-ms-clear { display: none; }
   color: var(--col-error); font-size: 1rem; line-height: 1; padding: 0;
   flex-shrink: 0;
 }
+
+/* Motion backstop: components carry their own transitions, and every one of
+   them has to stop for a reader who asked for less motion. Rather than hope
+   each file remembers its own @media block, kill animation here and let a
+   component opt back in only if it has a reason to. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
