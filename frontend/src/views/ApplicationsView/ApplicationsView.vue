@@ -892,7 +892,7 @@ function printPage() {
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
 .toast-error {
-  position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: calc(5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   background: var(--col-error); color: var(--col-bg);
   padding: .75rem 1rem; border-radius: var(--radius);
   box-shadow: var(--shadow-lg);

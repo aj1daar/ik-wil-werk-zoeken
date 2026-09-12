@@ -946,7 +946,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 
 /* copy-to-clipboard toast */
 .toast-success {
-  position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: calc(5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   background: var(--col-success); color: var(--col-bg);
   padding: .75rem 1rem; border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
