@@ -16,7 +16,7 @@
   --col-border-lt:  #DDE2E7;
   --col-text:       #1B2330;
   --col-muted:      #4E5968;
-  --col-subtle:     #6F7A89;
+  --col-subtle:     #5E6979; /* ≥4.5:1 on --col-surface and --col-raised (axe colour-contrast) */
   --col-accent:     #1F4FA3;
   --col-accent-dk:  #173D80;
   --col-accent-lt:  #E3EAF6;
