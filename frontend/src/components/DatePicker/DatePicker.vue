@@ -370,7 +370,7 @@ onUnmounted(() => {
   background: var(--col-surface);
 }
 .dp-day--today:not(.dp-day--sel) {
-  font-weight: 700; color: var(--col-accent);
+  font-weight: 600; color: var(--col-accent);
 }
 .dp-day--focus:not(.dp-day--sel) {
   background: var(--col-raised);

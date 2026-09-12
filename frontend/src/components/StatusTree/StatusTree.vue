@@ -517,7 +517,7 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   margin: 0;
 }
 .st-total { font-size: .8125rem; color: var(--col-muted); }
-.st-total strong { color: var(--col-text); font-weight: 700; }
+.st-total strong { color: var(--col-text); font-weight: 600; }
 
 .st-empty {
   flex: 1 1 auto;

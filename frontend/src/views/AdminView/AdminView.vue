@@ -404,7 +404,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
 .admin-title {
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--col-text);
   margin-bottom: 2rem;
 }
@@ -540,7 +540,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
   box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column; gap: 1.5rem;
 }
-.enrich-modal-title { font-size: 1.15rem; font-weight: 700; color: var(--col-text); margin: 0; }
+.enrich-modal-title { font-size: 1.15rem; font-weight: 600; color: var(--col-text); margin: 0; }
 .enrich-body { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
 .enrich-stat { text-align: center; font-size: .9rem; color: var(--col-muted); line-height: 1.7; margin: 0; }
 .enrich-stat strong { color: var(--col-text); }
