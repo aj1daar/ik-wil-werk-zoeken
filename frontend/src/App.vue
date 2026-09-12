@@ -44,21 +44,22 @@ const expiryDismissed = ref(false)
 </template>
 
 <style>
+/* A quick cross-fade between routes — no slide, so pages don't appear to
+   move under the pointer on every navigation. */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition: opacity 120ms ease;
 }
 .page-enter-from,
 .page-leave-to {
   opacity: 0;
-  transform: translateY(8px);
 }
 @media (prefers-reduced-motion: reduce) {
   .page-enter-active,
   .page-leave-active { transition: none; }
 }
 .expiry-extend {
-  padding: .25rem .625rem; font-size: .8rem; border-radius: 4px;
+  padding: .25rem .625rem; font-size: .8rem; border-radius: var(--radius-sm);
   border: 1px solid currentColor; background: none; cursor: pointer; color: inherit;
 }
 .expiry-extend:disabled { opacity: .5; cursor: not-allowed; }

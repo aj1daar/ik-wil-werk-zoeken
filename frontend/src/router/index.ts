@@ -19,21 +19,22 @@ import VerifyEmailView           from '../views/VerifyEmailView/VerifyEmailView.
 import ConfirmEmailChangeView   from '../views/ConfirmEmailChangeView/ConfirmEmailChangeView.vue'
 import AdminView                from '../views/AdminView/AdminView.vue'
 import { useAuthStore } from '../stores/auth'
+import { pageTitle } from './title'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login',           component: LoginView,          meta: { title: 'Sign In — IWWZ' } },
-    { path: '/register',        component: RegisterView,       meta: { title: 'Create Account — IWWZ' } },
-    { path: '/forgot-password', component: ForgotPasswordView, meta: { title: 'Forgot Password — IWWZ' } },
-    { path: '/reset-password',  component: ResetPasswordView,  meta: { title: 'Reset Password — IWWZ' } },
-    { path: '/verify-email',         component: VerifyEmailView,          meta: { title: 'Verify Email — IWWZ' } },
-    { path: '/confirm-email-change', component: ConfirmEmailChangeView,   meta: { title: 'Confirm Email Change — IWWZ' } },
-    { path: '/',              component: HomeView,         meta: { requiresAuth: true, title: 'Dashboard — IWWZ' } },
-    { path: '/applications',  component: ApplicationsView, meta: { requiresAuth: true, title: 'Applications — IWWZ' } },
-    { path: '/companies',     component: CompaniesView,    meta: { requiresAuth: true, title: 'Companies — IWWZ' } },
-    { path: '/profile',       component: ProfileView,      meta: { requiresAuth: true, title: 'Profile — IWWZ' } },
-    { path: '/admin',         component: AdminView,        meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin Panel — IWWZ' } },
+    { path: '/login',           component: LoginView,          meta: { title: 'Sign in' } },
+    { path: '/register',        component: RegisterView,       meta: { title: 'Create account' } },
+    { path: '/forgot-password', component: ForgotPasswordView, meta: { title: 'Forgot password' } },
+    { path: '/reset-password',  component: ResetPasswordView,  meta: { title: 'Reset password' } },
+    { path: '/verify-email',         component: VerifyEmailView,          meta: { title: 'Verify email' } },
+    { path: '/confirm-email-change', component: ConfirmEmailChangeView,   meta: { title: 'Confirm email change' } },
+    { path: '/',              component: HomeView,         meta: { requiresAuth: true, title: 'Home' } },
+    { path: '/applications',  component: ApplicationsView, meta: { requiresAuth: true, title: 'My applications' } },
+    { path: '/companies',     component: CompaniesView,    meta: { requiresAuth: true, title: 'Companies' } },
+    { path: '/profile',       component: ProfileView,      meta: { requiresAuth: true, title: 'Profile' } },
+    { path: '/admin',         component: AdminView,        meta: { requiresAuth: true, requiresAdmin: true, title: 'Admin panel' } },
     { path: '/:pathMatch(.*)*', redirect: '/' }
   ]
 })
@@ -46,7 +47,7 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  document.title = (to.meta.title as string | undefined) ?? 'IWWZ'
+  document.title = pageTitle(to.meta.title)
 })
 
 export default router

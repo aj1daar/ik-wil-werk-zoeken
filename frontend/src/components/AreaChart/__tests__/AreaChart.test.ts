@@ -6,7 +6,7 @@ import type { Application } from '../../../api'
 
 vi.mock('echarts/core', () => ({ use: vi.fn() }))
 vi.mock('echarts/renderers', () => ({ CanvasRenderer: {} }))
-vi.mock('echarts/charts', () => ({ LineChart: {} }))
+vi.mock('echarts/charts', () => ({ BarChart: {} }))
 vi.mock('echarts/components', () => ({ TooltipComponent: {}, GridComponent: {} }))
 vi.mock('vue-echarts', () => ({
   default: defineComponent({
@@ -41,8 +41,25 @@ describe('AreaChart – rendering', () => {
     expect(() => mountArea()).not.toThrow()
   })
 
-  it('renders the "Applications over time" title', () => {
-    expect(mountArea([makeApp()]).find('.chart-title').text()).toBe('Applications over time')
+  it('renders the "Applications per week" title', () => {
+    expect(mountArea([makeApp()]).find('.chart-title').text()).toBe('Applications per week')
+  })
+
+  it('hides the canvas from assistive tech and gives it a text summary instead', () => {
+    const w = mountArea([
+      makeApp({ id: 'a1', appliedAt: '2026-01-05T00:00:00Z' }),
+      makeApp({ id: 'a2', appliedAt: '2026-01-12T00:00:00Z' }),
+      makeApp({ id: 'a3', appliedAt: '2026-01-13T00:00:00Z' }),
+    ])
+    expect(w.find('.mock-chart').attributes('aria-hidden')).toBe('true')
+    const summary = w.find('.sr-only').text()
+    const jan12 = new Date(2026, 0, 12).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+    expect(summary).toBe(`3 applications over 2 weeks. Busiest week: ${jan12}, with 2 applications.`)
+  })
+
+  it('summary uses the singular for one application in one week', () => {
+    const summary = mountArea([makeApp()]).find('.sr-only').text()
+    expect(summary).toMatch(/^1 application over 1 week\. Busiest week: .+, with 1 application\.$/)
   })
 
   it('shows empty state when no applications', () => {
@@ -94,10 +111,27 @@ describe('AreaChart – week grouping', () => {
     expect(data[2]).toBe(1)
   })
 
-  it('x-axis categories are ISO week strings', () => {
-    const w = mountArea([makeApp({ appliedAt: '2026-01-05T00:00:00Z' })])
+  it('labels each week by its Monday, not an ISO week code', () => {
+    // Wednesday 7 Jan 2026 falls in the week starting Monday 5 Jan
+    const w = mountArea([makeApp({ appliedAt: '2026-01-07T12:00:00Z' })])
     const xData = getOption(w).xAxis.data as string[]
-    expect(xData[0]).toMatch(/^\d{4}-W\d{2}$/)
+    expect(xData[0]).toBe(new Date(2026, 0, 5).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }))
+    expect(xData[0]).not.toMatch(/W\d{2}/)
+  })
+
+  it('adds the year to the labels only when the range crosses New Year', () => {
+    const sameYear = getOption(mountArea([
+      makeApp({ id: 'a1', appliedAt: '2026-01-05T00:00:00Z' }),
+      makeApp({ id: 'a2', appliedAt: '2026-03-02T00:00:00Z' }),
+    ])).xAxis.data as string[]
+    expect(sameYear.some(l => l.includes('2026'))).toBe(false)
+
+    const crossing = getOption(mountArea([
+      makeApp({ id: 'a1', appliedAt: '2025-12-22T00:00:00Z' }),
+      makeApp({ id: 'a2', appliedAt: '2026-01-12T00:00:00Z' }),
+    ])).xAxis.data as string[]
+    expect(crossing[0]).toContain('2025')
+    expect(crossing[crossing.length - 1]).toContain('2026')
   })
 
   it('x-axis week count matches series data count', () => {
@@ -164,12 +198,23 @@ describe('AreaChart – date range filtering', () => {
 // ── chart option ──────────────────────────────────────────────────────────────
 
 describe('AreaChart – chart option', () => {
-  it('series type is "line"', () => {
-    expect(getOption(mountArea([makeApp()])).series[0].type).toBe('line')
+  it('draws bars, since a weekly count is a discrete number', () => {
+    const series = getOption(mountArea([makeApp()])).series[0]
+    expect(series.type).toBe('bar')
+    expect(series.smooth).toBeUndefined()
   })
 
-  it('series has areaStyle defined', () => {
-    expect(getOption(mountArea([makeApp()])).series[0].areaStyle).toBeDefined()
+  it('bars have rounded tops and a capped width', () => {
+    const series = getOption(mountArea([makeApp()])).series[0]
+    expect(series.itemStyle.borderRadius).toEqual([4, 4, 0, 0])
+    expect(series.barMaxWidth).toBeGreaterThan(0)
+  })
+
+  it('tooltip reads as a sentence with the right plural', () => {
+    const fmt = getOption(mountArea([makeApp()])).tooltip.formatter
+    expect(fmt([{ axisValue: '5 Jan', value: 1 }])).toBe('Week of 5 Jan: 1 application')
+    expect(fmt([{ axisValue: '5 Jan', value: 3 }])).toBe('Week of 5 Jan: 3 applications')
+    expect(fmt([{ axisValue: '5 Jan', value: 0 }])).toBe('Week of 5 Jan: 0 applications')
   })
 
   it('xAxis type is "category"', () => {

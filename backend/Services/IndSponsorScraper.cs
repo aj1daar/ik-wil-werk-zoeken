@@ -69,7 +69,7 @@ public sealed partial class IndSponsorScraper
             // Strip real HTML tags first (e.g. <span>, <a> wrapping cell content),
             // then decode entities — this order ensures encoded text like &lt;script&gt;
             // survives as literal text rather than being tag-stripped after decode.
-            var rawName = WebUtility.HtmlDecode(StripTags(m.Groups[1].Value));
+            var rawName = CollapseDoubledQuotes(WebUtility.HtmlDecode(StripTags(m.Groups[1].Value)));
             var kvk     = m.Groups[2].Value.Trim();
             var rawCity = WebUtility.HtmlDecode(StripTags(m.Groups[3].Value));
 
@@ -89,6 +89,15 @@ public sealed partial class IndSponsorScraper
 
         _logger.LogInformation("Parsed {Count} sponsors from IND register", results.Count);
         return results;
+    }
+
+    // The register escapes a quote inside a name CSV-style, as two quotes:
+    // ""Aa-Dee"" Machinefabriek, Applied Micro Electronics ""AME"". No real
+    // name has two quotes in a row, so collapse every pair back to one.
+    public static string CollapseDoubledQuotes(string name)
+    {
+        while (name.Contains("\"\"")) name = name.Replace("\"\"", "\"");
+        return name;
     }
 
     private static string StripTags(string html) =>

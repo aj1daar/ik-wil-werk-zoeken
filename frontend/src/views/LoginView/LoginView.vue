@@ -67,7 +67,7 @@ async function resendVerification() {
       <h1 class="auth-title">Welcome back</h1>
       <p v-if="resetSuccess" class="auth-success">Password updated — please sign in with your new password.</p>
       <p v-else-if="expired" class="auth-expired">Your session expired — please sign in again.</p>
-      <p v-else class="auth-subtitle">Sign in to your account to continue.</p>
+      <p v-else class="auth-subtitle">Pick up your job search where you left it.</p>
 
       <form @submit.prevent="submit" class="auth-form">
         <div>

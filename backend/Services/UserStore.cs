@@ -1,4 +1,4 @@
-using backend.Data;
+﻿using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +30,8 @@ public sealed class UserStore(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
+    // Ordered in memory on purpose: SQLite can't ORDER BY a DateTimeOffset,
+    // which the tests run on, and this table holds a handful of accounts.
     public async Task<IReadOnlyList<User>> GetAllAsync() =>
-        await db.Users.OrderBy(u => u.CreatedAt).ToListAsync();
+        (await db.Users.ToListAsync()).OrderBy(u => u.CreatedAt).ToList();
 }

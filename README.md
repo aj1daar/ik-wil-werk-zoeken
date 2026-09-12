@@ -19,10 +19,16 @@ cd frontend && pnpm install && pnpm dev   # http://localhost:5173, proxies /api
 ```
 
 Needs `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `ALLOWED_ORIGIN`, `ADMIN_EMAIL` set
-(local defaults live in `backend/Properties/launchSettings.json`). `RESEND_API_KEY` is optional —
-without it, emails just get skipped.
+(local defaults live in `backend/Properties/launchSettings.json`). `RESEND_API_KEY` is optional — without it no
+email is sent, and in Development the verification, reset and email-change links are written to the
+API log instead, so a local account can still be verified.
 
-Tests: `dotnet test backend.Tests` (295), `cd frontend && pnpm test` (565).
+Tests: `dotnet test backend.Tests` (679), `cd frontend && pnpm test` (985).
+
+Screenshots: with the app running, `cd frontend && IWWZ_EMAIL=... IWWZ_PASSWORD=... pnpm screenshots`
+captures every page at desktop and phone size in light and dark into `frontend/screenshots/`, and
+fails on page errors, console errors, sideways scrolling or serious axe-core accessibility problems
+(colour contrast included, checked per theme). It drives your installed Chrome.
 
 ## Known limitations
 

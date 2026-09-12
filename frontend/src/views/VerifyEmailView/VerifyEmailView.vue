@@ -57,7 +57,7 @@ async function resend() {
 
       <!-- Success -->
       <template v-else-if="state === 'success'">
-        <h1 class="auth-title verify-icon">Email verified!</h1>
+        <h1 class="auth-title verify-icon">Email verified</h1>
         <p class="auth-subtitle">You're all set. Signing you in…</p>
       </template>
 

@@ -23,7 +23,7 @@ function closeMenu() { menuOpen.value = false }
 
 const NAV_LINKS = [
   { to: '/',             label: 'Home' },
-  { to: '/applications', label: 'My Applications' },
+  { to: '/applications', label: 'My applications' },
   { to: '/companies',    label: 'Companies' },
   { to: '/profile',      label: 'Profile' },
 ]
@@ -47,9 +47,10 @@ const activeCount = () =>
             :class="['nav-link', route.path === link.to && 'nav-link--active']"
           >
             {{ link.label }}
-            <span v-if="link.to === '/applications' && activeCount() > 0" class="nav-badge">
-              {{ activeCount() }}
-            </span>
+            <template v-if="link.to === '/applications' && activeCount() > 0">
+              <span class="nav-badge" aria-hidden="true" :title="`${activeCount()} open applications`">{{ activeCount() }}</span>
+              <span class="sr-only">({{ activeCount() }} open)</span>
+            </template>
           </router-link>
         </li>
       </ul>
@@ -69,7 +70,7 @@ const activeCount = () =>
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
         </svg>
       </button>
-      <router-link v-if="auth.user?.role === 'admin'" to="/admin" class="btn-ghost nav-admin desktop-only">Admin Panel</router-link>
+      <router-link v-if="auth.user?.role === 'admin'" to="/admin" class="btn-ghost nav-admin desktop-only">Admin panel</router-link>
       <button class="nav-signout btn-ghost desktop-only" @click="signOut">Sign out</button>
 
       <!-- Hamburger (mobile only) -->
@@ -100,12 +101,13 @@ const activeCount = () =>
         role="menuitem"
       >
         {{ link.label }}
-        <span v-if="link.to === '/applications' && activeCount() > 0" class="nav-badge">
-          {{ activeCount() }}
-        </span>
+        <template v-if="link.to === '/applications' && activeCount() > 0">
+          <span class="nav-badge" aria-hidden="true">{{ activeCount() }}</span>
+          <span class="sr-only">({{ activeCount() }} open)</span>
+        </template>
       </router-link>
       <router-link v-if="auth.user?.role === 'admin'" to="/admin" class="mobile-link" @click="closeMenu" role="menuitem">
-        Admin Panel
+        Admin panel
       </router-link>
       <button class="mobile-signout" @click="signOut" role="menuitem">Sign out</button>
     </div>

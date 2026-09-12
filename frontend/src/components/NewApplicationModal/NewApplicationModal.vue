@@ -202,7 +202,7 @@ async function submit() {
   <div class="modal-backdrop" @click.self="requestClose">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
-        <h2 id="modal-title" class="modal-title">New Application</h2>
+        <h2 id="modal-title" class="modal-title">New application</h2>
         <button @click="requestClose" class="btn-icon" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -338,13 +338,12 @@ async function submit() {
 
 <style scoped>
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.4);
+  position: fixed; inset: 0; background: var(--col-overlay);
   display: flex; align-items: center; justify-content: center; z-index: 50;
 }
 .modal {
-  background: var(--col-bg); border-radius: .75rem; width: 100%; max-width: 480px;
-  box-shadow: 0 8px 32px color-mix(in srgb, var(--col-text) 12%, transparent),
-              0 24px 64px color-mix(in srgb, var(--col-text) 16%, transparent);
+  background: var(--col-bg); border-radius: var(--radius-lg); width: 100%; max-width: 480px;
+  box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column;
   max-height: 90vh;
   max-height: 90dvh; /* tracks the visible viewport, not the toolbar-collapsed one on iOS Chrome */
@@ -354,7 +353,7 @@ async function submit() {
   display: flex; justify-content: space-between; align-items: center;
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border);
 }
-.modal-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); }
+.modal-title { font-size: 1.125rem; font-weight: 600; color: var(--col-text); }
 .modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; overscroll-behavior: contain; }
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); }
 .footer-actions { display: flex; gap: .75rem; justify-content: flex-end; }
@@ -375,7 +374,7 @@ async function submit() {
   background: var(--col-accent-lt);
   border: 1px solid color-mix(in srgb, var(--col-accent) 35%, transparent);
   color: var(--col-accent-dk);
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 .icon { width: 1.25rem; height: 1.25rem; }
 .btn-secondary { background: var(--col-bg); color: var(--col-muted); border: 1px solid var(--col-border); border-radius: .375rem; padding: .5rem 1.25rem; font-size: .875rem; cursor: pointer; }
@@ -385,7 +384,7 @@ async function submit() {
 .combobox-dropdown {
   position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0;
   background: var(--col-bg); border: 1px solid var(--col-border);
-  border-radius: .5rem; box-shadow: 0 4px 16px color-mix(in srgb, var(--col-text) 10%, transparent);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
   max-height: 220px; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0; padding: .25rem 0;
 }
 .combobox-option {

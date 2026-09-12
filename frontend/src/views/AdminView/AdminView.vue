@@ -186,11 +186,11 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
 <template>
   <main class="admin-page">
-    <h1 class="admin-title">Admin Panel</h1>
+    <h1 class="admin-title">Admin panel</h1>
 
     <!-- Promote section -->
     <section class="admin-card" aria-labelledby="promote-heading">
-      <h2 id="promote-heading" class="card-title">Promote User to Admin</h2>
+      <h2 id="promote-heading" class="card-title">Promote user to admin</h2>
       <form class="promote-form" @submit.prevent="promote" novalidate>
         <label for="promote-email" class="field-label">User email</label>
         <div class="promote-row">
@@ -214,7 +214,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
     <!-- Reload sponsors section -->
     <section class="admin-card" aria-labelledby="reload-heading">
-      <h2 id="reload-heading" class="card-title">Reload IND Sponsor List</h2>
+      <h2 id="reload-heading" class="card-title">Reload IND sponsor list</h2>
       <p class="card-desc">Fetches the latest IND register and upserts all companies. Fast (~15s). Run Enrich separately after this.</p>
       <button
         class="btn-primary"
@@ -229,11 +229,11 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
     <!-- Enrich sponsors section -->
     <section class="admin-card" aria-labelledby="enrich-heading">
-      <h2 id="enrich-heading" class="card-title">Enrich Companies via AI</h2>
+      <h2 id="enrich-heading" class="card-title">Enrich companies with AI</h2>
       <p class="card-desc">Enriches 10 companies per request sequentially. Progress is saved after each batch — safe to stop and restart.</p>
       <div class="enrich-actions">
         <button class="btn-primary" :disabled="enriching || testBatchRunning" @click="enrichSponsors">
-          Enrich Companies
+          Enrich companies
         </button>
         <button class="btn-ghost" :disabled="enriching || testBatchRunning" @click="runTestBatch">
           {{ testBatchRunning ? 'Running…' : 'Run 1 batch' }}
@@ -251,7 +251,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
     <!-- Retry low-confidence section -->
     <section class="admin-card" aria-labelledby="retry-heading">
-      <h2 id="retry-heading" class="card-title">Retry Low-Confidence with {{ 'gemini-3.1-flash-lite' }}</h2>
+      <h2 id="retry-heading" class="card-title">Retry low-confidence with {{ 'gemini-3.1-flash-lite' }}</h2>
       <p class="card-desc">Re-processes companies enriched without data (low confidence) using a stronger model. 10 per request, safe to stop and restart.</p>
       <button class="btn-primary" :disabled="retrying" @click="retryLowConfidence">
         {{ retrying ? 'Retrying…' : 'Retry Low-Confidence' }}
@@ -263,7 +263,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <Teleport to="body">
       <div v-if="showRetryModal" class="enrich-backdrop" role="dialog" aria-modal="true" aria-labelledby="retry-modal-title">
         <div class="enrich-modal">
-          <h3 id="retry-modal-title" class="enrich-modal-title">Retrying Low-Confidence Companies</h3>
+          <h3 id="retry-modal-title" class="enrich-modal-title">Retrying low-confidence companies</h3>
           <div v-if="retrying" class="enrich-body">
             <div class="enrich-spinner" aria-hidden="true"></div>
             <p class="enrich-stat">
@@ -279,7 +279,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
             <p class="enrich-stat">
               <template v-if="retryError">Failed: {{ retryError }}<br></template>
               <template v-else-if="retryCancelled">Stopped early.<br></template>
-              <template v-else>All done!<br></template>
+              <template v-else>All done.<br></template>
               <strong>{{ retriedThisSession }}</strong> retried this session ·
               <strong>{{ retryRemaining ?? '—' }}</strong> low-confidence remaining
             </p>
@@ -293,7 +293,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <Teleport to="body">
       <div v-if="showEnrichModal" class="enrich-backdrop" role="dialog" aria-modal="true" aria-labelledby="enrich-modal-title">
         <div class="enrich-modal">
-          <h3 id="enrich-modal-title" class="enrich-modal-title">Enriching Companies</h3>
+          <h3 id="enrich-modal-title" class="enrich-modal-title">Enriching companies</h3>
 
           <div v-if="enriching" class="enrich-body">
             <div class="enrich-spinner" aria-hidden="true"></div>
@@ -311,7 +311,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
             <p class="enrich-stat">
               <template v-if="enrichError">Failed: {{ enrichError }}<br></template>
               <template v-else-if="enrichCancelled">Stopped early.<br></template>
-              <template v-else>All done!<br></template>
+              <template v-else>All done.<br></template>
               <strong>{{ enrichedThisSession }}</strong> enriched this session ·
               <strong>{{ enrichRemaining ?? '—' }}</strong> still remaining
             </p>
@@ -323,7 +323,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
     <!-- Sync log table -->
     <section class="admin-card" aria-labelledby="sync-logs-heading">
-      <h2 id="sync-logs-heading" class="card-title">Sync History</h2>
+      <h2 id="sync-logs-heading" class="card-title">Sync history</h2>
       <p v-if="loadingLogs" class="muted">Loading…</p>
       <p v-else-if="logsError" class="form-error" role="alert">{{ logsError }}</p>
       <p v-else-if="syncLogs.length === 0" class="muted">No syncs recorded yet.</p>
@@ -359,7 +359,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
     <!-- Users table -->
     <section class="admin-card" aria-labelledby="users-heading">
-      <h2 id="users-heading" class="card-title">All Users</h2>
+      <h2 id="users-heading" class="card-title">All users</h2>
       <p v-if="loadingUsers" class="muted">Loading…</p>
       <p v-else-if="usersError" class="form-error" role="alert">{{ usersError }}</p>
       <div v-else class="table-wrap">
@@ -404,7 +404,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
 .admin-title {
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--col-text);
   margin-bottom: 2rem;
 }
@@ -462,10 +462,10 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .promote-input:focus { border-color: var(--col-accent); }
 
 .btn-primary {
-  background: var(--col-accent);
-  color: #fff;
+  background: var(--col-invert-bg);
+  color: var(--col-invert-text);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 0.55rem 1.25rem;
   font-size: 0.9rem;
   font-weight: 600;
@@ -478,7 +478,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .btn-primary:not(:disabled):hover { opacity: 0.88; }
 
 .form-error   { font-size: 0.85rem; color: var(--col-error); margin: 0.25rem 0 0; }
-.form-success { font-size: 0.85rem; color: #2a9d58; margin: 0.25rem 0 0; }
+.form-success { font-size: 0.85rem; color: var(--col-success); margin: 0.25rem 0 0; }
 .muted        { color: var(--col-muted); font-size: 0.9rem; }
 
 .table-wrap { overflow-x: auto; }
@@ -503,28 +503,26 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .users-table th {
   font-weight: 600;
   color: var(--col-muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.8125rem;
 }
 
 .users-table tbody tr:last-child td { border-bottom: none; }
 
 .role-badge {
   display: inline-block;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-sm);
   font-size: 0.78rem;
   font-weight: 600;
 }
 
 .role-badge--admin {
-  background: #fff3cd;
-  color: #7a5300;
+  background: var(--col-signal-lt);
+  color: var(--col-warning);
 }
 
 .role-badge--user {
-  background: var(--col-subtle);
+  background: var(--col-raised);
   color: var(--col-muted);
 }
 
@@ -533,16 +531,16 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
 /* Enrichment modal */
 .enrich-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  position: fixed; inset: 0; background: var(--col-overlay);
   display: flex; align-items: center; justify-content: center; z-index: 200;
 }
 .enrich-modal {
-  background: var(--col-bg); border-radius: 14px; padding: 2rem 2.25rem;
+  background: var(--col-bg); border-radius: var(--radius-lg); padding: 2rem 2.25rem;
   min-width: 320px; max-width: 420px; width: 90%;
-  box-shadow: 0 8px 40px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column; gap: 1.5rem;
 }
-.enrich-modal-title { font-size: 1.15rem; font-weight: 700; color: var(--col-text); margin: 0; }
+.enrich-modal-title { font-size: 1.15rem; font-weight: 600; color: var(--col-text); margin: 0; }
 .enrich-body { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
 .enrich-stat { text-align: center; font-size: .9rem; color: var(--col-muted); line-height: 1.7; margin: 0; }
 .enrich-stat strong { color: var(--col-text); }

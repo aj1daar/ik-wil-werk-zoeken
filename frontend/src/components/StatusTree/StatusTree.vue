@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { StatusFlow, ApplicationStatus } from '../../api'
+import { statusMark } from '../../stores/applications'
 
 const props = defineProps<{ flow: StatusFlow | null }>()
 
@@ -11,17 +12,18 @@ interface StatusMeta { label: string; color: string; rank: number }
 // Rejected) or run sideways (Interviewing to Assessment). Left-to-right
 // position within a row is not fixed here — see orderedRows, which picks the
 // column order that draws best for the data at hand and falls back to this
-// declaration order to break ties.
+// declaration order to break ties. Colours are the shared status tokens
+// (CSS custom properties), so they follow the theme and match the chips.
 const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
-  Applied:             { label: 'Applied',        color: '#60A5FA', rank: 0 },
-  InterviewScheduled:  { label: 'Interviewing',   color: '#A78BFA', rank: 1 },
-  Assessment:          { label: 'Assessment',     color: '#FB923C', rank: 1 },
-  OfferReceived:       { label: 'Offer Received', color: '#34D399', rank: 2 },
-  Accepted:            { label: 'Accepted',       color: '#10B981', rank: 3 },
-  OnHold:              { label: 'On Hold',        color: '#FBBF24', rank: 3 },
-  Rejected:            { label: 'Rejected',       color: '#F87171', rank: 3 },
-  Withdrawn:           { label: 'Withdrawn',      color: '#9CA3AF', rank: 3 },
-  Ghosted:             { label: 'Ghosted',        color: '#71717A', rank: 3 },
+  Applied:             { label: 'Applied',        color: statusMark('Applied'),            rank: 0 },
+  InterviewScheduled:  { label: 'Interviewing',   color: statusMark('InterviewScheduled'), rank: 1 },
+  Assessment:          { label: 'Assessment',     color: statusMark('Assessment'),         rank: 1 },
+  OfferReceived:       { label: 'Offer received', color: statusMark('OfferReceived'),      rank: 2 },
+  Accepted:            { label: 'Accepted',       color: statusMark('Accepted'),           rank: 3 },
+  OnHold:              { label: 'On hold',        color: statusMark('OnHold'),             rank: 3 },
+  Rejected:            { label: 'Rejected',       color: statusMark('Rejected'),           rank: 3 },
+  Withdrawn:           { label: 'Withdrawn',      color: statusMark('Withdrawn'),          rank: 3 },
+  Ghosted:             { label: 'Ghosted',        color: statusMark('Ghosted'),            rank: 3 },
 }
 const STATUS_ORDER = Object.keys(STATUS_META) as ApplicationStatus[]
 
@@ -317,21 +319,59 @@ const edgePaths = computed(() => {
 // alone so the browser's native overflow scrolling handles panning.
 const scrollRef = ref<HTMLElement | null>(null)
 const containerWidth = ref(0)
+const containerHeight = ref(0)
 let containerResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
   if (scrollRef.value) {
     containerResizeObserver = new ResizeObserver(entries => {
-      const w = entries[0]?.contentRect.width
-      if (w) containerWidth.value = w
+      const box = entries[0]?.contentRect
+      if (box?.width)  containerWidth.value  = box.width
+      if (box?.height) containerHeight.value = box.height
+      updateOverflow()
     })
     containerResizeObserver.observe(scrollRef.value)
   }
 })
 onUnmounted(() => containerResizeObserver?.disconnect())
 
+// There is more tree past this edge. The fade these drive is the only thing
+// that tells a reader a card showing half a node can be scrolled.
+const overflowRight  = ref(false)
+const overflowBottom = ref(false)
+
+function updateOverflow() {
+  const el = scrollRef.value
+  if (!el) return
+  overflowRight.value  = el.scrollWidth  - el.clientWidth  - el.scrollLeft > 1
+  overflowBottom.value = el.scrollHeight - el.clientHeight - el.scrollTop  > 1
+}
+
+// Shrinking a wide tree to a phone's width left 5px node labels. Below this
+// scale the tree stops shrinking and scrolls sideways instead, and the plain
+// status list under it (see isCramped) carries the numbers.
+const MIN_FIT_SCALE = 0.75
+
 const fitScale = computed(() =>
-  containerWidth.value && svgWidth.value ? Math.min(1, containerWidth.value / svgWidth.value) : 1
+  containerWidth.value && svgWidth.value
+    ? Math.max(MIN_FIT_SCALE, Math.min(1, containerWidth.value / svgWidth.value))
+    : 1
+)
+
+// The tree no longer fits its card at a comfortable size. Height counts as
+// well as width: on the dashboard the card's height is pinned to the charts
+// column beside it, which cut the outcome row (Rejected, Ghosted, On hold)
+// in half while the card was still wide enough to look fine.
+const isCramped = computed(() => {
+  const tooNarrow = containerWidth.value  > 0 && containerWidth.value  < svgWidth.value * 0.9
+  const tooShort  = containerHeight.value > 0 && containerHeight.value < svgHeight.value * fitScale.value * 0.9
+  return tooNarrow || tooShort
+})
+
+const statusList = computed(() =>
+  STATUS_ORDER
+    .filter(s => nodesByStatus.value.has(s))
+    .map(s => ({ status: s, ...nodesByStatus.value.get(s)! }))
 )
 
 const MIN_ZOOM = 0.5
@@ -368,13 +408,23 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 <template>
   <div class="st-wrap">
     <div class="st-header">
-      <h3 class="st-title">Application Journey</h3>
+      <h3 class="st-title">Application journey</h3>
       <span v-if="!isEmpty" class="st-total"><strong>{{ total }}</strong> total</span>
     </div>
 
     <div v-if="isEmpty" class="st-empty">No applications to display.</div>
 
-    <div v-else class="st-scroll" ref="scrollRef" @wheel="onWheel">
+    <!-- Focusable so keyboard users can scroll a tree wider than its card -->
+    <div
+      v-else
+      :class="['st-scroll', { 'st-scroll--more-x': overflowRight, 'st-scroll--more-y': overflowBottom }]"
+      ref="scrollRef"
+      tabindex="0"
+      role="region"
+      aria-label="Application journey tree"
+      @wheel="onWheel"
+      @scroll="updateOverflow"
+    >
       <svg
         :viewBox="`0 0 ${svgWidth} ${svgHeight}`"
         :width="svgWidth * scale"
@@ -383,7 +433,9 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
         aria-label="Application status flow, showing how applications branch from Applied into later stages. Scroll to pan, or pinch / ctrl-scroll to zoom."
       >
         <g v-for="e in edgePaths" :key="`${e.from}-${e.to}`" :class="{ 'st-edge--dim': edgeDim(e.from, e.to) }">
-          <path :d="e.d" fill="none" :stroke="e.color" stroke-opacity="0.45" :stroke-width="e.strokeWidth" stroke-linecap="round" />
+          <!-- var() only resolves in CSS, not in SVG presentation attributes,
+               so the token colours go through style bindings -->
+          <path :d="e.d" fill="none" :style="{ stroke: e.color }" stroke-opacity="0.45" :stroke-width="e.strokeWidth" stroke-linecap="round" />
           <rect :x="e.mx - 12" :y="e.my - 9" width="24" height="18" rx="5" class="st-edge-badge-bg" />
           <text :x="e.mx" :y="e.my + 4" class="st-edge-label" text-anchor="middle">{{ e.count }}</text>
         </g>
@@ -399,11 +451,11 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
         >
           <rect
             :x="p.x - NODE_W / 2" :y="p.y - NODE_H / 2"
-            :width="NODE_W" :height="NODE_H" rx="10"
+            :width="NODE_W" :height="NODE_H" rx="6"
             class="st-node-rect"
             :style="{ stroke: STATUS_META[p.status].color }"
           />
-          <circle :cx="p.x - NODE_W / 2 + 14" :cy="p.y - NODE_H / 2 + 14" r="4" :fill="STATUS_META[p.status].color" />
+          <circle :cx="p.x - NODE_W / 2 + 14" :cy="p.y - NODE_H / 2 + 14" r="4" :style="{ fill: STATUS_META[p.status].color }" />
           <text :x="p.x - NODE_W / 2 + 24" :y="p.y - NODE_H / 2 + 18" class="st-node-label">{{ STATUS_META[p.status].label }}</text>
           <text :x="p.x - NODE_W / 2 + 12" :y="p.y + 18" class="st-node-count">{{ p.total }}</text>
           <text v-if="p.current !== p.total" :x="p.x + NODE_W / 2 - 12" :y="p.y + 18" text-anchor="end" class="st-node-current">
@@ -412,6 +464,15 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
         </g>
       </svg>
     </div>
+
+    <ul v-if="!isEmpty && isCramped" class="st-list">
+      <li v-for="s in statusList" :key="s.status" class="st-list-item">
+        <span class="st-hover-dot" :style="{ background: STATUS_META[s.status].color }" aria-hidden="true" />
+        <span class="st-list-label">{{ STATUS_META[s.status].label }}</span>
+        <span class="st-list-total">{{ s.total }}</span>
+        <span v-if="s.current !== s.total" class="st-list-now">{{ s.current }} there now</span>
+      </li>
+    </ul>
 
     <div class="st-hover-label">
       <template v-if="hovered && nodesByStatus.get(hovered)">
@@ -437,12 +498,9 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   min-width: 0;
   min-height: 0;
   background: var(--col-surface);
-  border: 1px solid var(--col-border);
-  border-radius: .75rem;
+  border: 1px solid var(--col-border-lt);
+  border-radius: var(--radius-lg);
   padding: 1.25rem 1rem 1rem;
-  box-shadow:
-    0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
-    0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
 }
 
 .st-header {
@@ -453,15 +511,13 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   flex-shrink: 0;
 }
 .st-title {
-  font-size: .8rem;
+  font-size: .9375rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--col-muted);
+  color: var(--col-text);
   margin: 0;
 }
 .st-total { font-size: .8125rem; color: var(--col-muted); }
-.st-total strong { color: var(--col-text); font-weight: 700; }
+.st-total strong { color: var(--col-text); font-weight: 600; }
 
 .st-empty {
   flex: 1 1 auto;
@@ -481,11 +537,23 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
 }
 .st-scroll svg { display: block; }
 
+/* Fade the edge the tree carries on past, so half a node reads as "there is
+   more, scroll" instead of as a clipped card. A mask rather than a gradient
+   in a colour, so it works over either theme's surface. */
+.st-scroll--more-x { mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent); }
+.st-scroll--more-y { mask-image: linear-gradient(to bottom, black calc(100% - 2rem), transparent); }
+.st-scroll--more-x.st-scroll--more-y {
+  mask-image:
+    linear-gradient(to right,  black calc(100% - 2rem), transparent),
+    linear-gradient(to bottom, black calc(100% - 2rem), transparent);
+  mask-composite: intersect;
+}
+
 .st-node { cursor: default; transition: opacity .15s; }
 .st-node--dim { opacity: .35; }
 .st-node-rect { fill: var(--col-bg); stroke-width: 2; }
 .st-node-label { font-size: 11px; font-weight: 600; fill: var(--col-text); }
-.st-node-count { font-size: 15px; font-weight: 700; fill: var(--col-text); }
+.st-node-count { font-size: 15px; font-weight: 600; fill: var(--col-text); font-variant-numeric: tabular-nums; }
 .st-node-current { font-size: 10.5px; font-weight: 600; fill: var(--col-muted); }
 
 .st-edge--dim { opacity: .2; }
@@ -509,4 +577,26 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+.st-list {
+  list-style: none;
+  margin: .75rem 0 0;
+  padding: .5rem 0 0;
+  border-top: 1px solid var(--col-border-lt);
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+}
+.st-list-item {
+  display: grid;
+  grid-template-columns: .5rem minmax(0, 1fr) auto;
+  grid-template-areas: "dot label total" ". now now";
+  align-items: center;
+  column-gap: .5rem;
+  font-size: .875rem;
+}
+.st-list-item .st-hover-dot { grid-area: dot; }
+.st-list-label { grid-area: label; color: var(--col-text); }
+.st-list-total { grid-area: total; font-weight: 600; font-variant-numeric: tabular-nums; }
+.st-list-now   { grid-area: now; font-size: .75rem; color: var(--col-muted); }
 </style>

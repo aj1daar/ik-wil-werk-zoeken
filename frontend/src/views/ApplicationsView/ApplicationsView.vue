@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES } from '../../stores/applications'
+import { useRoute, useRouter } from 'vue-router'
+import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
 import type { Application, ApplicationStatus } from '../../api'
 import NewApplicationModal from '../../components/NewApplicationModal/NewApplicationModal.vue'
 import ApplicationPanel from '../../components/ApplicationPanel/ApplicationPanel.vue'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
-const store = useApplicationsStore()
+const store  = useApplicationsStore()
+// Optional-chained below: the view also renders without a router (unit tests)
+const route  = useRoute()
+const router = useRouter()
 
 // Fixed page size: the list renders as a 2-column card grid on desktop (5
 // rows × 2 cards) and a single-column list on mobile — either way, exactly
@@ -23,10 +27,9 @@ const modalOpen         = ref(false)
 const showFiltersPanel  = ref(false)
 const currentPage       = ref(1)
 
-const activeFilterCount = computed(() =>
-  (filterStatus.value !== '' ? 1 : 0) +
-  (sortBy.value !== 'newest' ? 1 : 0)
-)
+// The status filter lives in the always-visible status tabs, so only what is
+// tucked behind the Filters toggle counts toward its badge.
+const activeFilterCount = computed(() => (sortBy.value !== 'newest' ? 1 : 0))
 
 const checkedIds   = ref<Set<string>>(new Set())
 const bulkStatus   = ref<ApplicationStatus | ''>('')
@@ -40,9 +43,22 @@ function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') { selectedId.value = null; clearSelection() }
 }
 
+// The dashboard's Next up board links here with ?open=<id>. Open that
+// application's panel once the list has loaded, then drop the parameter so
+// closing the panel, or refreshing, doesn't reopen it.
+function openFromQuery() {
+  const id = route?.query.open
+  if (id === undefined) return
+  if (typeof id === 'string' && store.applications.some(a => a.id === id)) selectedId.value = id
+  const query = { ...route.query }
+  delete query.open
+  router?.replace({ query })
+}
+
 onMounted(async () => {
   window.addEventListener('keydown', onKey)
   await store.load()
+  openFromQuery()
 })
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 
@@ -97,6 +113,24 @@ const visiblePages = computed((): (number | null)[] => {
 })
 
 watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
+
+// One tab per status that currently has applications, in lifecycle order
+const statusCounts = computed(() => {
+  const counts = new Map<ApplicationStatus, number>()
+  for (const a of store.applications) counts.set(a.status, (counts.get(a.status) ?? 0) + 1)
+  return ALL_STATUSES.filter(s => counts.has(s)).map(s => ({ status: s, count: counts.get(s)! }))
+})
+
+// If the last application with the selected status moves on (edited, bulk
+// updated, deleted), its tab disappears, so fall back to All rather than
+// stranding the user on an empty, unexplained list.
+watch(statusCounts, list => {
+  if (filterStatus.value && !list.some(s => s.status === filterStatus.value)) filterStatus.value = ''
+})
+
+function toggleStatus(s: ApplicationStatus) {
+  filterStatus.value = filterStatus.value === s ? '' : s
+}
 // Deleting or bulk-updating applications can shrink the page count out from
 // under whatever page the user is on (e.g. deleting the last item on the
 // last page) — clamp instead of leaving currentPage pointing past the end.
@@ -229,6 +263,23 @@ function printPage() {
         <input v-model="search" placeholder="Search by company or position…" class="filter-input pl-9" aria-label="Search applications" />
       </div>
 
+      <div v-if="statusCounts.length > 0" class="status-tabs" role="group" aria-label="Show applications by status">
+        <button
+          type="button"
+          :class="['status-tab', filterStatus === '' && 'status-tab--active']"
+          :aria-pressed="filterStatus === ''"
+          @click="filterStatus = ''"
+        >All <span class="status-tab-count">{{ store.applications.length }}</span></button>
+        <button
+          v-for="s in statusCounts"
+          :key="s.status"
+          type="button"
+          :class="['status-tab', filterStatus === s.status && 'status-tab--active']"
+          :aria-pressed="filterStatus === s.status"
+          @click="toggleStatus(s.status)"
+        ><span class="status-tab-dot" :style="{ background: statusMark(s.status) }" aria-hidden="true" />{{ STATUS_LABELS[s.status] }} <span class="status-tab-count">{{ s.count }}</span></button>
+      </div>
+
       <div class="filter-controls-row">
         <div v-if="filtered.length > 0" class="pagination">
           <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
@@ -265,7 +316,7 @@ function printPage() {
             <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            New Application
+            New application
           </button>
         </div>
       </div>
@@ -273,11 +324,6 @@ function printPage() {
 
     <Transition name="filter-drop">
       <div v-if="showFiltersPanel" class="dropdown-filters-panel">
-        <select v-model="filterStatus" class="filter-input filter-select" aria-label="Filter by status">
-          <option value="">All statuses</option>
-          <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
-        </select>
-
         <select v-model="sortBy" class="filter-input filter-select" aria-label="Sort order">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
@@ -335,24 +381,23 @@ function printPage() {
           <div v-else-if="filtered.length === 0" class="state-msg">
             <template v-if="store.applications.length === 0">
               No applications yet.
-              <button @click="modalOpen = true" class="add-first-link">Add your first application →</button>
+              <button @click="modalOpen = true" class="add-first-link">Add an application</button>
             </template>
             <template v-else>No applications match your filters.</template>
           </div>
 
           <TransitionGroup v-else tag="ul" name="list" class="app-grid">
             <li
-              v-for="(app, index) in pagedFiltered"
+              v-for="app in pagedFiltered"
               :key="app.id"
-              :style="{ '--i': Math.min(index, 9) }"
+              :style="{ '--stripe': statusMark(app.status) }"
               @click="selectRow(app.id)"
               :class="['company-row', { 'company-row--active': selectedId === app.id, 'company-row--checked': checkedIds.has(app.id) }]"
-              role="button"
-              tabindex="0"
-              :aria-label="`${app.companyName} — ${app.position}`"
-              @keydown.enter="selectRow(app.id)"
-              @keydown.space.prevent="selectRow(app.id)"
             >
+              <!-- The row itself is only a mouse target; keyboard and screen-reader
+                   users open it through the real button on the company name.
+                   (A role="button" row holding a checkbox nests one control
+                   inside another, which assistive tech can't handle.) -->
               <input
                 type="checkbox"
                 class="row-checkbox"
@@ -362,7 +407,12 @@ function printPage() {
               />
               <div class="row-body">
                 <p class="row-name">
-                  <span class="row-name-text">{{ app.companyName }}</span>
+                  <button
+                    type="button"
+                    class="row-name-text row-open"
+                    :aria-label="`Open ${app.companyName}, ${app.position}`"
+                    @click.stop="selectRow(app.id)"
+                  >{{ app.companyName }}</button>
                   <span :class="['chip', 'sponsor-chip', 'sponsor-chip--inline', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
                     {{ app.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
                   </span>
@@ -390,7 +440,7 @@ function printPage() {
                 <span
                   :class="['followup-badge', isOverdue(app) ? 'followup-badge--overdue' : isDueToday(app) ? 'followup-badge--today' : 'followup-badge--none']"
                   :title="isOverdue(app) ? 'Follow-up overdue' : isDueToday(app) ? 'Follow-up due today' : undefined"
-                >{{ isOverdue(app) ? '⚠ Follow up' : isDueToday(app) ? '📅 Today' : ' ' }}</span>
+                >{{ isOverdue(app) ? 'Follow up now' : isDueToday(app) ? 'Follow up today' : ' ' }}</span>
               </div>
               <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -483,15 +533,13 @@ function printPage() {
 }
 .company-row--checked { background: color-mix(in srgb, var(--col-accent) 8%, transparent); }
 
-.followup-badge { font-size: .65rem; font-weight: 700; padding: .1rem .4rem; border-radius: 9999px; white-space: nowrap; }
-.followup-badge--overdue { background: #fee2e2; color: #b91c1c; }
-.followup-badge--today   { background: #fef3c7; color: #92400e; }
+.followup-badge { font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: var(--radius-sm); white-space: nowrap; }
+.followup-badge--overdue { background: var(--col-error-lt);   color: var(--col-error); }
+.followup-badge--today   { background: var(--col-warning-lt); color: var(--col-warning); }
 .followup-badge--none    { visibility: hidden; }
 
-.success-rate-chip { background: var(--col-raised); color: var(--col-muted); }
+.success-rate-chip { background: var(--col-raised); color: var(--col-muted); font-variant-numeric: tabular-nums; }
 .success-rate-chip--none { visibility: hidden; }
-.sponsor-chip--yes { background: color-mix(in srgb, var(--col-accent) 18%, transparent); color: var(--col-accent-dk); }
-.sponsor-chip--no { background: var(--col-raised); color: var(--col-subtle); }
 
 /* Sponsor status lives next to the company name, not buried in the meta
    column — overrides split-panel.css's plain-text .row-name so the name
@@ -508,9 +556,54 @@ function printPage() {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.row-open {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row-open:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Status tabs: the quickest way to narrow the list, always in view */
+.status-tabs {
+  display: flex;
+  gap: .375rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: .125rem;
+  margin: 0 -.125rem;
+}
+.status-tabs::-webkit-scrollbar { display: none; }
+.status-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  flex-shrink: 0;
+  padding: .3rem .625rem;
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius);
+  background: var(--col-bg);
+  color: var(--col-muted);
+  font: inherit;
+  font-size: .8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .12s, color .12s, border-color .12s;
+}
+.status-tab:not(.status-tab--active):hover { background: var(--col-raised); color: var(--col-text); }
+.status-tab--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); }
+.status-tab-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+.status-tab-dot { width: .5rem; height: .5rem; border-radius: 50%; flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .status-tab { transition: none; }
+}
 .sponsor-chip--inline {
   flex-shrink: 0;
-  font-size: .6rem;
+  font-size: .6875rem;
   padding: .05rem .4rem;
 }
 
@@ -534,16 +627,16 @@ function printPage() {
   padding: .35rem .5rem; font-size: .8rem; flex: 1; min-width: 140px; max-width: 220px;
 }
 .bulk-apply {
-  background: var(--col-accent); color: #fff; border: none; border-radius: .375rem;
+  background: var(--col-signal); color: var(--col-on-signal); border: none; border-radius: var(--radius);
   padding: .35rem .75rem; font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .bulk-apply:disabled { opacity: .5; cursor: not-allowed; }
 .bulk-clear {
-  background: none; border: 1px solid rgba(255,255,255,.3); color: var(--col-invert-text);
-  border-radius: .375rem; padding: .35rem .75rem; font-size: .8rem; cursor: pointer;
+  background: none; border: 1px solid color-mix(in srgb, var(--col-invert-text) 35%, transparent); color: var(--col-invert-text);
+  border-radius: var(--radius); padding: .35rem .75rem; font-size: .8rem; cursor: pointer;
 }
-.bulk-clear:hover { background: rgba(255,255,255,.1); }
-.bulk-error { font-size: .8rem; color: #fca5a5; }
+.bulk-clear:hover { background: color-mix(in srgb, var(--col-invert-text) 12%, transparent); }
+.bulk-error { font-size: .8rem; font-weight: 600; color: var(--col-invert-text); }
 .bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
 .bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
@@ -553,7 +646,7 @@ function printPage() {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--col-overlay);
   z-index: 40;
   display: flex;
   align-items: center;
@@ -562,7 +655,7 @@ function printPage() {
 }
 .modal-box {
   background: var(--col-bg);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 560px;
   height: 90vh;
@@ -575,7 +668,7 @@ function printPage() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 .app-detail-enter-active,
 .app-detail-leave-active { transition: opacity 0.2s ease; }
@@ -600,7 +693,7 @@ function printPage() {
 
 .btn-new {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: .375rem;
+  background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: var(--radius);
   padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
   white-space: nowrap;
 }
@@ -635,16 +728,13 @@ function printPage() {
   gap: .3rem;
   width: 100%;
 }
-.row-date { font-size: .7rem; color: var(--col-subtle); }
-.chip { display: inline-block; padding: .2rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; white-space: nowrap; transition: background-color 150ms ease, color 150ms ease; }
-@media (prefers-reduced-motion: reduce) {
-  .chip { transition: none; }
-}
+.row-date { font-size: .75rem; color: var(--col-subtle); font-variant-numeric: tabular-nums; }
+.chip { font-weight: 500; }
 .add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
 .btn-filter-toggle {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-surface); color: var(--col-muted);
-  border: 1px solid var(--col-border); border-radius: .375rem;
+  background: var(--col-bg); color: var(--col-muted);
+  border: 1px solid var(--col-border); border-radius: var(--radius);
   padding: .45rem .75rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
@@ -653,15 +743,15 @@ function printPage() {
 .btn-chevron { transition: transform .2s ease; }
 .btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
-  background: var(--col-accent); color: #fff;
-  border-radius: 9999px; font-size: .7rem; font-weight: 700;
-  padding: .05rem .45rem; line-height: 1.4;
+  background: var(--col-accent); color: var(--col-on-accent);
+  border-radius: var(--radius-sm); font-size: .7rem; font-weight: 600;
+  padding: .05rem .4rem; line-height: 1.4; font-variant-numeric: tabular-nums;
 }
 
 .btn-export {
   display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-surface); color: var(--col-muted); border: 1px solid var(--col-border);
-  border-radius: .375rem; padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
+  background: var(--col-bg); color: var(--col-muted); border: 1px solid var(--col-border);
+  border-radius: var(--radius); padding: .5rem 1rem; font-size: .875rem; cursor: pointer; white-space: nowrap;
 }
 .btn-export:hover { background: var(--col-raised); }
 
@@ -689,19 +779,31 @@ function printPage() {
   height: 2rem;
   padding: 0 .4rem;
   border: 1px solid var(--col-border);
-  border-radius: .375rem;
-  background: var(--col-surface);
+  border-radius: var(--radius);
+  background: var(--col-bg);
   color: var(--col-muted);
   font-size: .8rem;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background .12s, color .12s;
 }
 .page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
-.page-btn--active { background: var(--col-accent); color: #fff; border-color: var(--col-accent); font-weight: 600; }
+.page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
 .page-btn:disabled { opacity: .35; cursor: default; }
 .page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 
 @media (max-width: 767px) {
+  /* Full-bleed on phones: the scoped .dashboard margin above would otherwise
+     beat style.css's mobile margin: 0 and leave a strip under the nav. */
+  .dashboard { margin: 0; }
+
+  /* Phone toolbar: the actions take their own full-width row first, then
+     pagination centred under them, instead of three controls wrapping
+     unevenly around each other. */
+  .filter-actions { order: -1; width: 100%; margin-left: 0; }
+  .btn-new { flex: 1; justify-content: center; }
+  .pagination { width: 100%; justify-content: center; }
+
   /* Apple HIG minimum 44x44pt tap target */
   .page-btn { min-width: 2.75rem; height: 2.75rem; }
 
@@ -748,23 +850,24 @@ function printPage() {
     gap: 1.25rem;
   }
   .company-row {
-    padding: 1.125rem 1.5rem;
+    padding: 1.125rem 1.5rem 1.125rem 1.625rem;
     border: 1px solid var(--col-border-lt);
-    border-radius: .75rem;
+    border-radius: var(--radius-lg);
     background: var(--col-surface);
-    transition: background .12s, border-color .12s, transform .15s ease, box-shadow .15s ease;
+    transition: background .12s, border-color .12s;
   }
   .company-row:hover {
     background: var(--col-raised);
     border-color: var(--col-border);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px color-mix(in srgb, var(--col-text) 10%, transparent);
   }
   .company-row--active { border-color: var(--col-accent); }
-  @media (prefers-reduced-motion: reduce) {
-    .company-row:hover { transform: none; }
-  }
 }
+
+/* Status stripe down the left edge of every row/card, in the status's own
+   colour — the list can be scanned by status without reading the chips.
+   An inset shadow rather than a border, so it follows the card's rounded
+   corners and never changes the row's box size. */
+.company-row { box-shadow: inset 3px 0 0 var(--stripe, transparent); }
 
 /* Changing page (or filtering) swaps the whole set of keys at once — every
    old card leaves while every new one enters in the same tick. .list-leave
@@ -783,14 +886,14 @@ function printPage() {
 
 .toast-error {
   position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
-  background: var(--col-error); color: #fff;
-  padding: .75rem 1rem; border-radius: .5rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  background: var(--col-error); color: var(--col-bg);
+  padding: .75rem 1rem; border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   display: flex; align-items: center; gap: .75rem;
   font-size: .875rem; font-weight: 500; z-index: 200;
   max-width: 480px; min-width: 280px;
 }
-.toast-close { background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+.toast-close { background: none; border: none; color: inherit; font-size: 1.4rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
 .toast-close:hover { opacity: .75; }
 /* .toast-enter/leave-* transition now lives in style.css (was duplicated
    verbatim here and in ApplicationPanel.vue). */

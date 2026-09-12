@@ -61,8 +61,8 @@ function mountModalWithCompanies(companies: SponsorCompany[], props: Record<stri
 describe('NewApplicationModal – rendering', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('renders "New Application" title', () => {
-    expect(mountModal().text()).toContain('New Application')
+  it('renders the "New application" title in sentence case', () => {
+    expect(mountModal().find('#modal-title').text()).toBe('New application')
   })
 
   it('renders company name input', () => {

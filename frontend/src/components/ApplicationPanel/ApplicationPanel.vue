@@ -894,11 +894,9 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .panel { display: flex; flex-direction: column; height: 100%; }
 .status-chip { display: inline-block; margin-top: .375rem; }
 .sponsor-chip { margin-left: .375rem; }
-.sponsor-chip--yes { background: color-mix(in srgb, var(--col-accent) 18%, transparent); color: var(--col-accent-dk); }
-.sponsor-chip--no { background: var(--col-raised); color: var(--col-subtle); }
 .panel-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border); flex-shrink: 0; }
 .panel-title-block { flex: 1; min-width: 0; }
-.panel-title { font-size: 1.125rem; font-weight: 700; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel-title { font-size: 1.125rem; font-weight: 600; color: var(--col-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel-subtitle { font-size: .8rem; color: var(--col-muted); margin-top: .125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .panel-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); flex-shrink: 0; }
@@ -928,17 +926,17 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .sj-item { display: flex; gap: .625rem; align-items: flex-start; }
 .sj-line-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: .75rem; }
 .sj-dot { width: .625rem; height: .625rem; border-radius: 50%; background: var(--col-accent); flex-shrink: 0; margin-top: .35rem; }
-.sj-dot--new { background: var(--col-warning, #b45309); }
+.sj-dot--new { background: var(--col-warning); }
 .sj-line { flex: 1; width: 2px; background: var(--col-border); min-height: .75rem; }
 .sj-item:last-child .sj-line { display: none; }
 .sj-content { flex: 1; padding-bottom: .625rem; }
 .sj-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .sj-date { font-size: .8rem; color: var(--col-muted); flex: 1; }
-.sj-unsaved { font-size: .7rem; color: var(--col-warning, #b45309); font-style: italic; }
+.sj-unsaved { font-size: .7rem; color: var(--col-warning); font-style: italic; }
 .sh-edit-applied-chip { flex-shrink: 0; }
 
 /* follow-up date */
-.overdue-badge { display: inline-block; background: var(--col-error); color: #fff; font-size: .65rem; font-weight: 700; border-radius: 9999px; padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }
+.overdue-badge { display: inline-block; background: var(--col-error); color: var(--col-bg); font-size: .7rem; font-weight: 600; border-radius: var(--radius-sm); padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }
 .input-overdue { border-color: var(--col-error) !important; }
 .clear-date-btn { align-self: flex-start; background: none; border: none; color: var(--col-accent); font-size: .8rem; cursor: pointer; padding: 0; margin-top: .125rem; }
 .joburl-row { display: flex; gap: .5rem; align-items: center; }
@@ -949,9 +947,9 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 /* copy-to-clipboard toast */
 .toast-success {
   position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
-  background: var(--col-success); color: #fff;
-  padding: .75rem 1rem; border-radius: .5rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  background: var(--col-success); color: var(--col-bg);
+  padding: .75rem 1rem; border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   display: flex; align-items: center; gap: .75rem;
   font-size: .875rem; font-weight: 500; z-index: 200;
   max-width: 480px; min-width: 280px; justify-content: center;
@@ -992,7 +990,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .sh-add-btn { display: flex; align-items: center; gap: .35rem; background: none; border: none; cursor: pointer; color: var(--col-accent); font-size: .8rem; font-weight: 500; padding: .25rem 0; margin-top: .25rem; }
 .sh-add-btn:hover { text-decoration: underline; }
 .sh-error { font-size: .8rem; color: var(--col-error); margin: .25rem 0; }
-.sh-warning { font-size: .8rem; color: var(--col-warning, #b45309); margin: .25rem 0; }
+.sh-warning { font-size: .8rem; color: var(--col-warning); margin: .25rem 0; }
 
 /* activity timeline */
 .timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .625rem; }

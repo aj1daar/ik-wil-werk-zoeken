@@ -10,13 +10,13 @@ backend/            ASP.NET Core Web API (.NET 8)
   Models/             User, SponsorCompany, ApplicationStage, ActivityLog, StatusHistory, SyncLog
   Services/           PasswordHasher, TokenService, EmailService, UserStore, StageStore,
                        SponsorStore, IndSponsorScraper, CompanyEnricher, RateLimiterService
-backend.Tests/       xUnit (588 tests)
+backend.Tests/       xUnit (679 tests)
 frontend/            Vue 3 SPA
   src/components/     ApplicationPanel, NewApplicationModal, ConfirmDialog, DatePicker,
-                       FunnelChart, RejectionChart, AreaChart, ui/ (AppSelect, AppInput, AppButton)
+                       StatusTree, RejectionChart, AreaChart, ui/ (AppSelect, AppInput, AppButton)
   src/views/          Home, Applications, Companies, Profile, Admin, auth views
   src/stores/         auth, companies, applications (Pinia)
-  src/__tests__/       Vitest (729 tests)
+  **/__tests__/        Vitest (985 tests), beside the code they cover
 ```
 
 Request flow: `Browser → Cloudflare → Nginx :80 → ASP.NET Core :5000 → Postgres 18`.

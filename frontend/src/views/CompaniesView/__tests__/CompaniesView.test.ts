@@ -66,6 +66,97 @@ function activePage(w: ReturnType<typeof mount>): string | undefined {
   return w.findAll('.page-btn--active')[0]?.text()
 }
 
+// ── name sorting ─────────────────────────────────────────────────────────────
+
+const tileNames = (w: ReturnType<typeof mount>) => w.findAll('.company-tile .tile-name').map(t => t.text())
+
+describe('CompaniesView – name sorting', () => {
+  it('A→Z ignores leading quotes and symbols in register names', async () => {
+    const w = mountView([
+      makeSponsor({ id: '1', name: '"Zeta" Machinefabriek' }),
+      makeSponsor({ id: '2', name: 'Alpha' }),
+      makeSponsor({ id: '3', name: '@Beta' }),
+      makeSponsor({ id: '4', name: "'Petite' Delta" }),
+    ])
+    await flushPromises()
+    expect(tileNames(w)).toEqual(['Alpha', '@Beta', "'Petite' Delta", '"Zeta" Machinefabriek'])
+  })
+
+  it('compares digits as numbers, so 2 comes before 10', async () => {
+    const w = mountView([
+      makeSponsor({ id: '1', name: '10X Genomics' }),
+      makeSponsor({ id: '2', name: '2 Getthere' }),
+      makeSponsor({ id: '3', name: '1 Cube' }),
+    ])
+    await flushPromises()
+    expect(tileNames(w)).toEqual(['1 Cube', '2 Getthere', '10X Genomics'])
+  })
+
+  it('ignores case and accents', async () => {
+    const w = mountView([
+      makeSponsor({ id: '1', name: 'émile' }),
+      makeSponsor({ id: '2', name: 'Delta' }),
+      makeSponsor({ id: '3', name: 'apple' }),
+    ])
+    await flushPromises()
+    expect(tileNames(w)).toEqual(['apple', 'Delta', 'émile'])
+  })
+
+  it('Z→A uses the same rule, reversed', async () => {
+    const w = mountView([
+      makeSponsor({ id: '1', name: '"Zeta"' }),
+      makeSponsor({ id: '2', name: 'Alpha' }),
+      makeSponsor({ id: '3', name: '@Beta' }),
+    ])
+    await flushPromises()
+    await w.find('select[aria-label="Sort companies"]').setValue('za')
+    expect(tileNames(w)).toEqual(['"Zeta"', '@Beta', 'Alpha'])
+  })
+
+  it('a name made only of symbols sorts first instead of crashing', async () => {
+    const w = mountView([makeSponsor({ id: '1', name: 'Beta' }), makeSponsor({ id: '2', name: '***' })])
+    await flushPromises()
+    expect(tileNames(w)).toEqual(['***', 'Beta'])
+  })
+
+  it('shows the name exactly as registered, only the order changes', async () => {
+    const w = mountView([makeSponsor({ id: '1', name: '"AAE" Advanced Automated Equipment' })])
+    await flushPromises()
+    expect(tileNames(w)).toEqual(['"AAE" Advanced Automated Equipment'])
+  })
+})
+
+// ── tile accessibility ───────────────────────────────────────────────────────
+
+describe('CompaniesView – tile accessibility', () => {
+  it('tiles are not fake buttons wrapping the website link', async () => {
+    const w = mountView([makeSponsor({ websiteUrl: 'https://acme.example' })])
+    await flushPromises()
+    const tile = w.find('.company-tile')
+    expect(tile.attributes('role')).toBeUndefined()
+    expect(tile.attributes('tabindex')).toBeUndefined()
+  })
+
+  it('the company name is a real button that opens the company', async () => {
+    const w = mountView([makeSponsor({ name: 'Acme' })])
+    await flushPromises()
+    const btn = w.find('button.tile-name')
+    expect(btn.attributes('type')).toBe('button')
+    await btn.trigger('click')
+    expect(w.findComponent({ name: 'CompanyDetailModal' }).exists()).toBe(true)
+  })
+
+  it('the website link opens the site without opening the company', async () => {
+    const w = mountView([makeSponsor({ websiteUrl: 'https://acme.example' })])
+    await flushPromises()
+    const link = w.find('.tile-website')
+    // stop happy-dom actually following the link; the click still bubbles
+    link.element.addEventListener('click', e => e.preventDefault())
+    await link.trigger('click')
+    expect(w.findComponent({ name: 'CompanyDetailModal' }).exists()).toBe(false)
+  })
+})
+
 // ── grid rendering ───────────────────────────────────────────────────────────
 
 describe('CompaniesView – company grid', () => {

@@ -40,7 +40,12 @@ iwwz-logs/
 *.zip
 .vs/
 .idea/
-.claude/
+# Local Claude Code state stays out of git; project skills are shared
+.claude/*
+!.claude/skills/
+
+# Output of `pnpm screenshots`
+frontend/screenshots/
 
 # .NET test coverage output
 TestResults/

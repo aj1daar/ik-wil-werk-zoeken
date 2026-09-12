@@ -1,9 +1,14 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+/// <reference types="node" />
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   useApplicationsStore,
   STATUS_LABELS,
   STATUS_COLOR,
+  STATUS_TOKEN,
+  statusMark,
   REJECTION_REASON_LABELS,
   ALL_STATUSES,
 } from '../applications'
@@ -75,6 +80,59 @@ describe('STATUS_COLOR', () => {
     const others = Object.entries(STATUS_COLOR).filter(([k]) => k !== 'Ghosted').map(([, v]) => v)
     expect(STATUS_COLOR.Ghosted).toBe('chip-ghosted')
     expect(others).not.toContain('chip-ghosted')
+  })
+})
+
+describe('STATUS_TOKEN / statusMark', () => {
+  // Read from disk: Vitest doesn't process CSS, so `?raw` returns ''. Path is
+  // from the frontend root (vitest's cwd); import.meta.url isn't a file: URL here.
+  const styleCss = readFileSync(join(process.cwd(), 'src', 'style.css'), 'utf8')
+
+  it('gives every status a lowercase token', () => {
+    expect(Object.keys(STATUS_TOKEN)).toHaveLength(9)
+    for (const s of ALL_STATUSES) expect(STATUS_TOKEN[s]).toMatch(/^[a-z]+$/)
+  })
+
+  it('tokens are unique, so no two statuses share a colour', () => {
+    expect(new Set(Object.values(STATUS_TOKEN)).size).toBe(Object.keys(STATUS_TOKEN).length)
+  })
+
+  it('STATUS_COLOR is always chip-<token>, so chips and stripes cannot drift apart', () => {
+    for (const s of ALL_STATUSES) expect(STATUS_COLOR[s]).toBe(`chip-${STATUS_TOKEN[s]}`)
+  })
+
+  it('statusMark points at the status mark custom property', () => {
+    expect(statusMark('Applied')).toBe('var(--status-applied-mark)')
+    expect(statusMark('InterviewScheduled')).toBe('var(--status-interview-mark)')
+    expect(statusMark('Ghosted')).toBe('var(--status-ghosted-mark)')
+  })
+
+  // STATUS_COLOR builds the class names at runtime, so Tailwind's content
+  // scan never sees "chip-applied" etc. literally. Rules inside
+  // `@layer components` are dropped when unseen, which once shipped a build
+  // where every status chip had lost its colour.
+  it('defines the status chip classes outside @layer components, so Tailwind cannot drop them', () => {
+    const start = styleCss.indexOf('@layer components {')
+    expect(start).toBeGreaterThan(-1)
+    let depth = 0
+    let end = start
+    for (let i = styleCss.indexOf('{', start); i < styleCss.length; i++) {
+      if (styleCss[i] === '{') depth++
+      else if (styleCss[i] === '}' && --depth === 0) { end = i; break }
+    }
+    const layer = styleCss.slice(start, end).replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const token of Object.values(STATUS_TOKEN)) {
+      expect(layer, `.chip-${token} is inside @layer components`).not.toContain(`.chip-${token}`)
+      expect(styleCss.slice(end)).toContain(`.chip-${token}`)
+    }
+  })
+
+  it.each(Object.values(STATUS_TOKEN))('style.css defines the %s colours for light and dark', (token) => {
+    for (const part of ['bg', 'fg', 'bd', 'mark']) {
+      const defs = styleCss.match(new RegExp(`--status-${token}-${part}:`, 'g')) ?? []
+      expect(defs, `--status-${token}-${part}`).toHaveLength(2)
+    }
+    expect(styleCss).toContain(`.chip-${token}`)
   })
 })
 

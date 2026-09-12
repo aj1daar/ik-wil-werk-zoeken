@@ -3,6 +3,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { Transition, TransitionGroup } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import ApplicationsView from '../ApplicationsView.vue'
 import { useApplicationsStore } from '../../../stores/applications'
 
@@ -261,6 +262,83 @@ describe('ApplicationsView – follow-up badge always reserves its row slot', ()
     await flushPromises()
     expect(wrapper.findAll('.followup-badge')).toHaveLength(3)
   })
+
+  it('overdue badge reads "Follow up now"', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: '2020-01-01T00:00:00Z' })])
+    await flushPromises()
+    expect(wrapper.find('.followup-badge').text()).toBe('Follow up now')
+  })
+
+  it('due-today badge reads "Follow up today"', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: new Date().toISOString() })])
+    await flushPromises()
+    expect(wrapper.find('.followup-badge').text()).toBe('Follow up today')
+  })
+
+  it('badges use words, not emoji', async () => {
+    const wrapper = mountView([
+      makeApp({ id: 'a', followUpDate: '2020-01-01T00:00:00Z' }),
+      makeApp({ id: 'b', followUpDate: new Date().toISOString() }),
+    ])
+    await flushPromises()
+    for (const badge of wrapper.findAll('.followup-badge')) {
+      expect(badge.text()).not.toMatch(/[☀-➿\u{1F300}-\u{1FAFF}]/u)
+    }
+  })
+
+  it('the empty slot still holds a non-breaking space so the row keeps its height', async () => {
+    const wrapper = mountView([makeApp({ followUpDate: undefined })])
+    await flushPromises()
+    expect(wrapper.find('.followup-badge').element.textContent).toBe(' ')
+  })
+})
+
+// ── status stripe ─────────────────────────────────────────────────────────────
+
+describe('ApplicationsView – status stripe', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it.each([
+    ['Applied',            'applied'],
+    ['InterviewScheduled', 'interview'],
+    ['Assessment',         'assessment'],
+    ['OfferReceived',      'offer'],
+    ['OnHold',             'hold'],
+    ['Rejected',           'rejected'],
+    ['Withdrawn',          'withdrawn'],
+    ['Accepted',           'accepted'],
+    ['Ghosted',            'ghosted'],
+  ] as const)('a %s row gets the %s status colour as its stripe', async (status, token) => {
+    const wrapper = mountView([makeApp({ status })])
+    await flushPromises()
+    expect(wrapper.find('.company-row').attributes('style')).toContain(`--stripe: var(--status-${token}-mark)`)
+  })
+
+  it('each row gets the stripe of its own status', async () => {
+    const wrapper = mountView([
+      makeApp({ id: 'a', status: 'Applied',  appliedAt: '2026-03-01T00:00:00Z' }),
+      makeApp({ id: 'b', status: 'Rejected', appliedAt: '2026-02-01T00:00:00Z' }),
+    ])
+    await flushPromises()
+    const rows = wrapper.findAll('.company-row')
+    expect(rows[0].attributes('style')).toContain('--status-applied-mark')
+    expect(rows[1].attributes('style')).toContain('--status-rejected-mark')
+  })
+})
+
+// ── empty state ───────────────────────────────────────────────────────────────
+
+describe('ApplicationsView – empty state', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('offers an "Add an application" button that opens the new-application modal', async () => {
+    const wrapper = mountView([])
+    await flushPromises()
+    const btn = wrapper.find('button.add-first-link')
+    expect(btn.text()).toBe('Add an application')
+    await btn.trigger('click')
+    expect(wrapper.findComponent({ name: 'NewApplicationModal' }).exists()).toBe(true)
+  })
 })
 
 // ── list stagger transition ───────────────────────────────────────────────────
@@ -284,17 +362,15 @@ describe('ApplicationsView – list stagger transition', () => {
     expect(group?.props('tag')).toBe('ul')
   })
 
-  it('each row has a --i CSS variable capped at 9', async () => {
-    // PAGE_SIZE starts at 10 (ResizeObserver doesn't fire in jsdom)
+  it('rows no longer carry a per-row stagger delay', async () => {
     const apps = Array.from({ length: 10 }, (_, i) =>
       makeApp({ id: `app-${i}`, companyName: `Co ${i}` })
     )
     const wrapper = mountView(apps)
     await flushPromises()
-    const rows = wrapper.findAll('.company-row')
-    expect(rows).toHaveLength(10)
-    expect(rows[0].attributes('style')).toContain('--i: 0')
-    expect(rows[9].attributes('style')).toContain('--i: 9')
+    for (const row of wrapper.findAll('.company-row')) {
+      expect(row.attributes('style') ?? '').not.toContain('--i')
+    }
   })
 
   it('rows are hidden after search filter removes all matches', async () => {
@@ -376,5 +452,243 @@ describe('ApplicationsView – fixed page size', () => {
     await flushPromises()
 
     expect(wrapper.find('.pagination-info').text()).toContain('1–5')
+  })
+})
+
+// ── status tabs ───────────────────────────────────────────────────────────────
+
+const tabTexts = (w: ReturnType<typeof mount>) =>
+  w.findAll('.status-tab').map(t => t.text().replace(/\s+/g, ' ').trim())
+
+function threeApps() {
+  return [
+    makeApp({ id: 'a', companyName: 'Alpha', status: 'Applied' }),
+    makeApp({ id: 'b', companyName: 'Beta',  status: 'Applied' }),
+    makeApp({ id: 'c', companyName: 'Gamma', status: 'Rejected' }),
+  ]
+}
+
+describe('ApplicationsView – status tabs', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows All plus one tab per status that has applications, with counts', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    expect(tabTexts(wrapper)).toEqual(['All 3', 'Applied 2', 'Rejected 1'])
+  })
+
+  it('has no tabs when there are no applications yet', async () => {
+    const wrapper = mountView([])
+    await flushPromises()
+    expect(wrapper.find('.status-tabs').exists()).toBe(false)
+  })
+
+  it('All is selected to start with', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const pressed = wrapper.findAll('.status-tab').filter(t => t.attributes('aria-pressed') === 'true')
+    expect(pressed.map(t => t.text().split(' ')[0])).toEqual(['All'])
+  })
+
+  it('clicking a tab shows only that status and marks the tab pressed', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const rejected = wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!
+    await rejected.trigger('click')
+    expect(wrapper.findAll('.company-row').map(r => r.find('.row-name-text').text())).toEqual(['Gamma'])
+    expect(rejected.attributes('aria-pressed')).toBe('true')
+    expect(rejected.classes()).toContain('status-tab--active')
+  })
+
+  it('clicking the selected tab again goes back to all applications', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const rejected = () => wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!
+    await rejected().trigger('click')
+    await rejected().trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(3)
+  })
+
+  it('clicking All clears the status filter', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Applied'))!.trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(2)
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('All'))!.trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(3)
+  })
+
+  it('combines with the search box', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Applied'))!.trigger('click')
+    await wrapper.find('input.filter-input').setValue('beta')
+    expect(wrapper.findAll('.company-row').map(r => r.find('.row-name-text').text())).toEqual(['Beta'])
+  })
+
+  it('falls back to All when the last application with the selected status moves on', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!.trigger('click')
+
+    const store = useApplicationsStore()
+    store.applications = store.applications.map(a => a.id === 'c' ? { ...a, status: 'Applied' as const } : a)
+    await flushPromises()
+
+    expect(tabTexts(wrapper)).toEqual(['All 3', 'Applied 3'])
+    expect(wrapper.findAll('.company-row')).toHaveLength(3)
+  })
+
+  it('counts update when applications change', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const store = useApplicationsStore()
+    store.applications = [...store.applications, makeApp({ id: 'd', status: 'Rejected' })]
+    await flushPromises()
+    expect(tabTexts(wrapper)).toEqual(['All 4', 'Applied 2', 'Rejected 2'])
+  })
+
+  it('the status filter no longer counts toward the Filters badge', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!.trigger('click')
+    expect(wrapper.find('.filter-count').exists()).toBe(false)
+  })
+
+  it('the Filters panel no longer duplicates the status control', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.find('.btn-filter-toggle').trigger('click')
+    expect(wrapper.find('select[aria-label="Filter by status"]').exists()).toBe(false)
+    expect(wrapper.find('select[aria-label="Sort order"]').exists()).toBe(true)
+  })
+
+  it('status names in tabs render as text, never as HTML', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    expect(wrapper.find('.status-tab img').exists()).toBe(false)
+  })
+})
+
+// ── row accessibility ─────────────────────────────────────────────────────────
+
+describe('ApplicationsView – row accessibility', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('rows are not fake buttons wrapping other controls', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    const row = wrapper.find('.company-row')
+    expect(row.attributes('role')).toBeUndefined()
+    expect(row.attributes('tabindex')).toBeUndefined()
+  })
+
+  it('the company name is a real button that opens the panel', async () => {
+    const wrapper = mountView([makeApp({ companyName: 'Acme' })])
+    await flushPromises()
+    const btn = wrapper.find('button.row-open')
+    expect(btn.text()).toBe('Acme')
+    expect(btn.attributes('type')).toBe('button')
+    await btn.trigger('click')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(true)
+  })
+
+  it('the button name says what opens: company and position', async () => {
+    const wrapper = mountView([makeApp({ companyName: 'Acme', position: 'Data Engineer' })])
+    await flushPromises()
+    expect(wrapper.find('button.row-open').attributes('aria-label')).toBe('Open Acme, Data Engineer')
+  })
+
+  it('clicking anywhere else on the row still opens it for mouse users', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    await wrapper.find('.row-industry').trigger('click')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(true)
+  })
+
+  it('ticking the checkbox selects the row without opening it', async () => {
+    const wrapper = mountView([makeApp()])
+    await flushPromises()
+    await wrapper.find('.row-checkbox').trigger('click')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(wrapper.find('.bulk-count').text()).toBe('1 selected')
+  })
+
+  it('while selecting, clicking a name adds it to the selection instead of opening it', async () => {
+    const wrapper = mountView([makeApp({ id: 'a', companyName: 'Alpha' }), makeApp({ id: 'b', companyName: 'Beta' })])
+    await flushPromises()
+    await wrapper.findAll('.row-checkbox')[0].trigger('click')
+    await wrapper.findAll('button.row-open')[1].trigger('click')
+    expect(wrapper.find('.bulk-count').text()).toBe('2 selected')
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+  })
+})
+
+// ── opening an application from a link (?open=<id>) ─────────────────────────────
+
+async function mountAt(url: string, apps: Application[]) {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  vi.mocked(api.getApplications).mockResolvedValue(apps)
+  vi.mocked(api.getStats).mockResolvedValue(makeStats())
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/applications', component: { template: '<div/>' } }],
+  })
+  await router.push(url)
+  await router.isReady()
+  const wrapper = mount(ApplicationsView, { global: { plugins: [pinia, router] } })
+  await flushPromises()
+  return { wrapper, router }
+}
+
+describe('ApplicationsView – ?open=<id> deep link', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const two = () => [makeApp({ id: 'a', companyName: 'Alpha' }), makeApp({ id: 'b', companyName: 'Beta' })]
+
+  it('opens the panel for the linked application', async () => {
+    const { wrapper } = await mountAt('/applications?open=b', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).props('application').companyName).toBe('Beta')
+  })
+
+  it('removes the parameter so closing the panel or refreshing does not reopen it', async () => {
+    const { router } = await mountAt('/applications?open=b', two())
+    expect(router.currentRoute.value.query.open).toBeUndefined()
+    expect(router.currentRoute.value.path).toBe('/applications')
+  })
+
+  it('keeps any other query parameters', async () => {
+    const { router } = await mountAt('/applications?open=b&ref=board', two())
+    expect(router.currentRoute.value.query).toEqual({ ref: 'board' })
+  })
+
+  it('ignores an id that is not one of your applications', async () => {
+    const { wrapper, router } = await mountAt('/applications?open=someone-elses-id', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(router.currentRoute.value.query.open).toBeUndefined()
+  })
+
+  it('ignores a repeated parameter instead of guessing which one was meant', async () => {
+    const { wrapper, router } = await mountAt('/applications?open=a&open=b', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(router.currentRoute.value.query.open).toBeUndefined()
+  })
+
+  it('ignores an empty parameter', async () => {
+    const { wrapper } = await mountAt('/applications?open=', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+  })
+
+  it('treats a script-looking id as a plain string that matches nothing', async () => {
+    const { wrapper } = await mountAt(`/applications?open=${encodeURIComponent('<script>alert(1)</script>')}`, two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(wrapper.find('script').exists()).toBe(false)
+  })
+
+  it('does nothing when there is no parameter', async () => {
+    const { wrapper, router } = await mountAt('/applications', two())
+    expect(wrapper.findComponent({ name: 'ApplicationPanel' }).exists()).toBe(false)
+    expect(router.currentRoute.value.fullPath).toBe('/applications')
   })
 })

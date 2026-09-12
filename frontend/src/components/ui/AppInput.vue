@@ -61,12 +61,12 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 }
 
 .app-input[aria-invalid="true"] {
-  border-color: var(--col-danger, #e53e3e);
+  border-color: var(--col-error);
 }
 
 .app-input-error {
   font-size: 0.8rem;
-  color: var(--col-danger, #e53e3e);
+  color: var(--col-error);
   margin: 0;
 }
 

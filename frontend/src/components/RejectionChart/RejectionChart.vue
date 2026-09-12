@@ -1,31 +1,28 @@
 <template>
-  <div class="donut-wrap">
-    <h3 class="chart-title">Rejection breakdown</h3>
+  <div class="reasons-wrap">
+    <h3 class="chart-title">Rejection reasons</h3>
     <div v-if="isEmpty" class="chart-empty">{{ emptyMessage }}</div>
-    <template v-else>
-      <v-chart class="donut-chart" :option="option" autoresize />
-      <ul class="donut-legend">
-        <li v-for="b in legendBuckets" :key="b.key" class="donut-legend-item">
-          <span class="donut-legend-dot" :style="{ background: b.color }" />
-          <span class="donut-legend-label">{{ b.label }}</span>
-          <span class="donut-legend-count">{{ b.value }}</span>
-        </li>
-      </ul>
-    </template>
+    <!-- A ranked list of bars rather than a donut: comparing a handful of
+         counts is what bars are for, and plain text rows need no colour key. -->
+    <ol v-else class="reason-list">
+      <li
+        v-for="r in rows"
+        :key="r.key"
+        :class="['reason-row', { 'reason-row--neutral': r.neutral }]"
+      >
+        <span class="reason-label">{{ r.label }}</span>
+        <span class="reason-count">{{ r.value }}</span>
+        <span class="reason-track" aria-hidden="true">
+          <span class="reason-bar" :style="{ width: `${(r.value / maxValue) * 100}%` }" />
+        </span>
+      </li>
+    </ol>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart } from 'echarts/charts'
-import { TooltipComponent } from 'echarts/components'
-import VChart from 'vue-echarts'
 import type { Application } from '../../api'
-import { useTheme } from '../../composables/useTheme'
-
-use([CanvasRenderer, PieChart, TooltipComponent])
 
 const props = defineProps<{
   applications: Application[]
@@ -33,21 +30,23 @@ const props = defineProps<{
   to?: string
 }>()
 
-const { theme } = useTheme()
-const surfaceColor = computed(() => theme.value === 'dark' ? '#251D16' : '#F0EAE0')
-
+// Declaration order breaks ties between reasons with the same count. The two
+// "no real reason" buckets are drawn in a muted tone so they don't read as
+// findings.
 const REASON_META = [
-  { key: 'another_candidate',    label: 'Another candidate selected', color: '#ef4444' },
-  { key: 'incompatible_profile', label: 'Incompatible profile',        color: '#3b82f6' },
-  { key: 'dutch_language',       label: 'Dutch language requirement',  color: '#f97316' },
-  { key: 'salary_mismatch',      label: 'Salary mismatch',             color: '#eab308' },
-  { key: 'internal_hire',        label: 'Filled internally',           color: '#8b5cf6' },
-  { key: 'failed_assessment',    label: 'Did not pass assessment',     color: '#fb923c' },
-  { key: 'no_vacancies',         label: 'No vacancies at the moment',  color: '#06b6d4' },
-  { key: 'no_hsm_sponsorship',   label: 'No HSM visa sponsorship',     color: '#ec4899' },
-  { key: 'other',                label: 'Other',                       color: '#6b7280' },
-  { key: 'unknown',              label: 'No reason given',             color: '#94a3b8' },
+  { key: 'another_candidate',    label: 'Another candidate selected' },
+  { key: 'incompatible_profile', label: 'Incompatible profile' },
+  { key: 'dutch_language',       label: 'Dutch language requirement' },
+  { key: 'salary_mismatch',      label: 'Salary mismatch' },
+  { key: 'internal_hire',        label: 'Filled internally' },
+  { key: 'failed_assessment',    label: 'Did not pass assessment' },
+  { key: 'no_vacancies',         label: 'No vacancies at the moment' },
+  { key: 'no_hsm_sponsorship',   label: 'No HSM visa sponsorship' },
+  { key: 'other',                label: 'Other' },
+  { key: 'unknown',              label: 'No reason given' },
 ] as const
+
+const NEUTRAL = new Set(['other', 'unknown'])
 
 const rejected = computed(() => {
   const fromMs = props.from ? new Date(props.from).getTime() : -Infinity
@@ -59,72 +58,46 @@ const rejected = computed(() => {
   })
 })
 
-const buckets = computed(() => {
+const rows = computed(() => {
   const counts: Record<string, number> = {}
   for (const a of rejected.value) {
     const key = a.rejectionReason ?? 'unknown'
     counts[key] = (counts[key] ?? 0) + 1
   }
-  return REASON_META.map(m => ({ ...m, value: counts[m.key] ?? 0 }))
+  return REASON_META
+    .map(m => ({ key: m.key, label: m.label, value: counts[m.key] ?? 0, neutral: NEUTRAL.has(m.key) }))
+    .filter(r => r.value > 0)
+    .sort((a, b) => b.value - a.value) // stable: ties keep REASON_META order
 })
 
-const TOP_N = 2
-
-const nonZeroBuckets = computed(() =>
-  buckets.value.filter(b => b.value > 0).sort((a, b) => b.value - a.value)
-)
-
-const legendBuckets = computed(() => nonZeroBuckets.value.slice(0, TOP_N))
+const maxValue = computed(() => Math.max(1, ...rows.value.map(r => r.value)))
 
 const isEmpty = computed(() => rejected.value.length === 0)
 
 const emptyMessage = computed(() =>
   props.from || props.to ? 'No rejections in this period.' : 'No rejections yet.'
 )
-
-const option = computed(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)', confine: window.innerWidth <= 767 },
-  series: [{
-    type: 'pie',
-    radius: ['45%', '72%'],
-    avoidLabelOverlap: false,
-    label: { show: false },
-    emphasis: { label: { show: false } },
-    data: nonZeroBuckets.value.map(b => ({
-      name:      b.label,
-      value:     b.value,
-      itemStyle: { color: b.color, borderWidth: 3, borderColor: surfaceColor.value },
-    })),
-  }],
-}))
 </script>
 
 <style scoped>
-.donut-wrap {
+.reasons-wrap {
   background: var(--col-surface);
-  border: 1px solid var(--col-border);
-  border-radius: .75rem;
+  border: 1px solid var(--col-border-lt);
+  border-radius: var(--radius-lg);
   padding: 1.25rem 1rem 1rem;
-  box-shadow:
-    0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
-    0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
   display: flex;
   flex-direction: column;
 }
 
 .chart-title {
-  font-size: .8rem;
+  font-size: .9375rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--col-muted);
+  color: var(--col-text);
   margin: 0 0 .75rem;
 }
 
-.donut-chart { height: 200px; width: 100%; }
-
 .chart-empty {
-  height: 200px;
+  min-height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,29 +105,34 @@ const option = computed(() => ({
   font-size: .875rem;
 }
 
-.donut-legend {
+.reason-list {
   list-style: none;
-  margin: .75rem 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: .375rem;
+  gap: .75rem;
 }
 
-.donut-legend-item {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  font-size: .8125rem;
+.reason-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "label count" "track track";
+  row-gap: .3rem;
+  column-gap: .75rem;
+  font-size: .875rem;
 }
+.reason-label { grid-area: label; color: var(--col-text); }
+.reason-count { grid-area: count; font-weight: 600; color: var(--col-text); font-variant-numeric: tabular-nums; }
 
-.donut-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.reason-track { grid-area: track; display: block; height: 6px; }
+.reason-bar {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  background: var(--col-accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
-
-.donut-legend-label { flex: 1; color: var(--col-text); }
-.donut-legend-count { font-weight: 600; color: var(--col-text); }
+.reason-row--neutral .reason-label { color: var(--col-muted); }
+.reason-row--neutral .reason-bar   { background: var(--col-subtle); }
 </style>
