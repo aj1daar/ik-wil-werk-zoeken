@@ -95,6 +95,10 @@ _db.Database.EnsureCreated();                   // schema from the model, not fr
 _store = new SponsorStore(_db);
 ```
 
+SQLite is not Postgres, and the difference occasionally reaches the code: it cannot `ORDER BY` a
+`DateTimeOffset`, which is why `UserStore.GetAllAsync` sorts in memory. When a query can't be
+translated, prefer a small, commented change in the store over an untested method.
+
 Pure logic is tested directly rather than through HTTP: `backend.csproj` grants `InternalsVisibleTo`
 to the test project, and controller helpers like `BuildActivityLogs`, `ValidateStage` and
 `BuildStatusFlow` are `internal static` for exactly this reason. Prefer adding a helper of that shape
