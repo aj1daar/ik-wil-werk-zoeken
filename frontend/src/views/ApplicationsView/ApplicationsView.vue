@@ -23,10 +23,9 @@ const modalOpen         = ref(false)
 const showFiltersPanel  = ref(false)
 const currentPage       = ref(1)
 
-const activeFilterCount = computed(() =>
-  (filterStatus.value !== '' ? 1 : 0) +
-  (sortBy.value !== 'newest' ? 1 : 0)
-)
+// The status filter lives in the always-visible status tabs, so only what is
+// tucked behind the Filters toggle counts toward its badge.
+const activeFilterCount = computed(() => (sortBy.value !== 'newest' ? 1 : 0))
 
 const checkedIds   = ref<Set<string>>(new Set())
 const bulkStatus   = ref<ApplicationStatus | ''>('')
@@ -97,6 +96,24 @@ const visiblePages = computed((): (number | null)[] => {
 })
 
 watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
+
+// One tab per status that currently has applications, in lifecycle order
+const statusCounts = computed(() => {
+  const counts = new Map<ApplicationStatus, number>()
+  for (const a of store.applications) counts.set(a.status, (counts.get(a.status) ?? 0) + 1)
+  return ALL_STATUSES.filter(s => counts.has(s)).map(s => ({ status: s, count: counts.get(s)! }))
+})
+
+// If the last application with the selected status moves on (edited, bulk
+// updated, deleted), its tab disappears, so fall back to All rather than
+// stranding the user on an empty, unexplained list.
+watch(statusCounts, list => {
+  if (filterStatus.value && !list.some(s => s.status === filterStatus.value)) filterStatus.value = ''
+})
+
+function toggleStatus(s: ApplicationStatus) {
+  filterStatus.value = filterStatus.value === s ? '' : s
+}
 // Deleting or bulk-updating applications can shrink the page count out from
 // under whatever page the user is on (e.g. deleting the last item on the
 // last page) — clamp instead of leaving currentPage pointing past the end.
@@ -229,6 +246,23 @@ function printPage() {
         <input v-model="search" placeholder="Search by company or position…" class="filter-input pl-9" aria-label="Search applications" />
       </div>
 
+      <div v-if="statusCounts.length > 0" class="status-tabs" role="group" aria-label="Show applications by status">
+        <button
+          type="button"
+          :class="['status-tab', filterStatus === '' && 'status-tab--active']"
+          :aria-pressed="filterStatus === ''"
+          @click="filterStatus = ''"
+        >All <span class="status-tab-count">{{ store.applications.length }}</span></button>
+        <button
+          v-for="s in statusCounts"
+          :key="s.status"
+          type="button"
+          :class="['status-tab', filterStatus === s.status && 'status-tab--active']"
+          :aria-pressed="filterStatus === s.status"
+          @click="toggleStatus(s.status)"
+        ><span class="status-tab-dot" :style="{ background: statusMark(s.status) }" aria-hidden="true" />{{ STATUS_LABELS[s.status] }} <span class="status-tab-count">{{ s.count }}</span></button>
+      </div>
+
       <div class="filter-controls-row">
         <div v-if="filtered.length > 0" class="pagination">
           <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
@@ -273,11 +307,6 @@ function printPage() {
 
     <Transition name="filter-drop">
       <div v-if="showFiltersPanel" class="dropdown-filters-panel">
-        <select v-model="filterStatus" class="filter-input filter-select" aria-label="Filter by status">
-          <option value="">All statuses</option>
-          <option v-for="s in ALL_STATUSES" :key="s" :value="s">{{ STATUS_LABELS[s] }}</option>
-        </select>
-
         <select v-model="sortBy" class="filter-input filter-select" aria-label="Sort order">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
@@ -505,6 +534,40 @@ function printPage() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Status tabs: the quickest way to narrow the list, always in view */
+.status-tabs {
+  display: flex;
+  gap: .375rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: .125rem;
+  margin: 0 -.125rem;
+}
+.status-tabs::-webkit-scrollbar { display: none; }
+.status-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  flex-shrink: 0;
+  padding: .3rem .625rem;
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius);
+  background: var(--col-bg);
+  color: var(--col-muted);
+  font: inherit;
+  font-size: .8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .12s, color .12s, border-color .12s;
+}
+.status-tab:not(.status-tab--active):hover { background: var(--col-raised); color: var(--col-text); }
+.status-tab--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); }
+.status-tab-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+.status-tab-dot { width: .5rem; height: .5rem; border-radius: 50%; flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .status-tab { transition: none; }
 }
 .sponsor-chip--inline {
   flex-shrink: 0;

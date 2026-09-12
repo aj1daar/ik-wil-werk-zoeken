@@ -453,3 +453,119 @@ describe('ApplicationsView – fixed page size', () => {
     expect(wrapper.find('.pagination-info').text()).toContain('1–5')
   })
 })
+
+// ── status tabs ───────────────────────────────────────────────────────────────
+
+const tabTexts = (w: ReturnType<typeof mount>) =>
+  w.findAll('.status-tab').map(t => t.text().replace(/\s+/g, ' ').trim())
+
+function threeApps() {
+  return [
+    makeApp({ id: 'a', companyName: 'Alpha', status: 'Applied' }),
+    makeApp({ id: 'b', companyName: 'Beta',  status: 'Applied' }),
+    makeApp({ id: 'c', companyName: 'Gamma', status: 'Rejected' }),
+  ]
+}
+
+describe('ApplicationsView – status tabs', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows All plus one tab per status that has applications, with counts', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    expect(tabTexts(wrapper)).toEqual(['All 3', 'Applied 2', 'Rejected 1'])
+  })
+
+  it('has no tabs when there are no applications yet', async () => {
+    const wrapper = mountView([])
+    await flushPromises()
+    expect(wrapper.find('.status-tabs').exists()).toBe(false)
+  })
+
+  it('All is selected to start with', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const pressed = wrapper.findAll('.status-tab').filter(t => t.attributes('aria-pressed') === 'true')
+    expect(pressed.map(t => t.text().split(' ')[0])).toEqual(['All'])
+  })
+
+  it('clicking a tab shows only that status and marks the tab pressed', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const rejected = wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!
+    await rejected.trigger('click')
+    expect(wrapper.findAll('.company-row').map(r => r.find('.row-name-text').text())).toEqual(['Gamma'])
+    expect(rejected.attributes('aria-pressed')).toBe('true')
+    expect(rejected.classes()).toContain('status-tab--active')
+  })
+
+  it('clicking the selected tab again goes back to all applications', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const rejected = () => wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!
+    await rejected().trigger('click')
+    await rejected().trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(3)
+  })
+
+  it('clicking All clears the status filter', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Applied'))!.trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(2)
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('All'))!.trigger('click')
+    expect(wrapper.findAll('.company-row')).toHaveLength(3)
+  })
+
+  it('combines with the search box', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Applied'))!.trigger('click')
+    await wrapper.find('input.filter-input').setValue('beta')
+    expect(wrapper.findAll('.company-row').map(r => r.find('.row-name-text').text())).toEqual(['Beta'])
+  })
+
+  it('falls back to All when the last application with the selected status moves on', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!.trigger('click')
+
+    const store = useApplicationsStore()
+    store.applications = store.applications.map(a => a.id === 'c' ? { ...a, status: 'Applied' as const } : a)
+    await flushPromises()
+
+    expect(tabTexts(wrapper)).toEqual(['All 3', 'Applied 3'])
+    expect(wrapper.findAll('.company-row')).toHaveLength(3)
+  })
+
+  it('counts update when applications change', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    const store = useApplicationsStore()
+    store.applications = [...store.applications, makeApp({ id: 'd', status: 'Rejected' })]
+    await flushPromises()
+    expect(tabTexts(wrapper)).toEqual(['All 4', 'Applied 2', 'Rejected 2'])
+  })
+
+  it('the status filter no longer counts toward the Filters badge', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.findAll('.status-tab').find(t => t.text().startsWith('Rejected'))!.trigger('click')
+    expect(wrapper.find('.filter-count').exists()).toBe(false)
+  })
+
+  it('the Filters panel no longer duplicates the status control', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    await wrapper.find('.btn-filter-toggle').trigger('click')
+    expect(wrapper.find('select[aria-label="Filter by status"]').exists()).toBe(false)
+    expect(wrapper.find('select[aria-label="Sort order"]').exists()).toBe(true)
+  })
+
+  it('status names in tabs render as text, never as HTML', async () => {
+    const wrapper = mountView(threeApps())
+    await flushPromises()
+    expect(wrapper.find('.status-tab img').exists()).toBe(false)
+  })
+})
+
