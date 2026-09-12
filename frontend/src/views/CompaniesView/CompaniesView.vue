@@ -666,7 +666,6 @@ const activeDropdownCount = computed(() =>
   .company-tile { min-height: 60px; }
   /* Full-bleed on phones (the scoped margin above outranks style.css's) */
   .dashboard { margin: 0; }
-  .page-btn { min-width: 2.75rem; height: 2.75rem; }  /* Apple HIG 44pt tap target */
 }
 
 @media (min-width: 768px) {
@@ -725,4 +724,11 @@ const activeDropdownCount = computed(() =>
 .page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
 .page-btn:disabled { opacity: .35; cursor: default; }
 .page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
+
+/* After the base rule, not before it: an earlier media block loses to a later
+   plain rule of the same specificity, which is how this tap target spent a
+   while being 32px wide on phones. */
+@media (max-width: 767px) {
+  .page-btn { min-width: 2.75rem; height: 2.75rem; }  /* Apple HIG 44pt tap target */
+}
 </style>
