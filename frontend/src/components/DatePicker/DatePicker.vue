@@ -308,6 +308,7 @@ onUnmounted(() => {
 /* Native mobile input — reset the flex/button layout above, it's a real <input> now */
 .dp-native {
   display: block;
+  width: 100%; /* a native date input keeps its intrinsic width otherwise */
   box-sizing: border-box;
   color-scheme: light dark;
 }

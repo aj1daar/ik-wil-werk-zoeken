@@ -447,9 +447,21 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 .range-btn:focus-visible { outline-offset: -2px; }
 .range-btn:not(.range-btn--active):hover { background: var(--col-surface); color: var(--col-text); }
 .range-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); font-weight: 500; }
-@media (max-width: 640px) {
-  .range-bar { width: 100%; }
-  .range-btn { flex: 1 1 auto; }
+/* Phones: six ranges wrapped 4 + 2 with the last two stretched to fill the
+   row. An even 3 x 2 grid keeps every option visible and the same size; the
+   1px gap over a border-coloured ground draws the dividers. */
+@media (max-width: 767px) {
+  .range-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    width: 100%;
+    background: var(--col-border);
+  }
+  .range-btn { border-left: none; white-space: nowrap; }
+  /* Not on the active one: this media block comes later than
+     .range-btn--active, so it would repaint it and leave light text on light */
+  .range-btn:not(.range-btn--active) { background: var(--col-bg); }
 }
 
 .custom-range { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
@@ -460,6 +472,13 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 .custom-overall-cb { width: 1rem; height: 1rem; accent-color: var(--col-accent); cursor: pointer; }
 .custom-date-row { display: flex; gap: 1rem; flex-wrap: wrap; }
 .custom-range-field { display: flex; flex-direction: column; gap: .25rem; }
+/* After the rules above, not inside the earlier phone block: a media query adds
+   no specificity, so up there the plain .custom-date-row rule won and the two
+   date fields stayed half-width. */
+@media (max-width: 767px) {
+  .custom-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .custom-range-field { min-width: 0; }
+}
 
 .onboarding-banner {
   display: flex; align-items: flex-start; gap: 1rem;
