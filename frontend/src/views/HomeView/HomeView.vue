@@ -6,6 +6,7 @@ import StatusTree from '../../components/StatusTree/StatusTree.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
 import DatePicker from '../../components/DatePicker/DatePicker.vue'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 
 const store = useApplicationsStore()
 
@@ -214,7 +215,16 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
         <p v-if="boardSummary" class="board-summary">{{ boardSummary }}</p>
       </header>
 
-      <p v-if="store.loading && store.applications.length === 0" class="board-empty">Loading follow-ups…</p>
+      <LoadingRegion v-if="store.loading && store.applications.length === 0" label="Loading follow-ups">
+        <ol class="board-rows" aria-hidden="true">
+          <li v-for="w in [46, 60, 38]" :key="w" class="board-row">
+            <span class="board-row-link skeleton-board-row">
+              <span class="skeleton skeleton--title" style="width: 3.5rem" />
+              <span class="skeleton skeleton--title" :style="{ width: `${w}%` }" />
+            </span>
+          </li>
+        </ol>
+      </LoadingRegion>
 
       <ol v-else-if="boardRows.length > 0" class="board-rows">
         <li
@@ -279,7 +289,29 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
       </div>
     </div>
 
-    <div v-if="store.statusFlowLoading && !store.statusFlow" class="state-msg">Loading…</div>
+    <LoadingRegion v-if="store.statusFlowLoading && !store.statusFlow" label="Loading your pipeline">
+      <!-- Same grid as the charts below, so nothing moves when they arrive -->
+      <div class="journey-layout" aria-hidden="true">
+        <div class="skeleton-card funnel-section">
+          <span class="skeleton skeleton--title" style="width: 38%" />
+          <span class="skeleton" style="height: 22rem" />
+        </div>
+        <div class="charts-col">
+          <div class="skeleton-card">
+            <span class="skeleton skeleton--title" style="width: 45%" />
+            <span class="skeleton-lines">
+              <span class="skeleton" style="width: 90%" />
+              <span class="skeleton" style="width: 62%" />
+              <span class="skeleton" style="width: 48%" />
+            </span>
+          </div>
+          <div class="skeleton-card">
+            <span class="skeleton skeleton--title" style="width: 52%" />
+            <span class="skeleton" style="height: 12rem" />
+          </div>
+        </div>
+      </div>
+    </LoadingRegion>
 
     <div v-else-if="store.statusFlowError" class="state-msg state-msg--error" role="alert">{{ store.statusFlowError }}</div>
 
@@ -374,6 +406,10 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 .board-when { font-size: .875rem; color: var(--col-nav-muted); white-space: nowrap; }
 .board-row--late .board-when,
 .board-row--today .board-when { color: var(--col-signal); font-weight: 600; }
+
+/* Placeholders on the dark board: the paper-coloured shapes would glare */
+.skeleton-board-row { align-items: center; }
+.board .skeleton { background: color-mix(in srgb, var(--col-nav-text) 14%, transparent); }
 
 .board-empty {
   margin: 0;

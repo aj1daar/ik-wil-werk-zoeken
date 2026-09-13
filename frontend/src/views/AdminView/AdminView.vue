@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { api, type AdminUserSummary, type SyncLog } from '../../api'
 import { useCompaniesStore } from '../../stores/companies'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 
 const companiesStore = useCompaniesStore()
 
@@ -324,7 +325,13 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Sync log table -->
     <section class="admin-card" aria-labelledby="sync-logs-heading">
       <h2 id="sync-logs-heading" class="card-title">Sync history</h2>
-      <p v-if="loadingLogs" class="muted">Loading…</p>
+      <LoadingRegion v-if="loadingLogs" label="Loading sync history">
+        <span class="skeleton-lines" aria-hidden="true">
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 85%" />
+        </span>
+      </LoadingRegion>
       <p v-else-if="logsError" class="form-error" role="alert">{{ logsError }}</p>
       <p v-else-if="syncLogs.length === 0" class="muted">No syncs recorded yet.</p>
       <div v-else class="table-wrap table-wrap--capped">
@@ -360,7 +367,13 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Users table -->
     <section class="admin-card" aria-labelledby="users-heading">
       <h2 id="users-heading" class="card-title">All users</h2>
-      <p v-if="loadingUsers" class="muted">Loading…</p>
+      <LoadingRegion v-if="loadingUsers" label="Loading users">
+        <span class="skeleton-lines" aria-hidden="true">
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 85%" />
+        </span>
+      </LoadingRegion>
       <p v-else-if="usersError" class="form-error" role="alert">{{ usersError }}</p>
       <div v-else class="table-wrap">
         <table class="users-table" aria-label="Registered users">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from '../ui/AppIcon.vue'
+import LoadingRegion from '../ui/LoadingRegion.vue'
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, REJECTION_REASON_LABELS, type HistoryChanges } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
@@ -587,7 +588,12 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           <span class="field-label">Status journey</span>
           <span class="sj-hint">Changes save when you click Save changes</span>
         </div>
-        <div v-if="historyLoading" class="sj-empty">Loading…</div>
+        <LoadingRegion v-if="historyLoading" label="Loading status history">
+          <span class="skeleton-lines" aria-hidden="true">
+            <span class="skeleton" style="width: 70%" />
+            <span class="skeleton" style="width: 52%" />
+          </span>
+        </LoadingRegion>
         <template v-else>
           <p v-if="historyError" class="sh-error">{{ historyError }}</p>
           <ul v-if="sortedJourney.length > 0" class="sj-list">
@@ -795,7 +801,13 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         </button>
 
         <div v-if="showHistory" class="history-body">
-          <div v-if="activityLoading" class="history-empty">Loading…</div>
+          <LoadingRegion v-if="activityLoading" label="Loading activity">
+            <span class="skeleton-lines" aria-hidden="true">
+              <span class="skeleton" style="width: 80%" />
+              <span class="skeleton" style="width: 64%" />
+              <span class="skeleton" style="width: 72%" />
+            </span>
+          </LoadingRegion>
           <div v-else-if="activityLogs.length === 0" class="history-empty">No changes recorded yet.</div>
           <ul v-else class="timeline">
             <li v-for="log in activityLogs" :key="log.id" class="timeline-item">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from '../../components/ui/AppIcon.vue'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
@@ -432,7 +433,16 @@ const activeDropdownCount = computed(() =>
     </div>
 
     <div class="grid-wrap">
-      <div v-if="store.loading" class="state-msg">Loading…</div>
+      <LoadingRegion v-if="store.loading" label="Loading companies">
+        <!-- A full page of rows: gridRows counts loaded companies, which is none
+             yet, and one row would lay the 16 tiles out as a single strip -->
+        <div class="company-grid" :style="{ '--tile-rows': 8 }" aria-hidden="true">
+          <div v-for="n in 16" :key="n" class="company-tile skeleton-tile">
+            <span class="skeleton skeleton--title" :style="{ width: `${40 + (n * 17) % 35}%` }" />
+            <span class="skeleton" :style="{ width: `${55 + (n * 23) % 35}%` }" />
+          </div>
+        </div>
+      </LoadingRegion>
       <div v-else-if="store.error" class="state-msg state-msg--error" role="alert">{{ store.error }}</div>
       <div v-else-if="pagedCompanies.length === 0" class="state-msg">
         {{ hasActiveFilters ? 'No companies match your filters.' : 'No IND sponsor companies loaded yet.' }}
@@ -582,6 +592,9 @@ const activeDropdownCount = computed(() =>
 /* ── company grid ─────────────────────────────────────────────────────────── */
 
 .grid-wrap { flex: 1; min-height: 0; }
+/* The placeholder grid fills the fixed-height card the way the real one does */
+.grid-wrap > .loading-region { height: 100%; }
+.skeleton-tile { display: flex; flex-direction: column; justify-content: center; gap: .5rem; cursor: default; pointer-events: none; }
 
 .company-grid {
   display: grid;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from '../../components/ui/AppIcon.vue'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
@@ -365,7 +366,18 @@ function printPage() {
         </div>
 
         <div class="app-list-wrapper">
-          <div v-if="store.loading" class="state-msg">Loading…</div>
+          <LoadingRegion v-if="store.loading" label="Loading your applications">
+            <ul class="app-grid" aria-hidden="true">
+              <li v-for="w in [44, 58, 36, 50, 40, 54]" :key="w" class="company-row skeleton-row">
+                <span class="skeleton skeleton--box" />
+                <span class="skeleton-row-body">
+                  <span class="skeleton skeleton--title" :style="{ width: `${w}%` }" />
+                  <span class="skeleton" :style="{ width: `${w - 14}%` }" />
+                  <span class="skeleton skeleton--chip" />
+                </span>
+              </li>
+            </ul>
+          </LoadingRegion>
           <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
           <div v-else-if="filtered.length === 0" class="state-msg">
             <template v-if="store.applications.length === 0">
@@ -871,6 +883,11 @@ function printPage() {
    An inset shadow rather than a border, so it follows the card's rounded
    corners and never changes the row's box size. */
 .company-row { box-shadow: inset 3px 0 0 var(--stripe, transparent); }
+
+/* Placeholder rows borrow .company-row's padding and grid, so the real rows
+   land exactly where the grey ones were */
+.skeleton-row { cursor: default; pointer-events: none; }
+.skeleton-row-body { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
 
 /* Changing page (or filtering) swaps the whole set of keys at once — every
    old card leaves while every new one enters in the same tick. .list-leave
