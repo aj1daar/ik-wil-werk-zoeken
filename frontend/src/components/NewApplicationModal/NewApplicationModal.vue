@@ -316,7 +316,7 @@ async function submit() {
         <div class="footer-actions">
           <button @click="requestClose" class="btn-secondary">Cancel</button>
           <button @click="submit" :disabled="saving" class="btn-primary">
-            {{ saving ? 'Saving…' : 'Add Application' }}
+            {{ saving ? 'Saving…' : 'Add application' }}
           </button>
         </div>
       </div>

@@ -488,7 +488,7 @@ onMounted(loadMerged)
             {{ isHidden ? 'Unhide' : 'Not interested' }}
           </button>
           <button @click="emit('start-application')" class="btn-primary footer-primary">
-            {{ application ? 'Add Another Application' : 'Start Application' }}
+            {{ application ? 'Add another application' : 'Start application' }}
           </button>
         </template>
       </div>

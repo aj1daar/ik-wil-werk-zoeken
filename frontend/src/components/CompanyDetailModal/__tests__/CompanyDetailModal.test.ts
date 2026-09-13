@@ -113,14 +113,14 @@ describe('CompanyDetailModal – rendering', () => {
 // ── footer actions ───────────────────────────────────────────────────────────
 
 describe('CompanyDetailModal – footer actions', () => {
-  it('"Start Application" when there is no application', () => {
+  it('"Start application" when there is no application', () => {
     const w = mountModal({ application: null })
-    expect(w.find('.footer-primary').text()).toContain('Start Application')
+    expect(w.find('.footer-primary').text()).toContain('Start application')
   })
 
-  it('"Add Another Application" when there is one', () => {
+  it('"Add another application" when there is one', () => {
     const w = mountModal({ application: makeApp() })
-    expect(w.find('.footer-primary').text()).toContain('Add Another Application')
+    expect(w.find('.footer-primary').text()).toContain('Add another application')
   })
 
   it('emits start-application', async () => {

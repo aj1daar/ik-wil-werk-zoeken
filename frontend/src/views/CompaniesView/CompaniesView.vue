@@ -313,9 +313,9 @@ const activeDropdownCount = computed(() =>
 
         <!-- Sort -->
         <select v-model="sortOrder" class="filter-input filter-select filter-select--sm" aria-label="Sort companies">
-          <option value="az">A → Z</option>
-          <option value="za">Z → A</option>
-          <option value="city">City A → Z</option>
+          <option value="az">Name A–Z</option>
+          <option value="za">Name Z–A</option>
+          <option value="city">City A–Z</option>
           <option value="default">Default</option>
         </select>
 
