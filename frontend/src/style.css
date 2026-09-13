@@ -557,6 +557,8 @@ input[type="password"]::-ms-clear { display: none; }
    minimum, comfortably past the 24px WCAG 2.5.8 floor). Mouse-driven screens
    keep their denser sizing, which is why this is a pointer query and not a
    width one — a touchscreen laptop counts as coarse too. */
+input[type="checkbox"] { accent-color: var(--col-accent); }
+
 @media (pointer: coarse) {
   .btn-primary,
   .btn-secondary,
