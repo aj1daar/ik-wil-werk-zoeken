@@ -845,41 +845,35 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
     </div>
   </div>
 
-  <Transition name="modal">
-    <ConfirmDialog
-      v-if="showDiscardConfirm"
-      title="Discard changes?"
-      message="You have unsaved changes. They will be lost."
-      confirm-label="Discard"
-      confirm-class="btn-danger"
-      @confirm="emit('close')"
-      @cancel="showDiscardConfirm = false"
-    />
-  </Transition>
+  <ConfirmDialog
+    v-if="showDiscardConfirm"
+    title="Discard changes?"
+    message="You have unsaved changes. They will be lost."
+    confirm-label="Discard"
+    confirm-class="btn-danger"
+    @confirm="emit('close')"
+    @cancel="showDiscardConfirm = false"
+  />
 
-  <Transition name="modal">
-    <ConfirmDialog
-      v-if="showDeleteConfirm"
-      title="Delete application?"
-      message="This cannot be undone."
-      confirm-label="Delete"
-      confirm-class="btn-danger"
-      @confirm="() => { showDeleteConfirm = false; remove() }"
-      @cancel="showDeleteConfirm = false"
-    />
-  </Transition>
+  <ConfirmDialog
+    v-if="showDeleteConfirm"
+    title="Delete application?"
+    message="This cannot be undone."
+    confirm-label="Delete"
+    confirm-class="btn-danger"
+    @confirm="() => { showDeleteConfirm = false; remove() }"
+    @cancel="showDeleteConfirm = false"
+  />
 
-  <Transition name="modal">
-    <ConfirmDialog
-      v-if="showDeleteHistoryConfirm"
-      title="Delete status entry?"
-      message="This change will be applied when you save."
-      confirm-label="Remove"
-      confirm-class="btn-danger"
-      @confirm="deleteEntry"
-      @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
-    />
-  </Transition>
+  <ConfirmDialog
+    v-if="showDeleteHistoryConfirm"
+    title="Delete status entry?"
+    message="This change will be applied when you save."
+    confirm-label="Remove"
+    confirm-class="btn-danger"
+    @confirm="deleteEntry"
+    @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
+  />
 
   <teleport to="body">
     <Transition name="toast">
