@@ -152,6 +152,12 @@ const unmergingId      = ref<string | null>(null)
 
 // Live companies matching the search box, minus this company and anything the
 // admin already staged for the merge.
+const hasDetails = computed(() => {
+  const c = props.company
+  return !!(c.workingLanguage || c.remotePolicy || c.companySize || c.targetMarket || c.parentCompanyName
+    || c.locations?.length || c.summary || c.coreIndustry || c.techStackTags?.length || c.functionalTags?.length)
+})
+
 const mergeResults = computed<SponsorCompany[]>(() => {
   const q = mergeQuery.value.trim()
   if (q.length < 2) return []
@@ -267,6 +273,12 @@ onMounted(loadMerged)
             <span class="applied-position">{{ application.position }}</span>
           </div>
         </div>
+
+        <!-- Most register entries have nothing enriched yet; without this the
+             modal showed an empty band between two dividers. -->
+        <p v-if="!editing && !application && !isAdmin && !hasDetails" class="body-text body-text--empty">
+          No details yet. This company is on the IND register of recognised sponsors.
+        </p>
 
         <!-- ── read-only view ──────────────────────────────────────────────── -->
         <template v-if="!editing">
