@@ -132,6 +132,8 @@ const emptyMessage = computed(() =>
   min-width: 4px;
   background: var(--col-accent);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  /* Picking another range grows or shrinks the bars instead of snapping them */
+  transition: width var(--dur-base) var(--ease-standard);
 }
 .reason-row--neutral .reason-label { color: var(--col-muted); }
 .reason-row--neutral .reason-bar   { background: var(--col-subtle); }
