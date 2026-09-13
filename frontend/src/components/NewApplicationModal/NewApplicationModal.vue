@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../ui/AppIcon.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
@@ -204,9 +205,7 @@ async function submit() {
       <div class="modal-header">
         <h2 id="modal-title" class="modal-title">New application</h2>
         <button @click="requestClose" class="btn-icon" aria-label="Close">
-          <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <AppIcon name="close" class="icon" />
         </button>
       </div>
 

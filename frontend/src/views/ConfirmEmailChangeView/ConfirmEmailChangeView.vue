@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../../components/ui/AppIcon.vue'
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
@@ -38,9 +39,7 @@ onMounted(async () => {
 
       <template v-else-if="status === 'ok'">
         <div class="state-msg state-msg--ok" role="status">
-          <svg xmlns="http://www.w3.org/2000/svg" class="state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+          <AppIcon name="check" class="state-icon" />
           <p>{{ message }}</p>
           <p class="redirect-note">Redirecting to your profile…</p>
         </div>

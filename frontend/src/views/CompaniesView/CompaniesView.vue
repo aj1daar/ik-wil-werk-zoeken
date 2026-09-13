@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../../components/ui/AppIcon.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
@@ -287,9 +288,7 @@ const activeDropdownCount = computed(() =>
     <div class="filter-bar">
       <!-- Row 1: search -->
       <div class="filter-search">
-        <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-        </svg>
+        <AppIcon name="search" class="filter-icon" />
         <input v-model="search" placeholder="Search by name, city, industry or tags…" class="filter-input pl-9" aria-label="Search companies" />
       </div>
 
@@ -301,14 +300,10 @@ const activeDropdownCount = computed(() =>
           @click="showDropdownFilters = !showDropdownFilters"
           :aria-expanded="showDropdownFilters"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
-          </svg>
+          <AppIcon name="filter" class="btn-icon-sm" />
           Filters
           <span v-if="activeDropdownCount > 0" class="filter-count">{{ activeDropdownCount }}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showDropdownFilters && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
+          <AppIcon name="chevron-down" :class="['btn-icon-sm', 'btn-chevron', showDropdownFilters && 'btn-chevron--open']" />
         </button>
 
         <!-- Sort -->
@@ -340,9 +335,7 @@ const activeDropdownCount = computed(() =>
           :aria-expanded="showFilters"
           aria-controls="tag-filter-panel"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
-          </svg>
+          <AppIcon name="sort" class="btn-icon-sm" />
           Tags
           <span v-if="includeTags.length + excludeTags.length > 0" class="filter-count">
             {{ includeTags.length + excludeTags.length }}
@@ -389,9 +382,7 @@ const activeDropdownCount = computed(() =>
           <strong>Click once</strong> to include (green), <strong>click again</strong> to exclude (red), <strong>third click</strong> to clear.
         </p>
         <div class="tag-search-wrap">
-          <svg class="tag-search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-          </svg>
+          <AppIcon name="search" class="tag-search-icon" />
           <input
             v-model="tagSearch"
             placeholder="Search tags…"

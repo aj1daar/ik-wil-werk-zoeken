@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../../components/ui/AppIcon.vue'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
@@ -257,9 +258,7 @@ function printPage() {
   <div class="dashboard">
     <div class="filter-bar">
       <div class="filter-search">
-        <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-        </svg>
+        <AppIcon name="search" class="filter-icon" />
         <input v-model="search" placeholder="Search by company or position…" class="filter-input pl-9" aria-label="Search applications" />
       </div>
 
@@ -302,20 +301,14 @@ function printPage() {
             @click="showFiltersPanel = !showFiltersPanel"
             :aria-expanded="showFiltersPanel"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
-            </svg>
+            <AppIcon name="filter" class="btn-icon-sm" />
             Filters
             <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+            <AppIcon name="chevron-down" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" />
           </button>
 
           <button @click="modalOpen = true" class="btn-new" title="New application (N)">
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
+            <AppIcon name="plus" class="btn-new-icon" />
             New application
           </button>
         </div>
@@ -338,9 +331,7 @@ function printPage() {
           class="btn-export"
           title="Export all applications as CSV"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
+          <AppIcon name="download" class="btn-new-icon" />
           Export CSV
         </button>
 
@@ -350,9 +341,7 @@ function printPage() {
           class="btn-export"
           title="Print / Save as PDF"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-          </svg>
+          <AppIcon name="printer" class="btn-new-icon" />
           Print
         </button>
       </div>
@@ -442,9 +431,7 @@ function printPage() {
                   :title="isOverdue(app) ? 'Follow-up overdue' : isDueToday(app) ? 'Follow-up due today' : undefined"
                 >{{ isOverdue(app) ? 'Follow up now' : isDueToday(app) ? 'Follow up today' : ' ' }}</span>
               </div>
-              <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
+              <AppIcon name="chevron-right" class="row-chevron" />
             </li>
           </TransitionGroup>
         </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../ui/AppIcon.vue'
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
@@ -248,9 +249,7 @@ onMounted(loadMerged)
             <template v-if="company.websiteUrl">
               · <a :href="company.websiteUrl" target="_blank" rel="noopener noreferrer" class="subtitle-link">
                 website
-                <svg xmlns="http://www.w3.org/2000/svg" class="ext-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
+                <AppIcon name="external" class="ext-icon" />
               </a>
             </template>
           </p>
@@ -258,9 +257,7 @@ onMounted(loadMerged)
         <div class="modal-header-actions">
           <button v-if="isAdmin && !editing" type="button" class="panel-edit-btn" @click="startEdit">Edit</button>
           <button @click="requestClose" class="btn-icon" aria-label="Close">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <AppIcon name="close" class="icon" />
           </button>
         </div>
       </div>
@@ -484,9 +481,7 @@ onMounted(loadMerged)
             rel="noopener noreferrer"
             class="btn-ghost footer-website"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
+            <AppIcon name="external" class="btn-icon-sm" />
             Visit website
           </a>
           <button

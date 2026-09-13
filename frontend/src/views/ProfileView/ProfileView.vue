@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../../components/ui/AppIcon.vue'
 import { ref } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import { useRouter } from 'vue-router'
@@ -108,9 +109,7 @@ async function deleteAccount() {
     </div>
 
     <div class="profile-notice">
-      <svg xmlns="http://www.w3.org/2000/svg" class="notice-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+      <AppIcon name="info" class="notice-icon" />
       <p>
         Signed in as <strong>{{ auth.user?.email }}</strong>.
       </p>
