@@ -77,8 +77,35 @@ eyebrows.
 
 Motion only answers the user's own action: opening a modal, a filter panel dropping, the
 status chip flashing after a save, the bulk bar sliding in. No hover lifts, no staggered list
-entrances, no press-shrink on buttons. Route changes are a 120ms fade. Every animation has a
-`prefers-reduced-motion: reduce` override.
+entrances, no press-shrink on buttons.
+
+**Timing comes from tokens, never literals** (`style.css`; `motionTokens.test.ts` fails the build
+on a literal duration or a named curve like `ease`):
+
+| Token | Value | Use for |
+|---|---|---|
+| `--dur-instant` | 120ms | feedback on what is already under the pointer: hover colour, focus ring, a node dimming |
+| `--dur-base` | 180ms | something appearing, leaving or moving: modal, toast, bulk bar, filter panel, chevron, page change |
+| `--dur-emphasis` | 600ms | the one flash that confirms a save |
+| `--dur-loop` | 900ms | spinners and "saving" pulses (with `linear` for a spinner) |
+| `--ease-standard` | `cubic-bezier(.2, 0, 0, 1)` | almost everything |
+| `--ease-out` | `cubic-bezier(0, 0, .2, 1)` | things arriving: the modal box, the chip flash |
+
+If something needs a speed that isn't here, it probably shouldn't move — ask before adding a token.
+
+**Page changes use the View Transitions API** (`src/router/viewTransition.ts`). The browser
+snapshots the old page and cross-fades to the new one in a single step, so there's no blank frame
+between routes. The nav has its own `view-transition-name` and doesn't fade; the you-are-here
+strip is a real `.nav-marker` element (not `::after`) named `nav-marker`, and it slides to the
+new link. A `view-transition-name` must be on exactly one element at a time, or the browser skips
+the animation. Query changes on the same page (`?open=<id>`) don't animate. Browsers without the API
+get the old CSS fade (`App.vue`). After a transition, if the focused element went away with the
+old page, focus moves to the new page's `h1`.
+
+Reduced motion: the `*` backstop at the end of `style.css` stops every CSS animation, the router
+skips view transitions entirely, and a separate rule stops `::view-transition-*`, which the `*`
+selector can't reach. ECharts draws to canvas and ignores all of this — set its animation from
+the media query in the chart component.
 
 ## Copy
 
