@@ -44,7 +44,7 @@
   font-weight: 500;
   color: var(--col-nav-muted);
   padding: 0 0.75rem;
-  transition: color 0.15s;
+  transition: color var(--dur-instant) var(--ease-standard);
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -93,7 +93,7 @@
   color: var(--col-nav-muted);
   padding: 0.375rem;
   border-radius: var(--radius);
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--dur-instant) var(--ease-standard), background var(--dur-instant) var(--ease-standard);
 }
 .nav-theme:hover { color: var(--col-nav-text); background: color-mix(in srgb, var(--col-nav-text) 10%, transparent); }
 .theme-icon { width: 1.125rem; height: 1.125rem; }
@@ -139,7 +139,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .mobile-link:hover       { color: var(--col-nav-text); background: color-mix(in srgb, var(--col-nav-text) 8%, transparent); }
 .mobile-link--active     { color: var(--col-nav-text); border-left-color: var(--col-nav-active); }

@@ -339,7 +339,7 @@ onUnmounted(() => {
   width: 1.875rem; height: 1.875rem;
   border-radius: .5rem; border: none; background: none;
   cursor: pointer; color: var(--col-muted);
-  transition: background .12s, color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .dp-nav:hover { background: var(--col-surface); color: var(--col-text); }
 .dp-nav svg   { width: 1rem; height: 1rem; }
@@ -362,7 +362,7 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: center;
   aspect-ratio: 1; border-radius: .375rem; border: none; background: none;
   cursor: pointer; font-size: .8125rem; color: var(--col-text);
-  transition: background .1s, color .1s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
   outline: none;
 }
 .dp-day--dim { color: var(--col-subtle); }

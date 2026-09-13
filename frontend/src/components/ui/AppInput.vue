@@ -46,7 +46,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   font-size: 0.875rem;
   font-family: inherit;
   color: var(--col-text);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--dur-instant) var(--ease-standard), box-shadow var(--dur-instant) var(--ease-standard);
   outline: none;
   box-sizing: border-box;
 }

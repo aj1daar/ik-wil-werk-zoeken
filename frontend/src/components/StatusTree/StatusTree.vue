@@ -549,7 +549,7 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   mask-composite: intersect;
 }
 
-.st-node { cursor: default; transition: opacity .15s; }
+.st-node { cursor: default; transition: opacity var(--dur-instant) var(--ease-standard); }
 .st-node--dim { opacity: .35; }
 .st-node-rect { fill: var(--col-bg); stroke-width: 2; }
 .st-node-label { font-size: 11px; font-weight: 600; fill: var(--col-text); }

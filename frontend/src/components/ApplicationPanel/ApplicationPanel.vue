@@ -962,7 +962,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .history-toggle { display: flex; align-items: center; gap: .4rem; background: none; border: none; cursor: pointer; color: var(--col-muted); font-size: .875rem; font-weight: 500; padding: 0; }
 .history-toggle:hover { color: var(--col-text); }
 .history-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
-.chevron { width: .875rem; height: .875rem; margin-left: auto; transition: transform .18s ease; }
+.chevron { width: .875rem; height: .875rem; margin-left: auto; transition: transform var(--dur-base) var(--ease-standard); }
 .chevron--open { transform: rotate(180deg); }
 .history-body { margin-top: .75rem; }
 .history-empty { font-size: .8rem; color: var(--col-subtle); padding: .25rem 0; }

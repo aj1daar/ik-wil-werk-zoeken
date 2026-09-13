@@ -48,7 +48,7 @@ const expiryDismissed = ref(false)
    move under the pointer on every navigation. */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-base) var(--ease-standard);
 }
 .page-enter-from,
 .page-leave-to {

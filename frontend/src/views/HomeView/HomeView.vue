@@ -441,7 +441,7 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
   font: inherit;
   font-size: .8125rem;
   color: var(--col-muted);
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .range-btn:first-child { border-left: none; }
 .range-btn:focus-visible { outline-offset: -2px; }
@@ -531,6 +531,6 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
   }
 }
 
-.content-area { transition: opacity 200ms ease; }
+.content-area { transition: opacity var(--dur-base) var(--ease-standard); }
 .content-area--updating { opacity: 0.4; pointer-events: none; }
 </style>

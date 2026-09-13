@@ -522,12 +522,12 @@ const activeDropdownCount = computed(() =>
   background: var(--col-bg); color: var(--col-muted);
   border: 1px solid var(--col-border); border-radius: var(--radius);
   padding: .4rem .75rem; font-size: .8rem; cursor: pointer; white-space: nowrap;
-  transition: background .15s, color .15s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
 .btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-chevron { transition: transform .2s ease; }
+.btn-chevron { transition: transform var(--dur-base) var(--ease-standard); }
 .btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
   background: var(--col-accent); color: var(--col-on-accent);
@@ -583,7 +583,7 @@ const activeDropdownCount = computed(() =>
   padding: .2rem .65rem; border-radius: 9999px; font-size: .75rem; font-weight: 500;
   cursor: pointer; border: 1px solid var(--col-border);
   background: var(--col-raised); color: var(--col-muted);
-  transition: background .12s, color .12s, border-color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
 }
 .tag-toggle--include { background: var(--col-success-lt); color: var(--col-success); border-color: color-mix(in srgb, var(--col-success) 40%, transparent); }
 .tag-toggle--exclude { background: var(--col-error-lt);   color: var(--col-error);   border-color: color-mix(in srgb, var(--col-error) 40%, transparent); text-decoration: line-through; }
@@ -616,7 +616,7 @@ const activeDropdownCount = computed(() =>
   min-width: 0;
   overflow: hidden;
   cursor: pointer;
-  transition: background .12s;
+  transition: background var(--dur-instant) var(--ease-standard);
 }
 .company-tile:hover { background: var(--col-surface); }
 .company-tile--active { background: var(--col-accent-lt); }
@@ -733,7 +733,7 @@ const activeDropdownCount = computed(() =>
   font-size: .8rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background .12s, color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
 .page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }

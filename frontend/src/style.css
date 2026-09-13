@@ -50,6 +50,23 @@
   --radius:    6px;
   --radius-lg: 10px;
 
+  /* Motion. Two speeds and two curves cover the whole app, so everything
+     that moves feels like it belongs to the same thing:
+     - instant: feedback on something already under the pointer or finger
+       (hover colour, focus ring, a tree node dimming)
+     - base: something appearing, leaving or moving (modal, sheet, toast,
+       bulk bar, filter panel, chevron, page change)
+     - emphasis: the one flash that confirms a save
+     - loop: spinners and "saving" pulses
+     Standard eases in and out gently; out decelerates, for things arriving.
+     Components use these, never a literal — motionTokens.test.ts checks. */
+  --dur-instant:  120ms;
+  --dur-base:     180ms;
+  --dur-emphasis: 600ms;
+  --dur-loop:     900ms;
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --ease-out:      cubic-bezier(0, 0, .2, 1);
+
   /* Status: chip background / text / border, plus a solid "mark" for
      stripes, tree nodes and dots. Keyed by STATUS_TOKEN in the store. */
   --status-applied-bg:    #E3EAF6; --status-applied-fg:    #1F4FA3; --status-applied-bd:    #B7C8E8; --status-applied-mark:    #1F4FA3;
@@ -153,7 +170,7 @@ select {
   font-family: inherit;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--dur-instant) var(--ease-standard), box-shadow var(--dur-instant) var(--ease-standard);
 }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):focus,
 textarea:focus,
@@ -197,7 +214,7 @@ textarea::placeholder { color: var(--col-subtle); }
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
     color: var(--col-text);
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color var(--dur-instant) var(--ease-standard), box-shadow var(--dur-instant) var(--ease-standard);
     outline: none;
   }
   .field-input::placeholder { color: var(--col-subtle); }
@@ -215,7 +232,7 @@ textarea::placeholder { color: var(--col-subtle); }
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     color: var(--col-text);
-    transition: border-color 0.15s;
+    transition: border-color var(--dur-instant) var(--ease-standard);
     outline: none;
   }
   .filter-input::placeholder { color: var(--col-subtle); }
@@ -230,7 +247,7 @@ textarea::placeholder { color: var(--col-subtle); }
     padding: 0.75rem 3rem 0.75rem 1rem;
     color: var(--col-text);
     font-size: 1rem;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color var(--dur-instant) var(--ease-standard), box-shadow var(--dur-instant) var(--ease-standard);
     outline: none;
   }
   .auth-input::placeholder { color: var(--col-subtle); }
@@ -250,7 +267,7 @@ textarea::placeholder { color: var(--col-subtle); }
     border-radius: var(--radius);
     border: none;
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: opacity var(--dur-instant) var(--ease-standard);
   }
   .btn-primary:hover:not(:disabled) { opacity: 0.88; }
   .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -265,7 +282,7 @@ textarea::placeholder { color: var(--col-subtle); }
     border: none;
     cursor: pointer;
     font-size: 1rem;
-    transition: opacity 0.15s;
+    transition: opacity var(--dur-instant) var(--ease-standard);
   }
   .btn-submit:hover:not(:disabled) { opacity: 0.88; }
   .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -278,7 +295,7 @@ textarea::placeholder { color: var(--col-subtle); }
     border: 1px solid color-mix(in srgb, var(--col-error) 35%, transparent);
     border-radius: var(--radius);
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
   }
   .btn-danger:hover { background: var(--col-error-lt); }
 
@@ -288,7 +305,7 @@ textarea::placeholder { color: var(--col-subtle); }
     cursor: pointer;
     color: var(--col-subtle);
     padding: 0;
-    transition: color 0.15s;
+    transition: color var(--dur-instant) var(--ease-standard);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -304,7 +321,7 @@ textarea::placeholder { color: var(--col-subtle); }
     border-radius: var(--radius);
     border: 1px solid var(--col-border);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
   }
   .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
 
@@ -313,14 +330,14 @@ textarea::placeholder { color: var(--col-subtle); }
     0%   { filter: brightness(1.4); }
     100% { filter: brightness(1); }
   }
-  .chip-updated { animation: chip-flash 600ms ease-out; }
+  .chip-updated { animation: chip-flash var(--dur-emphasis) var(--ease-out); }
   @media (prefers-reduced-motion: reduce) {
     .chip-updated { animation: none; }
   }
 
   /* Application list: a quick fade only — no per-card slide or stagger */
-  .list-enter-active  { transition: opacity 120ms ease; }
-  .list-leave-active  { transition: opacity 120ms ease; }
+  .list-enter-active  { transition: opacity var(--dur-base) var(--ease-standard); }
+  .list-leave-active  { transition: opacity var(--dur-base) var(--ease-standard); }
   .list-enter-from,
   .list-leave-to      { opacity: 0; }
   @media (prefers-reduced-motion: reduce) {
@@ -330,13 +347,13 @@ textarea::placeholder { color: var(--col-subtle); }
 
   /* Modal open/close transition */
   .modal-enter-active,
-  .modal-leave-active { transition: opacity 180ms ease; }
+  .modal-leave-active { transition: opacity var(--dur-base) var(--ease-standard); }
   .modal-enter-from,
   .modal-leave-to     { opacity: 0; }
   .modal-enter-active .modal,
   .modal-enter-active .modal-box,
   .modal-leave-active .modal,
-  .modal-leave-active .modal-box { transition: transform 180ms ease-out; }
+  .modal-leave-active .modal-box { transition: transform var(--dur-base) var(--ease-out); }
   .modal-enter-from .modal,
   .modal-enter-from .modal-box,
   .modal-leave-to   .modal,
@@ -354,7 +371,7 @@ textarea::placeholder { color: var(--col-subtle); }
      ApplicationsView.vue and ApplicationPanel.vue; consolidated here so
      every toast (present or future) gets it for free. */
   .toast-enter-active,
-  .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
+  .toast-leave-active { transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); }
   .toast-enter-from,
   .toast-leave-to     { opacity: 0; transform: translateX(-50%) translateY(8px); }
   @media (prefers-reduced-motion: reduce) {
@@ -400,7 +417,7 @@ textarea::placeholder { color: var(--col-subtle); }
     font-size: 0.75rem;
     border: 1px solid transparent;
     white-space: nowrap;
-    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+    transition: background-color var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
   }
   @media (prefers-reduced-motion: reduce) {
     .chip { transition: none; }

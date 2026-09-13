@@ -599,7 +599,7 @@ function printPage() {
   font-size: .8125rem;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color .12s, color .12s, border-color .12s;
+  transition: background-color var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
 }
 .status-tab:not(.status-tab--active):hover { background: var(--col-raised); color: var(--col-text); }
 .status-tab--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); }
@@ -649,7 +649,7 @@ function printPage() {
   /* Room under the last row so the pinned bar never covers it */
   .dashboard:has(.bulk-bar) .app-list-wrapper { padding-bottom: 6rem; }
 }
-.bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
+.bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard); }
 .bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .bulk-bar-enter-active, .bulk-bar-leave-active { transition: none; }
@@ -683,11 +683,11 @@ function printPage() {
   box-shadow: var(--shadow-lg);
 }
 .app-detail-enter-active,
-.app-detail-leave-active { transition: opacity 0.2s ease; }
+.app-detail-leave-active { transition: opacity var(--dur-base) var(--ease-standard); }
 .app-detail-enter-from,
 .app-detail-leave-to     { opacity: 0; }
 .app-detail-enter-active .modal-box,
-.app-detail-leave-active .modal-box { transition: transform 0.2s ease, opacity 0.2s ease; }
+.app-detail-leave-active .modal-box { transition: transform var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard); }
 .app-detail-enter-from .modal-box,
 .app-detail-leave-to   .modal-box   { transform: translateX(24px); opacity: 0; }
 @media (max-width: 480px) {
@@ -752,7 +752,7 @@ function printPage() {
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
 .btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-chevron { transition: transform .2s ease; }
+.btn-chevron { transition: transform var(--dur-base) var(--ease-standard); }
 .btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
   background: var(--col-accent); color: var(--col-on-accent);
@@ -797,7 +797,7 @@ function printPage() {
   font-size: .8rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background .12s, color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
 .page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
@@ -866,7 +866,7 @@ function printPage() {
     border: 1px solid var(--col-border-lt);
     border-radius: var(--radius-lg);
     background: var(--col-surface);
-    transition: background .12s, border-color .12s;
+    transition: background var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
   }
   .company-row:hover {
     background: var(--col-raised);
@@ -893,7 +893,7 @@ function printPage() {
    for specificity over style.css's plain .list-leave-active. */
 .app-grid .list-leave-active { transition: none; }
 
-.row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
+.row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse var(--dur-loop) var(--ease-standard) infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
 .toast-error {
