@@ -135,6 +135,9 @@ const filteredRows = computed<SponsorCompany[]>(() => {
 // '@EasePay'), which put them ahead of every A. Sort on the first letter or
 // digit instead, ignore case and accents, and compare digits as numbers so
 // "2 Getthere" files before "10X Genomics".
+// "12,790", not "12790": the register is big enough that the digits blur
+const formatCount = (n: number) => n.toLocaleString('en-GB')
+
 function nameKey(name: string) {
   return name.replace(/^[^\p{L}\p{N}]+/u, '')
 }
@@ -422,7 +425,7 @@ const activeDropdownCount = computed(() =>
          company count never reflows the controls above it. -->
     <div class="pagination-bar">
       <div v-if="sortedCompanies.length > 0" class="pagination">
-        <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, sortedCompanies.length) }} of {{ sortedCompanies.length }}</span>
+        <span class="pagination-info">{{ formatCount((currentPage - 1) * PAGE_SIZE + 1) }}–{{ formatCount(Math.min(currentPage * PAGE_SIZE, sortedCompanies.length)) }} of {{ formatCount(sortedCompanies.length) }}</span>
         <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
         <template v-for="(p, i) in visiblePages" :key="i">
           <span v-if="p === null" class="page-ellipsis">…</span>
@@ -704,8 +707,20 @@ const activeDropdownCount = computed(() =>
 }
 
 @media (max-width: 767px) {
-  .pagination-bar { padding: .3rem 1rem; justify-content: center; }
-  .pagination { justify-content: center; }
+  .pagination-bar { padding: .5rem 1rem; justify-content: center; }
+  /* The count gets its own line; with 44px buttons it used to push "next"
+     onto a second row by itself. */
+  .pagination { justify-content: center; row-gap: .375rem; }
+  .pagination-info { flex-basis: 100%; text-align: center; margin: 0; font-size: .8125rem; }
+
+  /* Five controls wrapped into rows of uneven widths. A two-column grid lines
+     them up (Tags pairs with Clear when there is something to clear), and the
+     messages under them take the full width. */
+  .filter-controls-row { display: grid; grid-template-columns: 1fr 1fr; }
+  .filter-controls-row > * { width: 100%; max-width: none; min-width: 0; }
+  .filter-controls-row > .sync-badge,
+  .filter-controls-row > .list-error { grid-column: 1 / -1; }
+  .btn-filter-toggle { justify-content: center; }
 }
 .page-btn {
   min-width: 2rem;
