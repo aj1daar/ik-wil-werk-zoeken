@@ -644,6 +644,11 @@ function printPage() {
 }
 .bulk-clear:hover { background: color-mix(in srgb, var(--col-invert-text) 12%, transparent); }
 .bulk-error { font-size: .8rem; font-weight: 600; color: var(--col-invert-text); }
+@media (max-width: 767px) {
+  .bulk-bar { position: fixed; left: 0; right: 0; }
+  /* Room under the last row so the pinned bar never covers it */
+  .dashboard:has(.bulk-bar) .app-list-wrapper { padding-bottom: 6rem; }
+}
 .bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
 .bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
