@@ -147,6 +147,7 @@
 .mobile-signout {
   all: unset;
   box-sizing: border-box;
+  border-left: 3px solid transparent; /* line up with .mobile-link's marker */
   cursor: pointer;
   font-size: 0.9375rem;
   color: var(--col-nav-muted);
