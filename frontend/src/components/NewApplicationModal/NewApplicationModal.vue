@@ -357,6 +357,11 @@ async function submit() {
 .modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; overscroll-behavior: contain; }
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); }
 .footer-actions { display: flex; gap: .75rem; justify-content: flex-end; }
+/* Phones: two equal buttons across the sheet, primary on the thumb side */
+@media (max-width: 767px) {
+  .footer-actions > * { flex: 1 1 0; justify-content: center; }
+  .modal-footer { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+}
 .field { display: flex; flex-direction: column; gap: .375rem; }
 .required { color: var(--col-error); }
 .optional { color: var(--col-subtle); font-weight: 400; text-transform: none; font-size: .7rem; }

@@ -559,6 +559,15 @@ onMounted(loadMerged)
 .body-text--empty { font-style: italic; color: var(--col-subtle); }
 
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); display: flex; gap: .625rem; flex-wrap: wrap; }
+/* Phones: the two list buttons split the row evenly instead of hugging their
+   labels, and the footer clears the home indicator. */
+@media (max-width: 767px) {
+  .modal-footer { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .btn-list { flex: 1 1 0; justify-content: center; text-align: center; }
+}
+@media (pointer: coarse) {
+  .btn-list { min-height: 44px; }
+}
 .footer-primary { flex: 1; min-width: 140px; }
 .footer-website { display: inline-flex; align-items: center; gap: .3rem; font-size: .875rem; white-space: nowrap; flex-shrink: 0; }
 .btn-icon-sm { width: .9rem; height: .9rem; }
