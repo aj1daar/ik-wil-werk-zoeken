@@ -507,3 +507,13 @@ describe('CompanyDetailModal – admin merge', () => {
     expect(wrapper.find('#ce-merge-search').exists()).toBe(false)
   })
 })
+
+// ── animation ─────────────────────────────────────────────────────────────────
+
+describe('CompanyDetailModal – can be animated', () => {
+  it('renders a single root element, so the parent <Transition> can animate it', () => {
+    const w = mountModal()
+    expect(w.element.nodeType).toBe(Node.ELEMENT_NODE)
+    expect((w.element as HTMLElement).classList.contains('modal-backdrop')).toBe(true)
+  })
+})

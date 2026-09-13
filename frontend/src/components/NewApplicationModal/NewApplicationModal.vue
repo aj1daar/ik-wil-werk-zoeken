@@ -321,9 +321,11 @@ async function submit() {
         </div>
       </div>
     </div>
-  </div>
 
-  <Transition name="modal">
+    <!-- Inside the one root element, not beside it: a component with two roots
+         can't be animated by the <Transition> its parent wraps it in, so this
+         modal used to appear and vanish with no transition at all. The dialog
+         teleports to <body> and animates itself. -->
     <ConfirmDialog
       v-if="showDiscardConfirm"
       title="Discard application?"
@@ -333,7 +335,7 @@ async function submit() {
       @confirm="emit('close')"
       @cancel="showDiscardConfirm = false"
     />
-  </Transition>
+  </div>
 </template>
 
 <style scoped>

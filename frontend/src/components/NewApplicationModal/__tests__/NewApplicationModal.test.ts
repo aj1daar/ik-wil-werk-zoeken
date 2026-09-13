@@ -826,3 +826,16 @@ describe('NewApplicationModal – duplicate detection', () => {
     expect(w.find('.dup-warning').exists()).toBe(false)
   })
 })
+
+// ── animation ─────────────────────────────────────────────────────────────────
+
+describe('NewApplicationModal – can be animated', () => {
+  // Parents wrap this in <Transition name="modal">. A component with more than
+  // one root node can't be animated that way; it used to have two (the form and
+  // its discard dialog), so it opened and closed with no transition at all.
+  it('renders a single root element, the backdrop', () => {
+    const w = mountModal()
+    expect(w.element.nodeType).toBe(Node.ELEMENT_NODE)
+    expect((w.element as HTMLElement).classList.contains('modal-backdrop')).toBe(true)
+  })
+})
