@@ -46,7 +46,7 @@ function offences(css: string): string[] {
 describe('motion tokens', () => {
   const tokens = readFileSync(TOKEN_FILE, 'utf8')
 
-  it.each(['--dur-instant', '--dur-base', '--dur-emphasis', '--dur-loop', '--ease-standard', '--ease-out'])(
+  it.each(['--dur-instant', '--dur-base', '--dur-sheet', '--dur-emphasis', '--dur-loop', '--ease-standard', '--ease-out'])(
     'style.css defines %s',
     token => {
       expect(tokens).toMatch(new RegExp(`${token}\\s*:`))

@@ -56,12 +56,15 @@
        (hover colour, focus ring, a tree node dimming)
      - base: something appearing, leaving or moving (modal, sheet, toast,
        bulk bar, filter panel, chevron, page change)
+     - sheet: a phone sheet travelling the height of the screen; at base
+       speed it arrives before the eye can follow it
      - emphasis: the one flash that confirms a save
      - loop: spinners and "saving" pulses
      Standard eases in and out gently; out decelerates, for things arriving.
      Components use these, never a literal — motionTokens.test.ts checks. */
   --dur-instant:  120ms;
   --dur-base:     180ms;
+  --dur-sheet:    280ms;
   --dur-emphasis: 600ms;
   --dur-loop:     900ms;
   --ease-standard: cubic-bezier(.2, 0, 0, 1);
@@ -602,6 +605,10 @@ input[type="checkbox"] { accent-color: var(--col-accent); }
   .modal-leave-to   .modal,
   .modal-enter-from .modal-box:not(.cd-dialog),
   .modal-leave-to   .modal-box:not(.cd-dialog) { transform: translateY(100%); }
+  .modal-enter-active .modal,
+  .modal-leave-active .modal,
+  .modal-enter-active .modal-box:not(.cd-dialog),
+  .modal-leave-active .modal-box:not(.cd-dialog) { transition-duration: var(--dur-sheet); }
 }
 
 /* The * backstop above can't reach these pseudo-elements, so say it again */

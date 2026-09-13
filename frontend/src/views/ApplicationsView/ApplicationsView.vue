@@ -695,6 +695,8 @@ function printPage() {
 @media (max-width: 767px) {
   .app-detail-enter-from .modal-box,
   .app-detail-leave-to   .modal-box { transform: translateY(100%); opacity: 1; }
+  .app-detail-enter-active .modal-box,
+  .app-detail-leave-active .modal-box { transition-duration: var(--dur-sheet); }
   .modal-box { max-width: none; max-height: 92vh; max-height: 92dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; align-self: flex-end; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
 }
