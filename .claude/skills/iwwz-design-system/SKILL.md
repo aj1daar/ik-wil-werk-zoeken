@@ -86,6 +86,7 @@ on a literal duration or a named curve like `ease`):
 |---|---|---|
 | `--dur-instant` | 120ms | feedback on what is already under the pointer: hover colour, focus ring, a node dimming |
 | `--dur-base` | 180ms | something appearing, leaving or moving: modal, toast, bulk bar, filter panel, chevron, page change |
+| `--dur-sheet` | 280ms | a phone bottom sheet travelling the height of the screen |
 | `--dur-emphasis` | 600ms | the one flash that confirms a save |
 | `--dur-loop` | 900ms | spinners and "saving" pulses (with `linear` for a spinner) |
 | `--ease-standard` | `cubic-bezier(.2, 0, 0, 1)` | almost everything |
@@ -125,6 +126,28 @@ Reduced motion: the `*` backstop at the end of `style.css` stops every CSS anima
 skips view transitions entirely, and a separate rule stops `::view-transition-*`, which the `*`
 selector can't reach. Canvas ignores all of that, so charts read `useReducedMotion()` (live — it
 follows the setting if it changes with the page open) and turn ECharts' animation off.
+
+## Icons
+
+Every icon goes through `AppIcon` (`components/ui/AppIcon.vue`) by name — `<AppIcon name="close"
+class="icon" />` — from the 24x24 outline paths in `components/ui/icons.ts`. Size it with a class;
+the stroke is always 1.5px, because it doesn't scale with the drawing, so a 16px chevron and a 24px
+close button look like one family. Icons are `aria-hidden`: the text beside them, or the button's
+own `aria-label`, carries the meaning. Need a new shape? Add it to `icons.ts`. A test fails on any
+inline `<svg>` outside AppIcon, the logo, the journey tree and the select caret.
+
+## Loading
+
+Nothing says "Loading…". While data is on its way, `LoadingRegion` shows grey shapes in the layout
+of what's coming — placeholder rows that use `.company-row`, tiles in `.company-grid`, cards in the
+dashboard's `.journey-layout`, rows on the Next up board — so the real content lands where the
+shapes were instead of pushing the page around. The region announces its `label` to screen readers
+(`role="status"`), the shapes are `aria-hidden`, and it waits `--dur-base` before fading in so a
+fast response never flashes grey. Shapes are `.skeleton` (plus `--title`, `--chip`, `--box`) on
+`--col-raised`; on the dark board they're tinted from the nav text instead.
+
+A layout sized from loaded data needs a fixed size for its placeholder: the companies grid takes
+its row count from loaded companies, and with none it laid 16 placeholder tiles out as one strip.
 
 ## Copy
 
