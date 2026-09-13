@@ -102,10 +102,29 @@ the animation. Query changes on the same page (`?open=<id>`) don't animate. Brow
 get the old CSS fade (`App.vue`). After a transition, if the focused element went away with the
 old page, focus moves to the new page's `h1`.
 
+**Modals on phones are bottom sheets.** Under 767px the new-application form, the company popup
+and the application panel sit on the bottom edge, full width, with top corners only, and rise
+from below (`translateY(100%)`) instead of scaling in. The confirm dialog stays a centred alert.
+
+**Three traps that silently delete an animation** — each shipped at least once:
+- *Tailwind purges runtime classes.* Rules inside `@layer components` survive only if the class
+  appears literally in a template. Vue's `*-enter-from` / `*-leave-active` never do, so transition
+  rules must live outside the layer (see "Vue transition classes" in `style.css`). The modal
+  backdrop fade, every toast and the list fade were missing from the build until this was found;
+  `transitionClasses.test.ts` guards it.
+- *A `<Transition>` only animates a single element root.* A component with two roots, or a
+  `<Teleport>` root, is inserted with no animation and a console warning. `NewApplicationModal`
+  had two roots; `ConfirmDialog`'s root is a Teleport, so it now carries its own
+  `<Transition name="modal" appear>` inside.
+- *A later plain rule undoes an earlier phone rule* (see Phones and tablets).
+
+Charts: the rejection bars grow and shrink between ranges (`width` on `--dur-base`). ECharts gets
+180ms `cubicOut`, mirroring `--dur-base` / `--ease-out`, instead of its one-second default.
+
 Reduced motion: the `*` backstop at the end of `style.css` stops every CSS animation, the router
 skips view transitions entirely, and a separate rule stops `::view-transition-*`, which the `*`
-selector can't reach. ECharts draws to canvas and ignores all of this — set its animation from
-the media query in the chart component.
+selector can't reach. Canvas ignores all of that, so charts read `useReducedMotion()` (live — it
+follows the setting if it changes with the page open) and turn ECharts' animation off.
 
 ## Copy
 
