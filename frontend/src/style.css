@@ -335,49 +335,6 @@ textarea::placeholder { color: var(--col-subtle); }
     .chip-updated { animation: none; }
   }
 
-  /* Application list: a quick fade only — no per-card slide or stagger */
-  .list-enter-active  { transition: opacity var(--dur-base) var(--ease-standard); }
-  .list-leave-active  { transition: opacity var(--dur-base) var(--ease-standard); }
-  .list-enter-from,
-  .list-leave-to      { opacity: 0; }
-  @media (prefers-reduced-motion: reduce) {
-    .list-enter-active,
-    .list-leave-active { transition: none; }
-  }
-
-  /* Modal open/close transition */
-  .modal-enter-active,
-  .modal-leave-active { transition: opacity var(--dur-base) var(--ease-standard); }
-  .modal-enter-from,
-  .modal-leave-to     { opacity: 0; }
-  .modal-enter-active .modal,
-  .modal-enter-active .modal-box,
-  .modal-leave-active .modal,
-  .modal-leave-active .modal-box { transition: transform var(--dur-base) var(--ease-out); }
-  .modal-enter-from .modal,
-  .modal-enter-from .modal-box,
-  .modal-leave-to   .modal,
-  .modal-leave-to   .modal-box   { transform: scale(0.98); }
-  @media (prefers-reduced-motion: reduce) {
-    .modal-enter-active,
-    .modal-leave-active { transition: none; }
-    .modal-enter-active .modal,
-    .modal-enter-active .modal-box,
-    .modal-leave-active .modal,
-    .modal-leave-active .modal-box { transition: none; }
-  }
-
-  /* Toast notification transition — was defined identically in both
-     ApplicationsView.vue and ApplicationPanel.vue; consolidated here so
-     every toast (present or future) gets it for free. */
-  .toast-enter-active,
-  .toast-leave-active { transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); }
-  .toast-enter-from,
-  .toast-leave-to     { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  @media (prefers-reduced-motion: reduce) {
-    .toast-enter-active,
-    .toast-leave-active { transition: none; }
-  }
 
   /* Stop iOS Safari's double-tap-to-zoom from firing on rapid button taps
      (pagination, filter toggles, etc.) */
@@ -499,6 +456,57 @@ textarea::placeholder { color: var(--col-subtle); }
   .form-msg--err  { background: var(--col-error-lt);   color: var(--col-error); }
   .state-msg      { padding: 2rem; text-align: center; font-size: 0.875rem; color: var(--col-subtle); }
   .state-msg--error { color: var(--col-error); }
+}
+
+/* ─── Vue transition classes ───────────────────────────────────────
+   Deliberately OUTSIDE @layer components, for the same reason as the status
+   chips below: Tailwind drops layer rules whose class never appears literally
+   in a template, and Vue adds *-enter-from / *-leave-active at runtime. Inside
+   the layer the modal backdrop fade, every toast animation and the list fade
+   were stripped from the build and never ran. transitionClasses.test.ts
+   keeps them out. */
+/* Application list: a quick fade only — no per-card slide or stagger */
+.list-enter-active  { transition: opacity var(--dur-base) var(--ease-standard); }
+.list-leave-active  { transition: opacity var(--dur-base) var(--ease-standard); }
+.list-enter-from,
+.list-leave-to      { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .list-enter-active,
+  .list-leave-active { transition: none; }
+}
+
+/* Modal open/close transition */
+.modal-enter-active,
+.modal-leave-active { transition: opacity var(--dur-base) var(--ease-standard); }
+.modal-enter-from,
+.modal-leave-to     { opacity: 0; }
+.modal-enter-active .modal,
+.modal-enter-active .modal-box,
+.modal-leave-active .modal,
+.modal-leave-active .modal-box { transition: transform var(--dur-base) var(--ease-out); }
+.modal-enter-from .modal,
+.modal-enter-from .modal-box,
+.modal-leave-to   .modal,
+.modal-leave-to   .modal-box   { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .modal-enter-active,
+  .modal-leave-active { transition: none; }
+  .modal-enter-active .modal,
+  .modal-enter-active .modal-box,
+  .modal-leave-active .modal,
+  .modal-leave-active .modal-box { transition: none; }
+}
+
+/* Toast notification transition — was defined identically in both
+   ApplicationsView.vue and ApplicationPanel.vue; consolidated here so
+   every toast (present or future) gets it for free. */
+.toast-enter-active,
+.toast-leave-active { transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); }
+.toast-enter-from,
+.toast-leave-to     { opacity: 0; transform: translateX(-50%) translateY(8px); }
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter-active,
+  .toast-leave-active { transition: none; }
 }
 
 /* ── Status chips ────────────────────────────────────────────────────
