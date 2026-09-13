@@ -593,6 +593,17 @@ input[type="checkbox"] { accent-color: var(--col-accent); }
   animation-duration: var(--dur-base);
   animation-timing-function: var(--ease-standard);
 }
+/* Phones: modals are sheets that rise from the bottom edge, the way the
+   phone's own sheets do, instead of scaling up in the middle of the screen.
+   It sits after the base scale rule so it wins there. The confirm dialog
+   stays a centred alert. */
+@media (max-width: 767px) {
+  .modal-enter-from .modal,
+  .modal-leave-to   .modal,
+  .modal-enter-from .modal-box:not(.cd-dialog),
+  .modal-leave-to   .modal-box:not(.cd-dialog) { transform: translateY(100%); }
+}
+
 /* The * backstop above can't reach these pseudo-elements, so say it again */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),

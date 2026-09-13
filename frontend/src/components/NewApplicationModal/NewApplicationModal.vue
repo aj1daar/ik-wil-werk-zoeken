@@ -351,6 +351,12 @@ async function submit() {
   max-height: 90dvh; /* tracks the visible viewport, not the toolbar-collapsed one on iOS Chrome */
   overflow: hidden;
 }
+/* Phones: a sheet anchored to the bottom edge (it rises from there — see
+   style.css), full width, with room for the home indicator */
+@media (max-width: 767px) {
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .modal { max-width: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border);

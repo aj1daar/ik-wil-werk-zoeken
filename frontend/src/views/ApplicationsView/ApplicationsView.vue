@@ -690,10 +690,12 @@ function printPage() {
 .app-detail-leave-active .modal-box { transition: transform var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard); }
 .app-detail-enter-from .modal-box,
 .app-detail-leave-to   .modal-box   { transform: translateX(24px); opacity: 0; }
-@media (max-width: 480px) {
+/* Phones (not only the narrowest ones): the panel is a sheet rising from the
+   bottom edge, like the other modals, rather than a card nudged 24px */
+@media (max-width: 767px) {
   .app-detail-enter-from .modal-box,
-  .app-detail-leave-to   .modal-box { transform: translateY(24px); }
-  .modal-box { max-height: 100vh; max-height: 100dvh; border-radius: 16px 16px 0 0; align-self: flex-end; }
+  .app-detail-leave-to   .modal-box { transform: translateY(100%); opacity: 1; }
+  .modal-box { max-width: none; max-height: 92vh; max-height: 92dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; align-self: flex-end; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
