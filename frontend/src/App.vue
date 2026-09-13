@@ -5,6 +5,7 @@ import AppNavbar from './components/AppNavbar/AppNavbar.vue'
 import { useAuthStore } from './stores/auth'
 import { useSessionExpiry } from './composables/useSessionExpiry'
 import { useTokenRefresh } from './composables/useTokenRefresh'
+import { supportsViewTransitions } from './router/viewTransition'
 
 const route = useRoute()
 const auth  = useAuthStore()
@@ -16,6 +17,10 @@ const showNav = computed(() =>
 )
 
 const expiryDismissed = ref(false)
+
+// The browser draws the page cross-fade itself when it can (router/viewTransition.ts);
+// the CSS fade below is only for browsers that can't, and must not run on top of it.
+const nativePageTransitions = supportsViewTransitions()
 </script>
 
 <template>
@@ -37,7 +42,8 @@ const expiryDismissed = ref(false)
   </div>
 
   <RouterView v-slot="{ Component }">
-    <Transition name="page" mode="out-in">
+    <component v-if="nativePageTransitions" :is="Component" :key="route.path" />
+    <Transition v-else name="page" mode="out-in">
       <component :is="Component" :key="route.path" />
     </Transition>
   </RouterView>

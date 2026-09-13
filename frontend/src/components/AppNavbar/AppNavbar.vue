@@ -47,6 +47,8 @@ const activeCount = () =>
             :class="['nav-link', route.path === link.to && 'nav-link--active']"
           >
             {{ link.label }}
+            <!-- A real element, not ::after, so a page change can slide it to the new link -->
+            <span v-if="route.path === link.to" class="nav-marker" aria-hidden="true" />
             <template v-if="link.to === '/applications' && activeCount() > 0">
               <span class="nav-badge" aria-hidden="true" :title="`${activeCount()} open applications`">{{ activeCount() }}</span>
               <span class="sr-only">({{ activeCount() }} open)</span>

@@ -31,6 +31,33 @@ async function mountNav(statuses: ApplicationStatus[]) {
 const appsLink = (w: Awaited<ReturnType<typeof mountNav>>) =>
   w.findAll('.nav-link').find(l => l.text().startsWith('My applications'))!
 
+describe('AppNavbar – you-are-here marker', () => {
+  beforeEach(() => sessionStorage.clear())
+
+  it('puts exactly one marker in the nav, on the current page', async () => {
+    // One element carries the marker's view-transition-name; two would make
+    // the browser skip the slide entirely.
+    const w = await mountNav([])
+    const markers = w.findAll('.nav-links .nav-marker')
+    expect(markers).toHaveLength(1)
+    expect(w.findAll('.nav-link').find(l => l.find('.nav-marker').exists())!.text()).toContain('Home')
+  })
+
+  it('keeps the marker out of the accessibility tree', async () => {
+    const w = await mountNav([])
+    expect(w.find('.nav-marker').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('moves the marker with the route', async () => {
+    const w = await mountNav([])
+    await w.vm.$router.push('/companies')
+    await flushPromises()
+    const marked = w.findAll('.nav-link').filter(l => l.find('.nav-marker').exists())
+    expect(marked).toHaveLength(1)
+    expect(marked[0].text()).toContain('Companies')
+  })
+})
+
 describe('AppNavbar – open applications badge', () => {
   beforeEach(() => sessionStorage.clear())
 

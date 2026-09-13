@@ -1,4 +1,6 @@
 .app-nav {
+  /* Its own layer in a page change, so the cross-fade never dims the nav */
+  view-transition-name: app-nav;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -53,8 +55,10 @@
 .nav-link:focus-visible { outline-offset: -4px; }
 /* You-are-here marker: a signage strip along the bottom of the bar */
 .nav-link--active { color: var(--col-nav-text); }
-.nav-link--active::after {
-  content: '';
+.nav-marker {
+  /* Shared by exactly one element at a time, so the browser slides it from
+     the old link to the new one — the you-are-here strip moving along the sign */
+  view-transition-name: nav-marker;
   position: absolute;
   left: 0.75rem;
   right: 0.75rem;

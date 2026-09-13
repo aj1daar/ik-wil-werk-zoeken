@@ -576,6 +576,24 @@ input[type="password"]::-ms-clear { display: none; }
    width one — a touchscreen laptop counts as coarse too. */
 input[type="checkbox"] { accent-color: var(--col-accent); }
 
+/* Page changes (router/viewTransition.ts). The browser's own default is a
+   250ms linear-ish fade; these put it on the app's clock. Unlayered on purpose:
+   Tailwind would drop view-transition pseudo-elements it doesn't recognise. */
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-group(nav-marker) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-standard);
+}
+/* The * backstop above can't reach these pseudo-elements, so say it again */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 @media (pointer: coarse) {
   .btn-primary,
   .btn-secondary,
