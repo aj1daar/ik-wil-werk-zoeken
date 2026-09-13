@@ -140,8 +140,11 @@ columns. Everything else in the codebase (640, 600, 560, 520, 480) is a one-off 
 don't add more; reach for the existing two first.
 
 **A media query adds no specificity.** A phone rule written *above* the plain rule it means to
-override does nothing at all. `.page-btn` in CompaniesView sat like that and quietly kept a 32px tap
-target on phones. Put phone overrides after the rule they override, and check the shot.
+override does nothing at all. `.page-btn` in CompaniesView and the custom date fields on the
+dashboard both shipped like that. Put phone overrides after the rule they override;
+`src/__tests__/cssOverrideOrder.test.ts` fails the build when one isn't (it knows an unlayered
+rule beats a later `@layer` one). The reverse also bites: a broad phone rule placed after a state
+class repaints it — scope it with `:not(.x--active)`.
 
 **Touch targets.** `@media (pointer: coarse)` in `style.css` holds every control to 44px (Apple's
 HIG minimum) — buttons, inputs, selects, status tabs, range buttons, icon buttons, pagination.
@@ -155,7 +158,13 @@ must add `env(safe-area-inset-bottom)` to its padding or offset, or the home ind
 of it. The bulk bar and both toasts do this.
 
 **What collapses and what scrolls.** Rows stack, the toolbar takes its own full-width line with
-pagination centred under it, and the status tabs scroll sideways rather than wrapping. A canvas
+pagination centred under it, and the status tabs scroll sideways rather than wrapping. A small,
+fixed set of choices (the six dashboard ranges) becomes an even grid instead, so nothing hides
+off-screen; a wrapped flex row of controls (the Companies toolbar) becomes a two-column grid.
+Pagination puts its count on a line of its own so the buttons never wrap, and large counts get
+thousands separators (`12,790`). Controls that act on a selection (the bulk bar) are pinned to
+the bottom of the screen on phones, never sticky to the end of a long list. Modal footers split
+their buttons evenly across the sheet. A canvas
 that cannot shrink any further stops shrinking, scrolls with a faded edge, and puts the same
 numbers in text beside it (`StatusTree.vue`). Nothing else may scroll sideways — the screenshot
 run fails if the page is wider than the screen.
