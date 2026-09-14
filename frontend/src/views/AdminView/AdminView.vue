@@ -495,7 +495,9 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .muted        { color: var(--col-muted); font-size: 0.9rem; }
 
 .table-wrap { overflow-x: auto; }
-.table-wrap--capped { max-height: 220px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* overflow-x: auto, not hidden: on a phone the sync table is wider than the
+   card, and hidden let it spill out past the card's edge */
+.table-wrap--capped { max-height: 220px; overflow-y: auto; overflow-x: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .table-wrap--capped thead th { position: sticky; top: 0; background: var(--col-surface); z-index: 1; }
 
 .users-table {
