@@ -701,11 +701,11 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           <span class="optional">(optional)</span>
           <span v-if="isFollowUpOverdue" class="overdue-badge">overdue</span>
         </label>
-        <input
+        <DatePicker
           id="ap-followup"
           v-model="followUpDate"
-          type="date"
-          :class="['field-input', { 'input-overdue': isFollowUpOverdue }]"
+          placeholder="No follow-up date"
+          :class="{ 'input-overdue': isFollowUpOverdue }"
         />
         <button v-if="followUpDate" type="button" class="clear-date-btn" @click="followUpDate = ''">Clear</button>
       </div>
@@ -926,7 +926,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 
 /* follow-up date */
 .overdue-badge { display: inline-block; background: var(--col-error); color: var(--col-bg); font-size: .7rem; font-weight: 600; border-radius: var(--radius-sm); padding: .1rem .4rem; margin-left: .375rem; vertical-align: middle; }
-.input-overdue { border-color: var(--col-error) !important; }
+.input-overdue :deep(.dp-trigger) { border-color: var(--col-error); }
 .clear-date-btn { align-self: flex-start; background: none; border: none; color: var(--col-accent); font-size: .8rem; cursor: pointer; padding: 0; margin-top: .125rem; }
 .joburl-row { display: flex; gap: .5rem; align-items: center; }
 .joburl-row .field-input { flex: 1; }
