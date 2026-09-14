@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppIcon from '../../components/ui/AppIcon.vue'
 import LoadingRegion from '../../components/ui/LoadingRegion.vue'
+import AppPagination from '../../components/AppPagination/AppPagination.vue'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
@@ -98,20 +99,6 @@ const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))
 const pagedFiltered = computed(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE
   return filtered.value.slice(start, start + PAGE_SIZE)
-})
-
-const visiblePages = computed((): (number | null)[] => {
-  const total = pageCount.value
-  const cur = currentPage.value
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const around = new Set([1, total, cur - 2, cur - 1, cur, cur + 1, cur + 2].filter(p => p >= 1 && p <= total))
-  const sorted = [...around].sort((a, b) => a - b)
-  const pages: (number | null)[] = []
-  for (let i = 0; i < sorted.length; i++) {
-    if (i > 0 && sorted[i] - sorted[i - 1] > 1) pages.push(null)
-    pages.push(sorted[i])
-  }
-  return pages
 })
 
 watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
@@ -281,20 +268,13 @@ function printPage() {
       </div>
 
       <div class="filter-controls-row">
-        <div v-if="filtered.length > 0" class="pagination">
-          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
-          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
-          <template v-for="(p, i) in visiblePages" :key="i">
-            <span v-if="p === null" class="page-ellipsis">…</span>
-            <button
-              v-else
-              :class="['page-btn', p === currentPage && 'page-btn--active']"
-              @click="goToPage(p)"
-              :aria-current="p === currentPage ? 'page' : undefined"
-            >{{ p }}</button>
-          </template>
-          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
-        </div>
+        <AppPagination
+          v-if="filtered.length > 0"
+          :page="currentPage"
+          :page-size="PAGE_SIZE"
+          :total="filtered.length"
+          @update:page="goToPage"
+        />
 
         <div class="filter-actions">
           <button
@@ -777,35 +757,6 @@ function printPage() {
 .filter-controls-row { justify-content: space-between; }
 .filter-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
 
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: .25rem;
-  flex-wrap: wrap;
-}
-.pagination-info {
-  font-size: .72rem;
-  color: var(--col-subtle);
-  margin-right: .4rem;
-  white-space: nowrap;
-}
-.page-btn {
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 .4rem;
-  border: 1px solid var(--col-border);
-  border-radius: var(--radius);
-  background: var(--col-bg);
-  color: var(--col-muted);
-  font-size: .8rem;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
-}
-.page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
-.page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
-.page-btn:disabled { opacity: .35; cursor: default; }
-.page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 
 @media (max-width: 767px) {
   /* Full-bleed on phones: the scoped .dashboard margin above would otherwise
@@ -817,10 +768,7 @@ function printPage() {
      unevenly around each other. */
   .filter-actions { order: -1; width: 100%; margin-left: 0; }
   .btn-new { flex: 1; justify-content: center; }
-  .pagination { width: 100%; justify-content: center; }
-
-  /* Apple HIG minimum 44x44pt tap target */
-  .page-btn { min-width: 2.75rem; height: 2.75rem; }
+  .pagination { width: 100%; }
 
   .company-row { padding: .75rem 1rem; }
 

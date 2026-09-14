@@ -56,11 +56,21 @@ describe('touch targets – the coarse-pointer block', () => {
 describe('touch targets – phone rules that a later rule could undo', () => {
   // A media query adds no specificity, so a phone rule placed above the plain
   // rule it means to override does nothing. CompaniesView shipped like that.
-  it('CompaniesView sizes .page-btn for phones after the base rule', () => {
-    const css = read('views', 'CompaniesView', 'CompaniesView.vue')
+  it('AppPagination sizes .page-btn for phones after the base rule', () => {
+    // Pagination was two copies, one per list, and the phone fix reached only
+    // one of them. It is one component now.
+    const css = read('components', 'AppPagination', 'AppPagination.vue')
     const base = css.indexOf('.page-btn {')
     const phone = css.indexOf('.page-btn { min-width: 2.75rem')
     expect(base).toBeGreaterThan(-1)
     expect(phone).toBeGreaterThan(base)
+  })
+
+  it('no list keeps its own copy of the pagination', () => {
+    for (const view of ['ApplicationsView', 'CompaniesView']) {
+      const file = read('views', view, `${view}.vue`)
+      expect(file).toContain('<AppPagination')
+      expect(file).not.toMatch(/class="page-btn/)
+    }
   })
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppIcon from '../../components/ui/AppIcon.vue'
 import LoadingRegion from '../../components/ui/LoadingRegion.vue'
+import AppPagination from '../../components/AppPagination/AppPagination.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
@@ -137,9 +138,6 @@ const filteredRows = computed<SponsorCompany[]>(() => {
 // '@EasePay'), which put them ahead of every A. Sort on the first letter or
 // digit instead, ignore case and accents, and compare digits as numbers so
 // "2 Getthere" files before "10X Genomics".
-// "12,790", not "12790": the register is big enough that the digits blur
-const formatCount = (n: number) => n.toLocaleString('en-GB')
-
 function nameKey(name: string) {
   return name.replace(/^[^\p{L}\p{N}]+/u, '')
 }
@@ -167,20 +165,6 @@ const pageCount = computed(() => Math.max(1, Math.ceil(sortedCompanies.value.len
 // Rows the grid should render. A full page is 8; a short last page uses just
 // enough rows to hold its tiles so they still stretch to fill the card.
 const gridRows = computed(() => Math.max(1, Math.ceil(pagedCompanies.value.length / COLUMNS)))
-
-const visiblePages = computed((): (number | null)[] => {
-  const total = pageCount.value
-  const cur = currentPage.value
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const around = new Set([1, total, cur - 2, cur - 1, cur, cur + 1, cur + 2].filter(p => p >= 1 && p <= total))
-  const sorted = [...around].sort((a, b) => a - b)
-  const pages: (number | null)[] = []
-  for (let i = 0; i < sorted.length; i++) {
-    if (i > 0 && sorted[i] - sorted[i - 1] > 1) pages.push(null)
-    pages.push(sorted[i])
-  }
-  return pages
-})
 
 watch([search, filterCity, filterWorkingLanguage, filterCompanySize, filterRemotePolicy, appliedFilter, includeTags, excludeTags, listFilter, sortOrder], () => {
   currentPage.value = 1
@@ -416,20 +400,13 @@ const activeDropdownCount = computed(() =>
     <!-- Pagination lives on its own fixed-height, right-aligned strip so the
          company count never reflows the controls above it. -->
     <div class="pagination-bar">
-      <div v-if="sortedCompanies.length > 0" class="pagination">
-        <span class="pagination-info">{{ formatCount((currentPage - 1) * PAGE_SIZE + 1) }}–{{ formatCount(Math.min(currentPage * PAGE_SIZE, sortedCompanies.length)) }} of {{ formatCount(sortedCompanies.length) }}</span>
-        <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
-        <template v-for="(p, i) in visiblePages" :key="i">
-          <span v-if="p === null" class="page-ellipsis">…</span>
-          <button
-            v-else
-            :class="['page-btn', p === currentPage && 'page-btn--active']"
-            @click="goToPage(p)"
-            :aria-current="p === currentPage ? 'page' : undefined"
-          >{{ p }}</button>
-        </template>
-        <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
-      </div>
+      <AppPagination
+        v-if="sortedCompanies.length > 0"
+        :page="currentPage"
+        :page-size="PAGE_SIZE"
+        :total="sortedCompanies.length"
+        @update:page="goToPage"
+      />
     </div>
 
     <div class="grid-wrap">
@@ -694,28 +671,10 @@ const activeDropdownCount = computed(() =>
   background: var(--col-surface);
   border-bottom: 1px solid var(--col-border);
 }
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: .25rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-.pagination-info {
-  font-size: .72rem;
-  color: var(--col-subtle);
-  margin-right: .4rem;
-  white-space: nowrap;
-  min-width: 5.5rem;
-  text-align: right;
-}
 
 @media (max-width: 767px) {
   .pagination-bar { padding: .5rem 1rem; justify-content: center; }
-  /* The count gets its own line; with 44px buttons it used to push "next"
-     onto a second row by itself. */
-  .pagination { justify-content: center; row-gap: .375rem; }
-  .pagination-info { flex-basis: 100%; text-align: center; margin: 0; font-size: .8125rem; }
+  .pagination { width: 100%; }
 
   /* Five controls wrapped into rows of uneven widths. A two-column grid lines
      them up (Tags pairs with Clear when there is something to clear), and the
@@ -725,29 +684,5 @@ const activeDropdownCount = computed(() =>
   .filter-controls-row > .sync-badge,
   .filter-controls-row > .list-error { grid-column: 1 / -1; }
   .btn-filter-toggle { justify-content: center; }
-}
-.page-btn {
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 .4rem;
-  border: 1px solid var(--col-border);
-  border-radius: var(--radius);
-  background: var(--col-bg);
-  color: var(--col-muted);
-  font-size: .8rem;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
-}
-.page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
-.page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
-.page-btn:disabled { opacity: .35; cursor: default; }
-.page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
-
-/* After the base rule, not before it: an earlier media block loses to a later
-   plain rule of the same specificity, which is how this tap target spent a
-   while being 32px wide on phones. */
-@media (max-width: 767px) {
-  .page-btn { min-width: 2.75rem; height: 2.75rem; }  /* Apple HIG 44pt tap target */
 }
 </style>
