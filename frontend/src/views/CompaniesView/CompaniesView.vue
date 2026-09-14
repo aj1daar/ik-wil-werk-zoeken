@@ -496,11 +496,18 @@ const activeDropdownCount = computed(() =>
 .list-error { font-size: .75rem; color: var(--col-error); white-space: nowrap; margin: 0; }
 
 .btn-filter-toggle {
+  /* The height of the .filter-input dropdowns in the same row */
+  min-height: 2.375rem;
   display: inline-flex; align-items: center; gap: .375rem;
   background: var(--col-bg); color: var(--col-muted);
   border: 1px solid var(--col-border); border-radius: var(--radius);
   padding: .4rem .75rem; font-size: .8rem; cursor: pointer; white-space: nowrap;
   transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
+}
+/* Under a finger the dropdowns grow to 44px (style.css); the toggles follow them,
+   or the rule above would leave them 6px shorter than their neighbours */
+@media (pointer: coarse) {
+  .btn-filter-toggle { min-height: 44px; }
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
@@ -516,6 +523,11 @@ const activeDropdownCount = computed(() =>
 .btn-clear-filters {
   background: none; border: none; color: var(--col-error); font-size: .8rem;
   cursor: pointer; padding: .45rem .5rem; white-space: nowrap;
+  /* The height of the filter toggles it sits beside */
+  min-height: 2.375rem;
+}
+@media (pointer: coarse) {
+  .btn-clear-filters { min-height: 44px; }
 }
 .btn-clear-filters:hover { text-decoration: underline; }
 

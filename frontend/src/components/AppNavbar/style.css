@@ -94,16 +94,30 @@
 }
 
 .nav-theme {
+  /* The height of Sign out beside it */
+  min-width: 2.125rem;
+  min-height: 2.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--col-nav-muted);
   padding: 0.375rem;
   border-radius: var(--radius);
   transition: color var(--dur-instant) var(--ease-standard), background var(--dur-instant) var(--ease-standard);
 }
 .nav-theme:hover { color: var(--col-nav-text); background: color-mix(in srgb, var(--col-nav-text) 10%, transparent); }
+/* This stylesheet is scoped, so it outranks the 44px touch rule in style.css;
+   repeat it here or the toggle stays 10px shorter than the menu button */
+@media (pointer: coarse) {
+  .nav-theme { min-width: 44px; min-height: 44px; }
+}
 .theme-icon { width: 1.125rem; height: 1.125rem; }
 
 .nav-signout,
 .nav-admin {
+  min-height: 2.125rem;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.8125rem;
   color: var(--col-nav-muted);
   border-color: color-mix(in srgb, var(--col-nav-text) 20%, transparent);
