@@ -625,6 +625,19 @@ function printPage() {
 .bulk-error { font-size: .8rem; font-weight: 600; color: var(--col-invert-text); }
 @media (max-width: 767px) {
   .bulk-bar { position: fixed; left: 0; right: 0; }
+  /* Four controls wrapped with Cancel alone on a second line. A grid keeps two
+     tidy rows: what's selected and how to back out, then what to do with it. */
+  .bulk-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "count clear" "select apply" "error error";
+    row-gap: .5rem;
+  }
+  .bulk-count  { grid-area: count; }
+  .bulk-clear  { grid-area: clear; }
+  .bulk-select { grid-area: select; max-width: none; min-width: 0; }
+  .bulk-apply  { grid-area: apply; }
+  .bulk-error  { grid-area: error; }
   /* Room under the last row so the pinned bar never covers it */
   .dashboard:has(.bulk-bar) .app-list-wrapper { padding-bottom: 6rem; }
 }
@@ -779,6 +792,16 @@ function printPage() {
      so drop them here instead. */
   .followup-badge--none,
   .success-rate-chip--none { display: none; }
+
+  /* A follow-up badge used to fit beside the date on some rows and wrap alone
+     onto a second line on others, depending on the date's length and the
+     phone's width. It now always takes its own line when a row has one. */
+  .row-meta:has(.followup-badge:not(.followup-badge--none))::after {
+    content: '';
+    flex-basis: 100%;
+    order: 1;
+  }
+  .row-meta .followup-badge { order: 2; }
 }
 
 @media (min-width: 768px) {
