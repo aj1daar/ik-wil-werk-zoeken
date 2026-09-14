@@ -387,8 +387,8 @@ const activeDropdownCount = computed(() =>
           @click="tagState(tag) === 'none' ? toggleIncludeTag(tag) : tagState(tag) === 'include' ? toggleExcludeTag(tag) : (includeTags = includeTags.filter(t => t !== tag), excludeTags = excludeTags.filter(t => t !== tag))"
           :aria-pressed="tagState(tag) !== 'none'"
         >
-          <span v-if="tagState(tag) === 'include'">✓ </span>
-          <span v-else-if="tagState(tag) === 'exclude'">✕ </span>
+          <AppIcon v-if="tagState(tag) === 'include'" name="check" class="icon-1em" />
+          <AppIcon v-else-if="tagState(tag) === 'exclude'" name="close" class="icon-1em" />
           {{ tag }}
         </button>
       </div>
@@ -435,7 +435,7 @@ const activeDropdownCount = computed(() =>
           <!-- The tile is a mouse target only; the name is the real button, so
                the website link inside the tile isn't nested in another control -->
           <div class="tile-name-line">
-            <span v-if="store.interestedIds.has(c.id)" class="tile-star" role="img" aria-label="On your interested list" title="On your interested list">★</span>
+            <span v-if="store.interestedIds.has(c.id)" class="tile-star" role="img" aria-label="On your interested list" title="On your interested list"><AppIcon name="star" class="icon-1em" /></span>
             <button type="button" class="tile-name" @click.stop="openCompany(c.id)">{{ c.name }}</button>
             <span
               v-if="mostRecentForCompany.has(c.id)"

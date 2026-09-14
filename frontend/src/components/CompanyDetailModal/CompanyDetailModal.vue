@@ -333,7 +333,7 @@ onMounted(loadMerged)
             <div v-if="mergeStaged.length" class="tag-row ce-chip-row">
               <span v-for="c in mergeStaged" :key="c.id" class="city-chip">
                 {{ c.name }}
-                <button type="button" class="city-remove" :aria-label="`Remove ${c.name}`" @click="unstageFromMerge(c.id)">&times;</button>
+                <button type="button" class="city-remove" :aria-label="`Remove ${c.name}`" @click="unstageFromMerge(c.id)"><AppIcon name="close" class="icon-1em" /></button>
               </span>
             </div>
 
@@ -450,7 +450,7 @@ onMounted(loadMerged)
             <div v-if="form[chip.field].length" class="tag-row ce-chip-row">
               <span v-for="(v, i) in form[chip.field]" :key="v" class="city-chip">
                 {{ v }}
-                <button type="button" class="city-remove" :aria-label="`Remove ${v}`" @click="removeChip(chip.field, i)">×</button>
+                <button type="button" class="city-remove" :aria-label="`Remove ${v}`" @click="removeChip(chip.field, i)"><AppIcon name="close" class="icon-1em" /></button>
               </span>
             </div>
             <input

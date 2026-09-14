@@ -6,6 +6,7 @@ import { useAuthStore } from './stores/auth'
 import { useSessionExpiry } from './composables/useSessionExpiry'
 import { useTokenRefresh } from './composables/useTokenRefresh'
 import { supportsViewTransitions } from './router/viewTransition'
+import AppIcon from './components/ui/AppIcon.vue'
 
 const route = useRoute()
 const auth  = useAuthStore()
@@ -38,7 +39,7 @@ const nativePageTransitions = supportsViewTransitions()
       aria-label="Extend session"
     >{{ refreshing ? 'Extending…' : 'Extend session' }}</button>
     <span v-if="refreshError" class="expiry-error" role="alert">{{ refreshError }}</span>
-    <button @click="expiryDismissed = true" aria-label="Dismiss">✕</button>
+    <button @click="expiryDismissed = true" aria-label="Dismiss"><AppIcon name="close" class="icon-1em" /></button>
   </div>
 
   <RouterView v-slot="{ Component }">

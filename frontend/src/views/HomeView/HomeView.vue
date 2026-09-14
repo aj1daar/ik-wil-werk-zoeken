@@ -7,6 +7,7 @@ import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
 import DatePicker from '../../components/DatePicker/DatePicker.vue'
 import LoadingRegion from '../../components/ui/LoadingRegion.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
 
 const store = useApplicationsStore()
 
@@ -206,7 +207,7 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
         <strong>Keep your whole job search in one place</strong>
         <p>Log each application you send, check whether a company is an IND-recognised sponsor before you apply, and give applications a follow-up date so none of them go quiet. Start on the My applications page.</p>
       </div>
-      <button class="banner-close" @click="dismissBanner" aria-label="Dismiss">×</button>
+      <button class="banner-close" @click="dismissBanner" aria-label="Dismiss"><AppIcon name="close" class="icon-1em" /></button>
     </div>
 
     <section class="board" aria-labelledby="board-title">
@@ -527,7 +528,8 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 .banner-body p { color: var(--col-muted); margin: 0; line-height: 1.55; max-width: 72ch; }
 .banner-close {
   background: none; border: none; cursor: pointer;
-  font-size: 1.5rem; line-height: 1; color: var(--col-muted);
+  font-size: 1.25rem; line-height: 1; color: var(--col-muted);
+  display: inline-flex; align-items: center; justify-content: center;
   padding: 0 .25rem; flex-shrink: 0;
 }
 .banner-close:hover { color: var(--col-text); }

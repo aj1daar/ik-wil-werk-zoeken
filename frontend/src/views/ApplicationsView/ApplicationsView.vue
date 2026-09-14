@@ -465,7 +465,7 @@ function printPage() {
       <Transition name="toast">
         <div v-if="store.toastError" class="toast-error" role="alert">
           <span>{{ store.toastError }}</span>
-          <button @click="store.dismissToast()" class="toast-close" aria-label="Dismiss">×</button>
+          <button @click="store.dismissToast()" class="toast-close" aria-label="Dismiss"><AppIcon name="close" class="icon-1em" /></button>
         </div>
       </Transition>
     </teleport>

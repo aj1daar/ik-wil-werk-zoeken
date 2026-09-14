@@ -764,7 +764,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         <div class="tag-row mb-2">
           <span v-for="l in locations" :key="l" class="city-chip">
             {{ l }}
-            <button @click="removeLocation(l)" class="city-remove" aria-label="Remove">×</button>
+            <button @click="removeLocation(l)" class="city-remove" aria-label="Remove"><AppIcon name="close" class="icon-1em" /></button>
           </span>
         </div>
         <input

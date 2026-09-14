@@ -617,6 +617,10 @@ input[type="password"]::-ms-clear { display: none; }
    width one — a touchscreen laptop counts as coarse too. */
 input[type="checkbox"] { accent-color: var(--col-accent); }
 
+/* An AppIcon standing in for a character (a close ×, a check) takes the size of
+   the text around it, so it sits where the glyph used to */
+.icon-1em { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
+
 /* Page changes (router/viewTransition.ts). The browser's own default is a
    250ms linear-ish fade; these put it on the app's clock. Unlayered on purpose:
    Tailwind would drop view-transition pseudo-elements it doesn't recognise. */
