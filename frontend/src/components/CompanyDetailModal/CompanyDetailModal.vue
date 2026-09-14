@@ -289,7 +289,7 @@ onMounted(loadMerged)
               <span v-if="company.remotePolicy" class="meta-chip meta-chip--remote">{{ company.remotePolicy }}</span>
               <span v-if="company.companySize" class="meta-chip meta-chip--size">{{ company.companySize }}</span>
               <span v-if="company.targetMarket" class="meta-chip meta-chip--market">{{ company.targetMarket }}</span>
-              <span v-if="company.parentCompanyName" class="meta-chip meta-chip--parent" :title="`Part of ${company.parentCompanyName}`">↑ {{ company.parentCompanyName }}</span>
+              <span v-if="company.parentCompanyName" class="meta-chip meta-chip--parent">Part of {{ company.parentCompanyName }}</span>
             </div>
           </div>
 

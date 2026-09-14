@@ -303,7 +303,7 @@ function printPage() {
           <option value="oldest">Oldest first</option>
           <option value="updated">Recently updated</option>
           <option value="company">Company A–Z</option>
-          <option value="followup">Follow-up date ↑</option>
+          <option value="followup">Follow-up soonest</option>
         </select>
 
         <button
