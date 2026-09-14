@@ -136,6 +136,36 @@ close button look like one family. Icons are `aria-hidden`: the text beside them
 own `aria-label`, carries the meaning. Need a new shape? Add it to `icons.ts`. A test fails on any
 inline `<svg>` outside AppIcon, the logo, the journey tree and the select caret.
 
+No text characters as icons either: `‹ › × ✕ ✓ ★` take the font's shape and size, which is why
+the old pagination arrows were a third the size of every other chevron. Inside text, size the
+icon with `.icon-1em` so it sits where the character did.
+
+## One component per pattern
+
+A pattern that appears in two places is one component, or the copies drift: a phone fix to the
+Companies pagination never reached the My applications copy, and its "next" arrow kept wrapping
+onto a line of its own on a real iPhone. Pagination is `AppPagination`; icons are `AppIcon`;
+loading states are `LoadingRegion`. Before styling a second copy of something, extract it.
+
+`AppPagination` shows first, last and two pages either side on desktop, and only first, current
+and last on phones, each row with its own "…" for skipped pages, so the button row always fits one
+line at 360px. Every date field is `DatePicker` — the application panel's follow-up date used to be
+a raw `<input type="date">`, a different control 2px taller than its neighbours.
+
+**Shared classes are defined once, in `style.css`**: `.btn-primary`, `.btn-secondary`,
+`.btn-ghost`, `.btn-danger`, `.btn-submit`, `.btn-icon`, `.chip`, `.chip--sm`, `.field-input`,
+`.filter-input`, `.auth-input`. A page positions them through its own class (`.btn-new`,
+`.btn-list`, `.footer-primary`) and never restyles them in a scoped `<style>`;
+`sharedClasses.test.ts` fails if it does. The copies it replaced had drifted a long way: Admin's
+buttons were 40px with 14.4px text, the company popup's danger button was solid red where every
+other one is an outline, and the only `.btn-secondary` lived inside the new-application form, so
+Profile's Cancel rendered unstyled.
+
+The sizes, for reference: buttons 38px (44px under a finger), 14px, primary 600 and the rest 500;
+inputs 38px; the sign-in form is deliberately larger (48px, 16px); section titles 16px / 600;
+page titles 24px / 600, with "Next up" the one bigger headline; chips 12px / 500, and `.chip--sm`
+(11px) only beside a company name in a row or on a company tile.
+
 ## Loading
 
 Nothing says "Loading…". While data is on its way, `LoadingRegion` shows grey shapes in the layout
@@ -237,6 +267,24 @@ their buttons evenly across the sheet. A canvas
 that cannot shrink any further stops shrinking, scrolls with a faded edge, and puts the same
 numbers in text beside it (`StatusTree.vue`). Nothing else may scroll sideways — the screenshot
 run fails if the page is wider than the screen.
+
+## Layout consistency
+
+The inconsistencies people notice first are small and structural — an item alone on a wrapped
+line (an orphan), two controls in one row at different heights, a glyph where an icon should be.
+`pnpm audit:layout` measures them in a real browser across five devices and about fifty states —
+signed-out pages, every status tab and range, filters, empty and error states, modals, confirm
+dialogs, the date picker, the phone menu and the admin panel — and exits non-zero when it finds
+any. It also compares the same kind of element across every page (primary buttons, inputs, page and
+section titles, cards, chips) and reports any kind drawn more than one way. Run it with realistic
+data: pagination only wraps once there are enough pages to show "…".
+
+Two things it caught that are easy to reintroduce:
+- A scoped stylesheet outranks the 44px touch rule in `style.css`. Any scoped `min-height` on a
+  control needs its own `@media (pointer: coarse)` override, or it ends up shorter than its
+  neighbours on a phone.
+- Flex rows of controls should be designed not to wrap (trim, or give the count its own line)
+  rather than left to wrap wherever the width runs out.
 
 ## Verify before calling UI work done
 

@@ -68,6 +68,23 @@ function rulesOf(css: string): Rule[] {
   return rules
 }
 
+// A later `flex-shrink: 0` undoes part of an earlier `flex: 1 1 0`, and a
+// later `flex` undoes all of an earlier `flex-shrink`; both count as a clash
+const SHORTHANDS: Record<string, string[]> = {
+  flex: ['flex-grow', 'flex-shrink', 'flex-basis'],
+  padding: ['padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'padding-block', 'padding-inline'],
+  margin: ['margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'margin-block', 'margin-inline'],
+  gap: ['row-gap', 'column-gap'],
+  overflow: ['overflow-x', 'overflow-y'],
+  background: ['background-color', 'background-image'],
+  border: ['border-color', 'border-width', 'border-style'],
+  inset: ['top', 'right', 'bottom', 'left'],
+  transition: ['transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay'],
+  animation: ['animation-name', 'animation-duration', 'animation-timing-function', 'animation-delay', 'animation-iteration-count'],
+  'grid-template': ['grid-template-columns', 'grid-template-rows', 'grid-template-areas'],
+}
+const overlaps = (a: string, b: string) => a === b || SHORTHANDS[a]?.includes(b) || SHORTHANDS[b]?.includes(a)
+
 function deadOverrides(css: string): string[] {
   const rules = rulesOf(css)
   const found: string[] = []
@@ -79,7 +96,7 @@ function deadOverrides(css: string): string[] {
       // layered one wherever it sits, so a later rule only wins from the same
       // layer, or from outside every layer.
       if (later.layer !== r.layer && later.layer !== null) continue
-      const clash = [...r.props].filter(p => later.props.has(p))
+      const clash = [...r.props].filter(p => [...later.props].some(q => overlaps(p, q)))
       if (clash.length) found.push(`${r.selector} { ${clash.join(', ')} } in ${r.media} is overridden by a later plain rule`)
     }
   }
@@ -101,6 +118,22 @@ describe('CSS override order', () => {
       @media (max-width: 767px) { .a { width: 100%; } }
     `
     expect(deadOverrides(css)).toEqual([])
+  })
+
+  it('knows a later longhand undoes part of an earlier shorthand', () => {
+    const css = `
+      @media (max-width: 767px) { .a { flex: 1 1 0; } }
+      .a { flex-shrink: 0; }
+    `
+    expect(deadOverrides(css)).toEqual(['.a { flex } in @media (max-width: 767px) is overridden by a later plain rule'])
+  })
+
+  it('knows a later shorthand undoes an earlier longhand', () => {
+    const css = `
+      @media (max-width: 767px) { .a { overflow-x: auto; } }
+      .a { overflow: hidden; }
+    `
+    expect(deadOverrides(css)).toHaveLength(1)
   })
 
   it('ignores a later rule that sets different properties', () => {

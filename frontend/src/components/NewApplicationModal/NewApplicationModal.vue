@@ -266,7 +266,7 @@ async function submit() {
           <div class="tag-row mb-2">
             <span v-for="l in locations" :key="l" class="city-chip">
               {{ l }}
-              <button @click="removeLocation(l)" class="city-remove" aria-label="Remove">×</button>
+              <button @click="removeLocation(l)" class="city-remove" aria-label="Remove"><AppIcon name="close" class="icon-1em" /></button>
             </span>
           </div>
           <input
@@ -389,8 +389,6 @@ async function submit() {
   border-radius: var(--radius);
 }
 .icon { width: 1.25rem; height: 1.25rem; }
-.btn-secondary { background: var(--col-bg); color: var(--col-muted); border: 1px solid var(--col-border); border-radius: .375rem; padding: .5rem 1.25rem; font-size: .875rem; cursor: pointer; }
-.btn-secondary:hover { background: var(--col-surface); }
 
 .combobox-wrapper { position: relative; }
 .combobox-dropdown {

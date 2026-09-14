@@ -74,4 +74,14 @@ describe('AppIcon – no inline icons elsewhere', () => {
     const template = readFileSync(join(SRC, file), 'utf8').replace(/<style[\s\S]*?<\/style>/g, '')
     expect(template).not.toMatch(/<svg\b/)
   })
+
+  // Characters standing in for icons (‹ › × ✕ ✓ ★) take the font's shape and
+  // size, not the icon set's: the pagination arrows were a third the size of
+  // every other chevron in the app.
+  it.each(files)('%s uses no text characters as icons', file => {
+    const template = readFileSync(join(SRC, file), 'utf8')
+      .replace(/<style[\s\S]*?<\/style>/g, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+    expect(template).not.toMatch(/>\s*(?:[‹›«»←→✓✔✕×★☆]|&times;)\s*</)
+  })
 })

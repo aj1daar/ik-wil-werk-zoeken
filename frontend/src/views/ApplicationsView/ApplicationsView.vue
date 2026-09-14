@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppIcon from '../../components/ui/AppIcon.vue'
 import LoadingRegion from '../../components/ui/LoadingRegion.vue'
+import AppPagination from '../../components/AppPagination/AppPagination.vue'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
@@ -98,20 +99,6 @@ const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))
 const pagedFiltered = computed(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE
   return filtered.value.slice(start, start + PAGE_SIZE)
-})
-
-const visiblePages = computed((): (number | null)[] => {
-  const total = pageCount.value
-  const cur = currentPage.value
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const around = new Set([1, total, cur - 2, cur - 1, cur, cur + 1, cur + 2].filter(p => p >= 1 && p <= total))
-  const sorted = [...around].sort((a, b) => a - b)
-  const pages: (number | null)[] = []
-  for (let i = 0; i < sorted.length; i++) {
-    if (i > 0 && sorted[i] - sorted[i - 1] > 1) pages.push(null)
-    pages.push(sorted[i])
-  }
-  return pages
 })
 
 watch([search, filterStatus, sortBy], () => { currentPage.value = 1 })
@@ -281,20 +268,13 @@ function printPage() {
       </div>
 
       <div class="filter-controls-row">
-        <div v-if="filtered.length > 0" class="pagination">
-          <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, filtered.length) }} of {{ filtered.length }}</span>
-          <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
-          <template v-for="(p, i) in visiblePages" :key="i">
-            <span v-if="p === null" class="page-ellipsis">…</span>
-            <button
-              v-else
-              :class="['page-btn', p === currentPage && 'page-btn--active']"
-              @click="goToPage(p)"
-              :aria-current="p === currentPage ? 'page' : undefined"
-            >{{ p }}</button>
-          </template>
-          <button class="page-btn" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" aria-label="Next page">›</button>
-        </div>
+        <AppPagination
+          v-if="filtered.length > 0"
+          :page="currentPage"
+          :page-size="PAGE_SIZE"
+          :total="filtered.length"
+          @update:page="goToPage"
+        />
 
         <div class="filter-actions">
           <button
@@ -308,7 +288,7 @@ function printPage() {
             <AppIcon name="chevron-down" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" />
           </button>
 
-          <button @click="modalOpen = true" class="btn-new" title="New application (N)">
+          <button @click="modalOpen = true" class="btn-primary btn-new" title="New application (N)">
             <AppIcon name="plus" class="btn-new-icon" />
             New application
           </button>
@@ -323,7 +303,7 @@ function printPage() {
           <option value="oldest">Oldest first</option>
           <option value="updated">Recently updated</option>
           <option value="company">Company A–Z</option>
-          <option value="followup">Follow-up date ↑</option>
+          <option value="followup">Follow-up soonest</option>
         </select>
 
         <button
@@ -414,7 +394,7 @@ function printPage() {
                     :aria-label="`Open ${app.companyName}, ${app.position}`"
                     @click.stop="selectRow(app.id)"
                   >{{ app.companyName }}</button>
-                  <span :class="['chip', 'sponsor-chip', 'sponsor-chip--inline', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
+                  <span :class="['chip', 'chip--sm', 'sponsor-chip', 'sponsor-chip--inline', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
                     {{ app.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
                   </span>
                 </p>
@@ -485,7 +465,7 @@ function printPage() {
       <Transition name="toast">
         <div v-if="store.toastError" class="toast-error" role="alert">
           <span>{{ store.toastError }}</span>
-          <button @click="store.dismissToast()" class="toast-close" aria-label="Dismiss">×</button>
+          <button @click="store.dismissToast()" class="toast-close" aria-label="Dismiss"><AppIcon name="close" class="icon-1em" /></button>
         </div>
       </Transition>
     </teleport>
@@ -607,11 +587,7 @@ function printPage() {
 @media (prefers-reduced-motion: reduce) {
   .status-tab { transition: none; }
 }
-.sponsor-chip--inline {
-  flex-shrink: 0;
-  font-size: .6875rem;
-  padding: .05rem .4rem;
-}
+.sponsor-chip--inline { flex-shrink: 0; }
 
 .bulk-bar {
   position: sticky;
@@ -645,6 +621,19 @@ function printPage() {
 .bulk-error { font-size: .8rem; font-weight: 600; color: var(--col-invert-text); }
 @media (max-width: 767px) {
   .bulk-bar { position: fixed; left: 0; right: 0; }
+  /* Four controls wrapped with Cancel alone on a second line. A grid keeps two
+     tidy rows: what's selected and how to back out, then what to do with it. */
+  .bulk-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "count clear" "select apply" "error error";
+    row-gap: .5rem;
+  }
+  .bulk-count  { grid-area: count; }
+  .bulk-clear  { grid-area: clear; }
+  .bulk-select { grid-area: select; max-width: none; min-width: 0; }
+  .bulk-apply  { grid-area: apply; }
+  .bulk-error  { grid-area: error; }
   /* Room under the last row so the pinned bar never covers it */
   .dashboard:has(.bulk-bar) .app-list-wrapper { padding-bottom: 6rem; }
 }
@@ -706,13 +695,6 @@ function printPage() {
   .app-detail-leave-active .modal-box { transition: none; }
 }
 
-.btn-new {
-  display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: var(--radius);
-  padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
-  white-space: nowrap;
-}
-.btn-new:hover { opacity: .85; }
 .btn-new-icon { width: 1rem; height: 1rem; }
 /* Every row is a 2-row grid — checkbox/name/chevron on top, meta chips
    spanning the full width underneath — instead of split-panel.css's single
@@ -744,7 +726,6 @@ function printPage() {
   width: 100%;
 }
 .row-date { font-size: .75rem; color: var(--col-subtle); font-variant-numeric: tabular-nums; }
-.chip { font-weight: 500; }
 .add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
 .btn-filter-toggle {
   display: inline-flex; align-items: center; gap: .375rem;
@@ -777,35 +758,6 @@ function printPage() {
 .filter-controls-row { justify-content: space-between; }
 .filter-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
 
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: .25rem;
-  flex-wrap: wrap;
-}
-.pagination-info {
-  font-size: .72rem;
-  color: var(--col-subtle);
-  margin-right: .4rem;
-  white-space: nowrap;
-}
-.page-btn {
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 .4rem;
-  border: 1px solid var(--col-border);
-  border-radius: var(--radius);
-  background: var(--col-bg);
-  color: var(--col-muted);
-  font-size: .8rem;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
-}
-.page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
-.page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
-.page-btn:disabled { opacity: .35; cursor: default; }
-.page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
 
 @media (max-width: 767px) {
   /* Full-bleed on phones: the scoped .dashboard margin above would otherwise
@@ -817,10 +769,7 @@ function printPage() {
      unevenly around each other. */
   .filter-actions { order: -1; width: 100%; margin-left: 0; }
   .btn-new { flex: 1; justify-content: center; }
-  .pagination { width: 100%; justify-content: center; }
-
-  /* Apple HIG minimum 44x44pt tap target */
-  .page-btn { min-width: 2.75rem; height: 2.75rem; }
+  .pagination { width: 100%; }
 
   .company-row { padding: .75rem 1rem; }
 
@@ -831,6 +780,16 @@ function printPage() {
      so drop them here instead. */
   .followup-badge--none,
   .success-rate-chip--none { display: none; }
+
+  /* A follow-up badge used to fit beside the date on some rows and wrap alone
+     onto a second line on others, depending on the date's length and the
+     phone's width. It now always takes its own line when a row has one. */
+  .row-meta:has(.followup-badge:not(.followup-badge--none))::after {
+    content: '';
+    flex-basis: 100%;
+    order: 1;
+  }
+  .row-meta .followup-badge { order: 2; }
 }
 
 @media (min-width: 768px) {

@@ -163,7 +163,7 @@ const option = computed(() => {
 }
 
 .chart-title {
-  font-size: .9375rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--col-text);
   margin: 0 0 .75rem;

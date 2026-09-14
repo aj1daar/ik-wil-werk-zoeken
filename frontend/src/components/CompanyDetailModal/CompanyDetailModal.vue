@@ -266,7 +266,7 @@ onMounted(loadMerged)
         <div v-if="application" class="field">
           <label class="field-label">Your application</label>
           <div class="applied-badge-row">
-            <span :class="['status-chip', STATUS_COLOR[application.status]]">{{ STATUS_LABELS[application.status] }}</span>
+            <span :class="['chip', 'status-chip', STATUS_COLOR[application.status]]">{{ STATUS_LABELS[application.status] }}</span>
             <span class="applied-position">{{ application.position }}</span>
           </div>
         </div>
@@ -289,7 +289,7 @@ onMounted(loadMerged)
               <span v-if="company.remotePolicy" class="meta-chip meta-chip--remote">{{ company.remotePolicy }}</span>
               <span v-if="company.companySize" class="meta-chip meta-chip--size">{{ company.companySize }}</span>
               <span v-if="company.targetMarket" class="meta-chip meta-chip--market">{{ company.targetMarket }}</span>
-              <span v-if="company.parentCompanyName" class="meta-chip meta-chip--parent" :title="`Part of ${company.parentCompanyName}`">↑ {{ company.parentCompanyName }}</span>
+              <span v-if="company.parentCompanyName" class="meta-chip meta-chip--parent">Part of {{ company.parentCompanyName }}</span>
             </div>
           </div>
 
@@ -333,7 +333,7 @@ onMounted(loadMerged)
             <div v-if="mergeStaged.length" class="tag-row ce-chip-row">
               <span v-for="c in mergeStaged" :key="c.id" class="city-chip">
                 {{ c.name }}
-                <button type="button" class="city-remove" :aria-label="`Remove ${c.name}`" @click="unstageFromMerge(c.id)">&times;</button>
+                <button type="button" class="city-remove" :aria-label="`Remove ${c.name}`" @click="unstageFromMerge(c.id)"><AppIcon name="close" class="icon-1em" /></button>
               </span>
             </div>
 
@@ -373,7 +373,7 @@ onMounted(loadMerged)
                   <span class="merge-result-name">{{ c.name }}</span>
                   <button
                     type="button"
-                    class="btn-list merge-undo"
+                    class="btn-secondary btn-list merge-undo"
                     :disabled="unmergingId === c.id"
                     @click="unmerge(c.id)"
                   >
@@ -450,7 +450,7 @@ onMounted(loadMerged)
             <div v-if="form[chip.field].length" class="tag-row ce-chip-row">
               <span v-for="(v, i) in form[chip.field]" :key="v" class="city-chip">
                 {{ v }}
-                <button type="button" class="city-remove" :aria-label="`Remove ${v}`" @click="removeChip(chip.field, i)">×</button>
+                <button type="button" class="city-remove" :aria-label="`Remove ${v}`" @click="removeChip(chip.field, i)"><AppIcon name="close" class="icon-1em" /></button>
               </span>
             </div>
             <input
@@ -485,13 +485,13 @@ onMounted(loadMerged)
             Visit website
           </a>
           <button
-            :class="['btn-list', { 'btn-list--on': isInterested }]"
+            :class="['btn-secondary', 'btn-list', { 'btn-list--on': isInterested }]"
             :aria-pressed="isInterested"
             @click="emit('toggle-interested')"
           >
             {{ isInterested ? 'Remove from interested' : 'Add to interested' }}
           </button>
-          <button @click="emit('toggle-hidden')" class="btn-list">
+          <button @click="emit('toggle-hidden')" class="btn-secondary btn-list">
             {{ isHidden ? 'Unhide' : 'Not interested' }}
           </button>
           <button @click="emit('start-application')" class="btn-primary footer-primary">
@@ -544,6 +544,9 @@ onMounted(loadMerged)
 .subtitle-link:hover { text-decoration: underline; }
 .ext-icon { width: .7rem; height: .7rem; }
 .modal-header-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+/* Edit and Close share one height: 29px next to 20px was visibly lopsided */
+.modal-header-actions > * { min-height: 2rem; }
+.modal-header-actions .btn-icon { min-width: 2rem; justify-content: center; }
 .panel-edit-btn {
   background: none; border: 1px solid var(--col-border); cursor: pointer;
   color: var(--col-accent); font-size: .8rem; font-weight: 500;
@@ -560,24 +563,25 @@ onMounted(loadMerged)
 .body-text--empty { font-style: italic; color: var(--col-subtle); }
 
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); display: flex; gap: .625rem; flex-wrap: wrap; }
-/* Phones: the two list buttons split the row evenly instead of hugging their
-   labels, and the footer clears the home indicator. */
+/* The primary action always has the footer's last row to itself. It used to
+   share the row when the buttons before it were short and drop alone onto a
+   new line when they were long ("Remove from interested"), so the same popup
+   looked different from one company to the next. */
+.footer-primary { flex: 1 1 100%; }
+.footer-website { display: inline-flex; align-items: center; gap: .3rem; font-size: .875rem; white-space: nowrap; flex-shrink: 0; }
+.btn-icon-sm { width: .9rem; height: .9rem; }
+/* The look is .btn-secondary's; this only places the list buttons */
+.btn-list { flex-shrink: 0; }
+/* After the base rule, so it wins: on phones the list buttons split the row
+   evenly, and under a finger every footer and header control is 44px */
 @media (max-width: 767px) {
   .modal-footer { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
   .btn-list { flex: 1 1 0; justify-content: center; text-align: center; }
 }
 @media (pointer: coarse) {
-  .btn-list { min-height: 44px; }
+  .btn-list,
+  .modal-header-actions > * { min-height: 44px; }
 }
-.footer-primary { flex: 1; min-width: 140px; }
-.footer-website { display: inline-flex; align-items: center; gap: .3rem; font-size: .875rem; white-space: nowrap; flex-shrink: 0; }
-.btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-list {
-  background: none; border: 1px solid var(--col-border); color: var(--col-muted);
-  border-radius: var(--radius); padding: .45rem .875rem; font-size: .8rem; cursor: pointer;
-  flex-shrink: 0; white-space: nowrap;
-}
-.btn-list:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-list--on {
   border-color: color-mix(in srgb, var(--col-warning) 45%, transparent);
   color: var(--col-warning); background: var(--col-warning-lt);
@@ -590,8 +594,6 @@ onMounted(loadMerged)
 .applied-badge-row { display: flex; align-items: center; gap: .5rem; }
 .applied-position { font-size: .8rem; color: var(--col-muted); }
 
-/* Colours come from the global .chip-* status classes (style.css) */
-.status-chip { display: inline-block; padding: .1rem .45rem; border-radius: var(--radius-sm); border: 1px solid transparent; font-size: .75rem; font-weight: 500; white-space: nowrap; }
 
 /* Company facts are plain facts, not categories to tell apart by colour —
    one neutral chip style; the parent company is set apart by an outline. */
@@ -640,10 +642,4 @@ onMounted(loadMerged)
 .merge-undo { padding: .25rem .625rem; font-size: .72rem; }
 .merge-submit { margin-top: .625rem; align-self: flex-start; }
 .merge-notice { font-size: .8rem; color: var(--col-success); margin: 0; }
-.btn-danger {
-  background: var(--col-error); color: var(--col-bg); border: none; border-radius: var(--radius);
-  padding: .45rem 1rem; font-size: .8rem; font-weight: 600; cursor: pointer;
-}
-.btn-danger:disabled { opacity: .55; cursor: not-allowed; }
-.btn-danger:not(:disabled):hover { opacity: .88; }
 </style>

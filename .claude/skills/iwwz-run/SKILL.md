@@ -91,6 +91,26 @@ isn't what you want to drive (`msedge`, or `chromium` after `npx playwright inst
 Screenshots are for looking at, not just for passing. Open the mobile and dark shots — the problems
 that survive unit tests are cramped layouts, invisible text and clipped charts.
 
+## Layout audit
+
+```bash
+cd frontend
+IWWZ_EMAIL=... IWWZ_PASSWORD=... IWWZ_EMPTY_EMAIL=... IWWZ_EMPTY_PASSWORD=... pnpm audit:layout
+```
+
+Walks the whole app — signed-out pages, every tab, filter and range, empty and error states,
+modals, dialogs, the phone menu, and the admin panel when the account is an admin — on iPhone 15
+Pro Max, iPhone SE, Galaxy S24, iPad mini and desktop. Per screen it measures orphaned wraps,
+mismatched control heights, spill-over, clipped text and glyph icons; across screens it compares
+each kind of element and reports any drawn more than one way. Exits non-zero on any finding or on
+a state it couldn't reach. Narrow it with `--viewports=iphone-se,desktop` or
+`--only=companies`. A full run takes several minutes.
+
+It needs realistic data: an account with around a hundred applications (with a dozen, pagination
+never shows "…" and the wrap that happens at a hundred stays hidden), and optionally a second,
+empty account for the empty states. Locally, promote the main account to admin in the database to
+cover the admin panel and the company editor.
+
 ## Checks that don't need the app running
 
 ```bash

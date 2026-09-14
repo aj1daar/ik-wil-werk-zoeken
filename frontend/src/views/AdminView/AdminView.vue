@@ -416,7 +416,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 }
 
 .admin-title {
-  font-size: 1.6rem;
+  font-size: 1.5rem; /* the size of every other page title */
   font-weight: 600;
   color: var(--col-text);
   margin-bottom: 2rem;
@@ -425,16 +425,14 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 .admin-card {
   background: var(--col-surface);
   border: 1px solid var(--col-border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow:
-    0 1px 3px  color-mix(in srgb, var(--col-text) 6%, transparent),
-    0 4px 16px color-mix(in srgb, var(--col-text) 9%, transparent);
+  /* Flat, like every other card: a hairline, not a drop shadow */
 }
 
 .card-title {
-  font-size: 1.1rem;
+  font-size: 1rem; /* the size of every other section title */
   font-weight: 600;
   color: var(--col-text);
   margin: 0 0 1rem;
@@ -474,28 +472,14 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 
 .promote-input:focus { border-color: var(--col-accent); }
 
-.btn-primary {
-  background: var(--col-invert-bg);
-  color: var(--col-invert-text);
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.55rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity var(--dur-instant) var(--ease-standard);
-  white-space: nowrap;
-}
-
-.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
-.btn-primary:not(:disabled):hover { opacity: 0.88; }
-
 .form-error   { font-size: 0.85rem; color: var(--col-error); margin: 0.25rem 0 0; }
 .form-success { font-size: 0.85rem; color: var(--col-success); margin: 0.25rem 0 0; }
 .muted        { color: var(--col-muted); font-size: 0.9rem; }
 
 .table-wrap { overflow-x: auto; }
-.table-wrap--capped { max-height: 220px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* overflow-x: auto, not hidden: on a phone the sync table is wider than the
+   card, and hidden let it spill out past the card's edge */
+.table-wrap--capped { max-height: 220px; overflow-y: auto; overflow-x: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .table-wrap--capped thead th { position: sticky; top: 0; background: var(--col-surface); z-index: 1; }
 
 .users-table {
@@ -566,15 +550,6 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .enrich-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
-
-.btn-ghost {
-  background: var(--col-surface); color: var(--col-muted);
-  border: 1px solid var(--col-border); border-radius: 6px;
-  padding: 0.55rem 1.25rem; font-size: 0.9rem; font-weight: 600;
-  cursor: pointer; transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard); white-space: nowrap;
-}
-.btn-ghost:disabled { opacity: .55; cursor: not-allowed; }
-.btn-ghost:not(:disabled):hover { background: var(--col-raised); color: var(--col-text); }
 
 .batch-result {
   display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
