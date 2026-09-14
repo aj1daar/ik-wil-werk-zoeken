@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../ui/AppIcon.vue'
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
@@ -152,6 +153,12 @@ const unmergingId      = ref<string | null>(null)
 
 // Live companies matching the search box, minus this company and anything the
 // admin already staged for the merge.
+const hasDetails = computed(() => {
+  const c = props.company
+  return !!(c.workingLanguage || c.remotePolicy || c.companySize || c.targetMarket || c.parentCompanyName
+    || c.locations?.length || c.summary || c.coreIndustry || c.techStackTags?.length || c.functionalTags?.length)
+})
+
 const mergeResults = computed<SponsorCompany[]>(() => {
   const q = mergeQuery.value.trim()
   if (q.length < 2) return []
@@ -242,9 +249,7 @@ onMounted(loadMerged)
             <template v-if="company.websiteUrl">
               · <a :href="company.websiteUrl" target="_blank" rel="noopener noreferrer" class="subtitle-link">
                 website
-                <svg xmlns="http://www.w3.org/2000/svg" class="ext-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
+                <AppIcon name="external" class="ext-icon" />
               </a>
             </template>
           </p>
@@ -252,9 +257,7 @@ onMounted(loadMerged)
         <div class="modal-header-actions">
           <button v-if="isAdmin && !editing" type="button" class="panel-edit-btn" @click="startEdit">Edit</button>
           <button @click="requestClose" class="btn-icon" aria-label="Close">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <AppIcon name="close" class="icon" />
           </button>
         </div>
       </div>
@@ -267,6 +270,12 @@ onMounted(loadMerged)
             <span class="applied-position">{{ application.position }}</span>
           </div>
         </div>
+
+        <!-- Most register entries have nothing enriched yet; without this the
+             modal showed an empty band between two dividers. -->
+        <p v-if="!editing && !application && !isAdmin && !hasDetails" class="body-text body-text--empty">
+          No details yet. This company is on the IND register of recognised sponsors.
+        </p>
 
         <!-- ── read-only view ──────────────────────────────────────────────── -->
         <template v-if="!editing">
@@ -472,9 +481,7 @@ onMounted(loadMerged)
             rel="noopener noreferrer"
             class="btn-ghost footer-website"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
+            <AppIcon name="external" class="btn-icon-sm" />
             Visit website
           </a>
           <button
@@ -488,7 +495,7 @@ onMounted(loadMerged)
             {{ isHidden ? 'Unhide' : 'Not interested' }}
           </button>
           <button @click="emit('start-application')" class="btn-primary footer-primary">
-            {{ application ? 'Add Another Application' : 'Start Application' }}
+            {{ application ? 'Add another application' : 'Start application' }}
           </button>
         </template>
       </div>
@@ -520,6 +527,12 @@ onMounted(loadMerged)
   max-height: 90dvh;
   overflow: hidden;
 }
+/* Phones: a sheet anchored to the bottom edge (it rises from there — see
+   style.css), full width, with room for the home indicator */
+@media (max-width: 767px) {
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .modal { max-width: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
 .modal-header {
   display: flex; justify-content: space-between; align-items: flex-start;
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border); gap: 1rem;
@@ -547,6 +560,15 @@ onMounted(loadMerged)
 .body-text--empty { font-style: italic; color: var(--col-subtle); }
 
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); display: flex; gap: .625rem; flex-wrap: wrap; }
+/* Phones: the two list buttons split the row evenly instead of hugging their
+   labels, and the footer clears the home indicator. */
+@media (max-width: 767px) {
+  .modal-footer { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .btn-list { flex: 1 1 0; justify-content: center; text-align: center; }
+}
+@media (pointer: coarse) {
+  .btn-list { min-height: 44px; }
+}
 .footer-primary { flex: 1; min-width: 140px; }
 .footer-website { display: inline-flex; align-items: center; gap: .3rem; font-size: .875rem; white-space: nowrap; flex-shrink: 0; }
 .btn-icon-sm { width: .9rem; height: .9rem; }

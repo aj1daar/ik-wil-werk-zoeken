@@ -6,6 +6,7 @@ import StatusTree from '../../components/StatusTree/StatusTree.vue'
 import RejectionChart from '../../components/RejectionChart/RejectionChart.vue'
 import AreaChart from '../../components/AreaChart/AreaChart.vue'
 import DatePicker from '../../components/DatePicker/DatePicker.vue'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 
 const store = useApplicationsStore()
 
@@ -214,7 +215,16 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
         <p v-if="boardSummary" class="board-summary">{{ boardSummary }}</p>
       </header>
 
-      <p v-if="store.loading && store.applications.length === 0" class="board-empty">Loading follow-ups…</p>
+      <LoadingRegion v-if="store.loading && store.applications.length === 0" label="Loading follow-ups">
+        <ol class="board-rows" aria-hidden="true">
+          <li v-for="w in [46, 60, 38]" :key="w" class="board-row">
+            <span class="board-row-link skeleton-board-row">
+              <span class="skeleton skeleton--title" style="width: 3.5rem" />
+              <span class="skeleton skeleton--title" :style="{ width: `${w}%` }" />
+            </span>
+          </li>
+        </ol>
+      </LoadingRegion>
 
       <ol v-else-if="boardRows.length > 0" class="board-rows">
         <li
@@ -279,7 +289,29 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
       </div>
     </div>
 
-    <div v-if="store.statusFlowLoading && !store.statusFlow" class="state-msg">Loading…</div>
+    <LoadingRegion v-if="store.statusFlowLoading && !store.statusFlow" label="Loading your pipeline">
+      <!-- Same grid as the charts below, so nothing moves when they arrive -->
+      <div class="journey-layout" aria-hidden="true">
+        <div class="skeleton-card funnel-section">
+          <span class="skeleton skeleton--title" style="width: 38%" />
+          <span class="skeleton" style="height: 22rem" />
+        </div>
+        <div class="charts-col">
+          <div class="skeleton-card">
+            <span class="skeleton skeleton--title" style="width: 45%" />
+            <span class="skeleton-lines">
+              <span class="skeleton" style="width: 90%" />
+              <span class="skeleton" style="width: 62%" />
+              <span class="skeleton" style="width: 48%" />
+            </span>
+          </div>
+          <div class="skeleton-card">
+            <span class="skeleton skeleton--title" style="width: 52%" />
+            <span class="skeleton" style="height: 12rem" />
+          </div>
+        </div>
+      </div>
+    </LoadingRegion>
 
     <div v-else-if="store.statusFlowError" class="state-msg state-msg--error" role="alert">{{ store.statusFlowError }}</div>
 
@@ -375,6 +407,10 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 .board-row--late .board-when,
 .board-row--today .board-when { color: var(--col-signal); font-weight: 600; }
 
+/* Placeholders on the dark board: the paper-coloured shapes would glare */
+.skeleton-board-row { align-items: center; }
+.board .skeleton { background: color-mix(in srgb, var(--col-nav-text) 14%, transparent); }
+
 .board-empty {
   margin: 0;
   padding: .75rem 0;
@@ -441,15 +477,27 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
   font: inherit;
   font-size: .8125rem;
   color: var(--col-muted);
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .range-btn:first-child { border-left: none; }
 .range-btn:focus-visible { outline-offset: -2px; }
 .range-btn:not(.range-btn--active):hover { background: var(--col-surface); color: var(--col-text); }
 .range-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); font-weight: 500; }
-@media (max-width: 640px) {
-  .range-bar { width: 100%; }
-  .range-btn { flex: 1 1 auto; }
+/* Phones: six ranges wrapped 4 + 2 with the last two stretched to fill the
+   row. An even 3 x 2 grid keeps every option visible and the same size; the
+   1px gap over a border-coloured ground draws the dividers. */
+@media (max-width: 767px) {
+  .range-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    width: 100%;
+    background: var(--col-border);
+  }
+  .range-btn { border-left: none; white-space: nowrap; }
+  /* Not on the active one: this media block comes later than
+     .range-btn--active, so it would repaint it and leave light text on light */
+  .range-btn:not(.range-btn--active) { background: var(--col-bg); }
 }
 
 .custom-range { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
@@ -460,6 +508,13 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
 .custom-overall-cb { width: 1rem; height: 1rem; accent-color: var(--col-accent); cursor: pointer; }
 .custom-date-row { display: flex; gap: 1rem; flex-wrap: wrap; }
 .custom-range-field { display: flex; flex-direction: column; gap: .25rem; }
+/* After the rules above, not inside the earlier phone block: a media query adds
+   no specificity, so up there the plain .custom-date-row rule won and the two
+   date fields stayed half-width. */
+@media (max-width: 767px) {
+  .custom-date-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .custom-range-field { min-width: 0; }
+}
 
 .onboarding-banner {
   display: flex; align-items: flex-start; gap: 1rem;
@@ -512,6 +567,6 @@ watch(() => store.applications, () => updateJourneyHeight(), { flush: 'post' })
   }
 }
 
-.content-area { transition: opacity 200ms ease; }
+.content-area { transition: opacity var(--dur-base) var(--ease-standard); }
 .content-area--updating { opacity: 0.4; pointer-events: none; }
 </style>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppIcon from '../../components/ui/AppIcon.vue'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, statusMark } from '../../stores/applications'
@@ -257,9 +259,7 @@ function printPage() {
   <div class="dashboard">
     <div class="filter-bar">
       <div class="filter-search">
-        <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-        </svg>
+        <AppIcon name="search" class="filter-icon" />
         <input v-model="search" placeholder="Search by company or position…" class="filter-input pl-9" aria-label="Search applications" />
       </div>
 
@@ -302,20 +302,14 @@ function printPage() {
             @click="showFiltersPanel = !showFiltersPanel"
             :aria-expanded="showFiltersPanel"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
-            </svg>
+            <AppIcon name="filter" class="btn-icon-sm" />
             Filters
             <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+            <AppIcon name="chevron-down" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" />
           </button>
 
           <button @click="modalOpen = true" class="btn-new" title="New application (N)">
-            <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
+            <AppIcon name="plus" class="btn-new-icon" />
             New application
           </button>
         </div>
@@ -328,7 +322,7 @@ function printPage() {
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="updated">Recently updated</option>
-          <option value="company">Company A→Z</option>
+          <option value="company">Company A–Z</option>
           <option value="followup">Follow-up date ↑</option>
         </select>
 
@@ -338,9 +332,7 @@ function printPage() {
           class="btn-export"
           title="Export all applications as CSV"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
+          <AppIcon name="download" class="btn-new-icon" />
           Export CSV
         </button>
 
@@ -350,9 +342,7 @@ function printPage() {
           class="btn-export"
           title="Print / Save as PDF"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-new-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-          </svg>
+          <AppIcon name="printer" class="btn-new-icon" />
           Print
         </button>
       </div>
@@ -376,7 +366,18 @@ function printPage() {
         </div>
 
         <div class="app-list-wrapper">
-          <div v-if="store.loading" class="state-msg">Loading…</div>
+          <LoadingRegion v-if="store.loading" label="Loading your applications">
+            <ul class="app-grid" aria-hidden="true">
+              <li v-for="w in [44, 58, 36, 50, 40, 54]" :key="w" class="company-row skeleton-row">
+                <span class="skeleton skeleton--box" />
+                <span class="skeleton-row-body">
+                  <span class="skeleton skeleton--title" :style="{ width: `${w}%` }" />
+                  <span class="skeleton" :style="{ width: `${w - 14}%` }" />
+                  <span class="skeleton skeleton--chip" />
+                </span>
+              </li>
+            </ul>
+          </LoadingRegion>
           <div v-else-if="store.error" class="state-msg state-msg--error">{{ store.error }}</div>
           <div v-else-if="filtered.length === 0" class="state-msg">
             <template v-if="store.applications.length === 0">
@@ -442,9 +443,7 @@ function printPage() {
                   :title="isOverdue(app) ? 'Follow-up overdue' : isDueToday(app) ? 'Follow-up due today' : undefined"
                 >{{ isOverdue(app) ? 'Follow up now' : isDueToday(app) ? 'Follow up today' : ' ' }}</span>
               </div>
-              <svg class="row-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
+              <AppIcon name="chevron-right" class="row-chevron" />
             </li>
           </TransitionGroup>
         </div>
@@ -531,6 +530,13 @@ function printPage() {
   cursor: pointer;
   accent-color: var(--col-accent);
 }
+
+/* Scoped, so it can beat the base rule above: a 16px checkbox is a miss
+   waiting to happen on a touchscreen. 24px is the WCAG 2.5.8 floor; the row
+   around it stays the comfortable target. */
+@media (pointer: coarse) {
+  .row-checkbox { width: 24px; height: 24px; }
+}
 .company-row--checked { background: color-mix(in srgb, var(--col-accent) 8%, transparent); }
 
 .followup-badge { font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: var(--radius-sm); white-space: nowrap; }
@@ -592,7 +598,7 @@ function printPage() {
   font-size: .8125rem;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color .12s, color .12s, border-color .12s;
+  transition: background-color var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
 }
 .status-tab:not(.status-tab--active):hover { background: var(--col-raised); color: var(--col-text); }
 .status-tab--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); }
@@ -637,7 +643,12 @@ function printPage() {
 }
 .bulk-clear:hover { background: color-mix(in srgb, var(--col-invert-text) 12%, transparent); }
 .bulk-error { font-size: .8rem; font-weight: 600; color: var(--col-invert-text); }
-.bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform .18s ease, opacity .18s ease; }
+@media (max-width: 767px) {
+  .bulk-bar { position: fixed; left: 0; right: 0; }
+  /* Room under the last row so the pinned bar never covers it */
+  .dashboard:has(.bulk-bar) .app-list-wrapper { padding-bottom: 6rem; }
+}
+.bulk-bar-enter-active, .bulk-bar-leave-active { transition: transform var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard); }
 .bulk-bar-enter-from, .bulk-bar-leave-to { transform: translateY(100%); opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .bulk-bar-enter-active, .bulk-bar-leave-active { transition: none; }
@@ -671,17 +682,21 @@ function printPage() {
   box-shadow: var(--shadow-lg);
 }
 .app-detail-enter-active,
-.app-detail-leave-active { transition: opacity 0.2s ease; }
+.app-detail-leave-active { transition: opacity var(--dur-base) var(--ease-standard); }
 .app-detail-enter-from,
 .app-detail-leave-to     { opacity: 0; }
 .app-detail-enter-active .modal-box,
-.app-detail-leave-active .modal-box { transition: transform 0.2s ease, opacity 0.2s ease; }
+.app-detail-leave-active .modal-box { transition: transform var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard); }
 .app-detail-enter-from .modal-box,
 .app-detail-leave-to   .modal-box   { transform: translateX(24px); opacity: 0; }
-@media (max-width: 480px) {
+/* Phones (not only the narrowest ones): the panel is a sheet rising from the
+   bottom edge, like the other modals, rather than a card nudged 24px */
+@media (max-width: 767px) {
   .app-detail-enter-from .modal-box,
-  .app-detail-leave-to   .modal-box { transform: translateY(24px); }
-  .modal-box { max-height: 100vh; max-height: 100dvh; border-radius: 16px 16px 0 0; align-self: flex-end; }
+  .app-detail-leave-to   .modal-box { transform: translateY(100%); opacity: 1; }
+  .app-detail-enter-active .modal-box,
+  .app-detail-leave-active .modal-box { transition-duration: var(--dur-sheet); }
+  .modal-box { max-width: none; max-height: 92vh; max-height: 92dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; align-self: flex-end; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -740,7 +755,7 @@ function printPage() {
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
 .btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-chevron { transition: transform .2s ease; }
+.btn-chevron { transition: transform var(--dur-base) var(--ease-standard); }
 .btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
   background: var(--col-accent); color: var(--col-on-accent);
@@ -785,7 +800,7 @@ function printPage() {
   font-size: .8rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background .12s, color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
 .page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
@@ -854,7 +869,7 @@ function printPage() {
     border: 1px solid var(--col-border-lt);
     border-radius: var(--radius-lg);
     background: var(--col-surface);
-    transition: background .12s, border-color .12s;
+    transition: background var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
   }
   .company-row:hover {
     background: var(--col-raised);
@@ -869,6 +884,11 @@ function printPage() {
    corners and never changes the row's box size. */
 .company-row { box-shadow: inset 3px 0 0 var(--stripe, transparent); }
 
+/* Placeholder rows borrow .company-row's padding and grid, so the real rows
+   land exactly where the grey ones were */
+.skeleton-row { cursor: default; pointer-events: none; }
+.skeleton-row-body { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+
 /* Changing page (or filtering) swaps the whole set of keys at once — every
    old card leaves while every new one enters in the same tick. .list-leave
    (style.css) keeps leaving cards in normal grid flow for their 150ms
@@ -881,11 +901,11 @@ function printPage() {
    for specificity over style.css's plain .list-leave-active. */
 .app-grid .list-leave-active { transition: none; }
 
-.row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse .9s ease-in-out infinite; }
+.row-saving { font-size: .7rem; font-weight: 600; color: var(--col-muted); animation: pulse var(--dur-loop) var(--ease-standard) infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
 .toast-error {
-  position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: calc(5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   background: var(--col-error); color: var(--col-bg);
   padding: .75rem 1rem; border-radius: var(--radius);
   box-shadow: var(--shadow-lg);

@@ -437,3 +437,37 @@ describe('HomeView – onboarding banner', () => {
     if (banner.exists()) expect(banner.text()).not.toContain('IK WIL WERK ZOEKEN')
   })
 })
+
+// ── loading placeholders ──────────────────────────────────────────────────────
+
+describe('HomeView – while the pipeline loads', () => {
+  it('holds the chart layout with placeholder cards', async () => {
+    vi.mocked(api.getStatusFlow).mockReturnValue(new Promise(() => {}))
+    const w = mountHome([])
+    await flushPromises()
+    const region = w.findAll('[role="status"]').find(r => r.text() === 'Loading your pipeline')
+    expect(region).toBeDefined()
+    expect(region!.find('.journey-layout').attributes('aria-hidden')).toBe('true')
+    expect(region!.findAll('.skeleton-card')).toHaveLength(3)
+    expect(w.text()).not.toContain('Loading…')
+  })
+})
+
+describe('HomeView – while follow-ups load', () => {
+  it('shows placeholder rows on the board instead of a loading line', async () => {
+    setActivePinia(createPinia())
+    vi.mocked(api.getApplications).mockReturnValue(new Promise(() => {}))
+    const w = mount(HomeView, {
+      global: {
+        plugins: [createPinia()],
+        stubs: { StatusTree: true, RejectionChart: true, AreaChart: true, RouterLink: RouterLinkStub },
+      },
+    })
+    await flushPromises()
+    const region = w.findAll('[role="status"]').find(r => r.text() === 'Loading follow-ups')
+    expect(region).toBeDefined()
+    expect(region!.findAll('.board-row')).toHaveLength(3)
+    expect(region!.find('ol').attributes('aria-hidden')).toBe('true')
+    expect(w.find('.board').text()).not.toMatch(/Loading follow-ups(…|\.\.\.)/)
+  })
+})

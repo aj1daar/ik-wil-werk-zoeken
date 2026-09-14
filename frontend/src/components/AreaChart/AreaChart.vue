@@ -19,10 +19,16 @@ import { TooltipComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import type { Application } from '../../api'
 import { useTheme } from '../../composables/useTheme'
+import { useReducedMotion } from '../../composables/useReducedMotion'
 
 use([CanvasRenderer, BarChart, TooltipComponent, GridComponent])
 
 const { theme } = useTheme()
+const reducedMotion = useReducedMotion()
+
+// ECharts' own default is a one-second grow on every range change, and canvas
+// ignores the CSS motion rules. These mirror --dur-base and --ease-out.
+const CHART_MOTION = { duration: 180, easing: 'cubicOut' } as const
 
 // ECharts paints to canvas and can't read CSS custom properties, so these
 // mirror the style.css tokens: route blue for the one series, recessive
@@ -112,6 +118,11 @@ const summary = computed(() => {
 const option = computed(() => {
   const ink = CHART_INK[theme.value === 'dark' ? 'dark' : 'light']
   return {
+    animation: !reducedMotion.value,
+    animationDuration: CHART_MOTION.duration,
+    animationDurationUpdate: CHART_MOTION.duration,
+    animationEasing: CHART_MOTION.easing,
+    animationEasingUpdate: CHART_MOTION.easing,
     textStyle: { fontFamily: "'IBM Plex Sans', system-ui, sans-serif" },
     tooltip: {
       trigger: 'axis',

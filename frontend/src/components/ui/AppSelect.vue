@@ -53,7 +53,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   cursor: pointer;
   width: 100%;
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--dur-instant) var(--ease-standard), box-shadow var(--dur-instant) var(--ease-standard);
 }
 
 .app-select:focus {

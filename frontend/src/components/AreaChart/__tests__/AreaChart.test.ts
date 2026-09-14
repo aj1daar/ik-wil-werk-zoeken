@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { VueWrapper } from '@vue/test-utils'
 import type { Application } from '../../../api'
 
@@ -251,5 +251,47 @@ describe('AreaChart – reactivity', () => {
     expect(w.find('.mock-chart').exists()).toBe(true)
     await w.setProps({ applications: [] })
     expect(w.find('.chart-empty').exists()).toBe(true)
+  })
+})
+
+// ── motion ────────────────────────────────────────────────────────────────────
+
+describe('AreaChart – motion', () => {
+  function stubReducedMotion(reduce: boolean) {
+    const listeners: ((e: { matches: boolean }) => void)[] = []
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: reduce && query.includes('prefers-reduced-motion'),
+      media: query,
+      addEventListener: (_: string, cb: (e: { matches: boolean }) => void) => listeners.push(cb),
+      removeEventListener: () => {},
+    }))
+    return (matches: boolean) => listeners.forEach(cb => cb({ matches }))
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('animates on the app clock, not ECharts\' one-second default', () => {
+    stubReducedMotion(false)
+    const option = getOption(mountArea([makeApp()]))
+    expect(option.animation).toBe(true)
+    expect(option.animationDuration).toBe(180)
+    expect(option.animationDurationUpdate).toBe(180)
+    expect(option.animationEasing).toBe('cubicOut')
+  })
+
+  it('does not animate at all for a reader who asked for less motion', () => {
+    stubReducedMotion(true)
+    expect(getOption(mountArea([makeApp()])).animation).toBe(false)
+  })
+
+  it('follows the setting when it changes with the page open', async () => {
+    const change = stubReducedMotion(false)
+    const w = mountArea([makeApp()])
+    expect(getOption(w).animation).toBe(true)
+
+    change(true)
+    await w.vm.$nextTick()
+
+    expect(getOption(w).animation).toBe(false)
   })
 })

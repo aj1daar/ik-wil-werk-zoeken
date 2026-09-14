@@ -55,7 +55,7 @@
 .dropdown-filters-panel .filter-select { flex: 1; min-width: 130px; }
 
 .filter-drop-enter-active,
-.filter-drop-leave-active { transition: opacity .15s ease, transform .15s ease; }
+.filter-drop-leave-active { transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); }
 .filter-drop-enter-from,
 .filter-drop-leave-to { opacity: 0; transform: translateY(-4px); }
 @media (prefers-reduced-motion: reduce) {
@@ -94,7 +94,7 @@
   padding: 0.875rem 1.25rem;
   border-bottom: 1px solid var(--col-border-lt);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background var(--dur-instant) var(--ease-standard);
 }
 .company-row:hover   { background: var(--col-surface); }
 .company-row--active { background: var(--col-accent-lt); }
@@ -120,7 +120,7 @@
 }
 
 .panel-enter-active,
-.panel-leave-active { transition: max-width 0.2s ease, opacity 0.2s ease; }
+.panel-leave-active { transition: max-width var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard); }
 .panel-enter-from,
 .panel-leave-to     { max-width: 0; opacity: 0; }
 
@@ -151,7 +151,7 @@
 
   /* max-width animation doesn't work with none; use fade only */
   .panel-enter-active,
-  .panel-leave-active { transition: opacity 0.2s ease; }
+  .panel-leave-active { transition: opacity var(--dur-base) var(--ease-standard); }
 }
 
 /* Comes after the mobile override above (same selector, same specificity —

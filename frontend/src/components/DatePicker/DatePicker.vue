@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../ui/AppIcon.vue'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 const props = withDefaults(defineProps<{
@@ -220,9 +221,7 @@ onUnmounted(() => {
       <span :class="modelValue ? 'dp-val' : 'dp-ph'">
         {{ modelValue ? formatDisplay(modelValue) : placeholder }}
       </span>
-      <svg class="dp-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-      </svg>
+      <AppIcon name="calendar" class="dp-cal-icon" />
     </button>
 
     <Teleport to="body">
@@ -240,15 +239,11 @@ onUnmounted(() => {
         <!-- Month navigation -->
         <div class="dp-hd">
           <button class="dp-nav" type="button" @click="prevMonth" aria-label="Previous month">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-            </svg>
+            <AppIcon name="chevron-left" />
           </button>
           <span class="dp-month">{{ MONTHS[viewMonth] }} {{ viewYear }}</span>
           <button class="dp-nav" type="button" @click="nextMonth" aria-label="Next month">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-            </svg>
+            <AppIcon name="chevron-right" />
           </button>
         </div>
 
@@ -308,6 +303,7 @@ onUnmounted(() => {
 /* Native mobile input — reset the flex/button layout above, it's a real <input> now */
 .dp-native {
   display: block;
+  width: 100%; /* a native date input keeps its intrinsic width otherwise */
   box-sizing: border-box;
   color-scheme: light dark;
 }
@@ -338,7 +334,7 @@ onUnmounted(() => {
   width: 1.875rem; height: 1.875rem;
   border-radius: .5rem; border: none; background: none;
   cursor: pointer; color: var(--col-muted);
-  transition: background .12s, color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .dp-nav:hover { background: var(--col-surface); color: var(--col-text); }
 .dp-nav svg   { width: 1rem; height: 1rem; }
@@ -361,7 +357,7 @@ onUnmounted(() => {
   display: flex; align-items: center; justify-content: center;
   aspect-ratio: 1; border-radius: .375rem; border: none; background: none;
   cursor: pointer; font-size: .8125rem; color: var(--col-text);
-  transition: background .1s, color .1s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
   outline: none;
 }
 .dp-day--dim { color: var(--col-subtle); }

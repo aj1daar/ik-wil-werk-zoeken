@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppIcon from '../ui/AppIcon.vue'
+import LoadingRegion from '../ui/LoadingRegion.vue'
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR, ALL_STATUSES, REJECTION_REASON_LABELS, type HistoryChanges } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
@@ -536,9 +538,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
         </span>
       </div>
       <button @click="requestClose" class="btn-icon" aria-label="Close panel">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <AppIcon name="close" class="icon" />
       </button>
     </div>
 
@@ -588,7 +588,12 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
           <span class="field-label">Status journey</span>
           <span class="sj-hint">Changes save when you click Save changes</span>
         </div>
-        <div v-if="historyLoading" class="sj-empty">Loading…</div>
+        <LoadingRegion v-if="historyLoading" label="Loading status history">
+          <span class="skeleton-lines" aria-hidden="true">
+            <span class="skeleton" style="width: 70%" />
+            <span class="skeleton" style="width: 52%" />
+          </span>
+        </LoadingRegion>
         <template v-else>
           <p v-if="historyError" class="sh-error">{{ historyError }}</p>
           <ul v-if="sortedJourney.length > 0" class="sj-list">
@@ -624,9 +629,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
                     <span v-if="!entry.id" class="sj-unsaved">unsaved</span>
                     <div class="sh-actions">
                       <button class="sh-btn" @click="startEdit(entry)" title="Edit">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
+                        <AppIcon name="pencil" class="sh-icon" />
                       </button>
                       <button
                         v-if="!entry.isApplied"
@@ -634,9 +637,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
                         @click="confirmDeleteEntry(entry.tempId)"
                         title="Delete"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        <AppIcon name="trash" class="sh-icon" />
                       </button>
                     </div>
                   </div>
@@ -674,9 +675,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
             </div>
           </template>
           <button v-else class="sh-add-btn" @click="startAdd">
-            <svg xmlns="http://www.w3.org/2000/svg" class="sh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
+            <AppIcon name="plus" class="sh-icon" />
             Change status
           </button>
         </template>
@@ -727,9 +726,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
             aria-label="Open job posting"
             title="Open job posting"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
+            <AppIcon name="external" class="icon" />
           </a>
           <button
             v-else-if="contactLinkKind === 'email'"
@@ -739,9 +736,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
             aria-label="Copy email to clipboard"
             title="Copy email to clipboard"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+            <AppIcon name="copy" class="icon" />
           </button>
         </div>
         <p v-if="parsingLink" class="link-hint" role="status">Reading the link…</p>
@@ -800,17 +795,19 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
       <!-- Change history (activity log) -->
       <div class="history-section">
         <button class="history-toggle" @click="toggleHistory" :aria-expanded="showHistory">
-          <svg xmlns="http://www.w3.org/2000/svg" class="history-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <AppIcon name="clock" class="history-icon" />
           Change history
-          <svg xmlns="http://www.w3.org/2000/svg" :class="['chevron', { 'chevron--open': showHistory }]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
+          <AppIcon name="chevron-down" :class="['chevron', { 'chevron--open': showHistory }]" />
         </button>
 
         <div v-if="showHistory" class="history-body">
-          <div v-if="activityLoading" class="history-empty">Loading…</div>
+          <LoadingRegion v-if="activityLoading" label="Loading activity">
+            <span class="skeleton-lines" aria-hidden="true">
+              <span class="skeleton" style="width: 80%" />
+              <span class="skeleton" style="width: 64%" />
+              <span class="skeleton" style="width: 72%" />
+            </span>
+          </LoadingRegion>
           <div v-else-if="activityLogs.length === 0" class="history-empty">No changes recorded yet.</div>
           <ul v-else class="timeline">
             <li v-for="log in activityLogs" :key="log.id" class="timeline-item">
@@ -819,9 +816,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
                 <span class="timeline-field">{{ fieldLabel(log.field) }}</span>
                 <div class="timeline-change">
                   <span class="timeline-old">{{ log.oldValue ?? '—' }}</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="timeline-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
+                  <AppIcon name="arrow-right" class="timeline-arrow" />
                   <span class="timeline-new">{{ log.newValue ?? '—' }}</span>
                 </div>
                 <span class="timeline-date">{{ formatLogDate(log.changedAt) }}</span>
@@ -845,41 +840,35 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
     </div>
   </div>
 
-  <Transition name="modal">
-    <ConfirmDialog
-      v-if="showDiscardConfirm"
-      title="Discard changes?"
-      message="You have unsaved changes. They will be lost."
-      confirm-label="Discard"
-      confirm-class="btn-danger"
-      @confirm="emit('close')"
-      @cancel="showDiscardConfirm = false"
-    />
-  </Transition>
+  <ConfirmDialog
+    v-if="showDiscardConfirm"
+    title="Discard changes?"
+    message="You have unsaved changes. They will be lost."
+    confirm-label="Discard"
+    confirm-class="btn-danger"
+    @confirm="emit('close')"
+    @cancel="showDiscardConfirm = false"
+  />
 
-  <Transition name="modal">
-    <ConfirmDialog
-      v-if="showDeleteConfirm"
-      title="Delete application?"
-      message="This cannot be undone."
-      confirm-label="Delete"
-      confirm-class="btn-danger"
-      @confirm="() => { showDeleteConfirm = false; remove() }"
-      @cancel="showDeleteConfirm = false"
-    />
-  </Transition>
+  <ConfirmDialog
+    v-if="showDeleteConfirm"
+    title="Delete application?"
+    message="This cannot be undone."
+    confirm-label="Delete"
+    confirm-class="btn-danger"
+    @confirm="() => { showDeleteConfirm = false; remove() }"
+    @cancel="showDeleteConfirm = false"
+  />
 
-  <Transition name="modal">
-    <ConfirmDialog
-      v-if="showDeleteHistoryConfirm"
-      title="Delete status entry?"
-      message="This change will be applied when you save."
-      confirm-label="Remove"
-      confirm-class="btn-danger"
-      @confirm="deleteEntry"
-      @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
-    />
-  </Transition>
+  <ConfirmDialog
+    v-if="showDeleteHistoryConfirm"
+    title="Delete status entry?"
+    message="This change will be applied when you save."
+    confirm-label="Remove"
+    confirm-class="btn-danger"
+    @confirm="deleteEntry"
+    @cancel="() => { showDeleteHistoryConfirm = false; pendingDeleteTempId = null }"
+  />
 
   <teleport to="body">
     <Transition name="toast">
@@ -946,7 +935,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 
 /* copy-to-clipboard toast */
 .toast-success {
-  position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: calc(5rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   background: var(--col-success); color: var(--col-bg);
   padding: .75rem 1rem; border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -962,7 +951,7 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .history-toggle { display: flex; align-items: center; gap: .4rem; background: none; border: none; cursor: pointer; color: var(--col-muted); font-size: .875rem; font-weight: 500; padding: 0; }
 .history-toggle:hover { color: var(--col-text); }
 .history-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
-.chevron { width: .875rem; height: .875rem; margin-left: auto; transition: transform .18s ease; }
+.chevron { width: .875rem; height: .875rem; margin-left: auto; transition: transform var(--dur-base) var(--ease-standard); }
 .chevron--open { transform: rotate(180deg); }
 .history-body { margin-top: .75rem; }
 .history-empty { font-size: .8rem; color: var(--col-subtle); padding: .25rem 0; }

@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { api, type AdminUserSummary, type SyncLog } from '../../api'
 import { useCompaniesStore } from '../../stores/companies'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 
 const companiesStore = useCompaniesStore()
 
@@ -324,7 +325,13 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Sync log table -->
     <section class="admin-card" aria-labelledby="sync-logs-heading">
       <h2 id="sync-logs-heading" class="card-title">Sync history</h2>
-      <p v-if="loadingLogs" class="muted">Loading…</p>
+      <LoadingRegion v-if="loadingLogs" label="Loading sync history">
+        <span class="skeleton-lines" aria-hidden="true">
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 85%" />
+        </span>
+      </LoadingRegion>
       <p v-else-if="logsError" class="form-error" role="alert">{{ logsError }}</p>
       <p v-else-if="syncLogs.length === 0" class="muted">No syncs recorded yet.</p>
       <div v-else class="table-wrap table-wrap--capped">
@@ -360,7 +367,13 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
     <!-- Users table -->
     <section class="admin-card" aria-labelledby="users-heading">
       <h2 id="users-heading" class="card-title">All users</h2>
-      <p v-if="loadingUsers" class="muted">Loading…</p>
+      <LoadingRegion v-if="loadingUsers" label="Loading users">
+        <span class="skeleton-lines" aria-hidden="true">
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 100%" />
+          <span class="skeleton" style="width: 85%" />
+        </span>
+      </LoadingRegion>
       <p v-else-if="usersError" class="form-error" role="alert">{{ usersError }}</p>
       <div v-else class="table-wrap">
         <table class="users-table" aria-label="Registered users">
@@ -456,7 +469,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
   background: var(--col-bg);
   color: var(--col-text);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-instant) var(--ease-standard);
 }
 
 .promote-input:focus { border-color: var(--col-accent); }
@@ -470,7 +483,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-instant) var(--ease-standard);
   white-space: nowrap;
 }
 
@@ -548,7 +561,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
   width: 36px; height: 36px; border-radius: 50%;
   border: 3px solid var(--col-border);
   border-top-color: var(--col-accent);
-  animation: spin .75s linear infinite;
+  animation: spin var(--dur-loop) linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -558,7 +571,7 @@ onMounted(() => { loadUsers(); loadSyncLogs() })
   background: var(--col-surface); color: var(--col-muted);
   border: 1px solid var(--col-border); border-radius: 6px;
   padding: 0.55rem 1.25rem; font-size: 0.9rem; font-weight: 600;
-  cursor: pointer; transition: background .15s, color .15s; white-space: nowrap;
+  cursor: pointer; transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard); white-space: nowrap;
 }
 .btn-ghost:disabled { opacity: .55; cursor: not-allowed; }
 .btn-ghost:not(:disabled):hover { background: var(--col-raised); color: var(--col-text); }

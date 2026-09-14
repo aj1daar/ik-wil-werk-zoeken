@@ -3,7 +3,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { Transition } from 'vue'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import App from '../App.vue'
 
 const Stub = { template: '<div/>' }
@@ -49,6 +49,17 @@ async function mountApp(token?: string, path = '/login') {
 
 describe('App – page transition', () => {
   beforeEach(() => { sessionStorage.clear() })
+
+  afterEach(() => { delete (document as unknown as { startViewTransition?: unknown }).startViewTransition })
+
+  it('lets the browser cross-fade pages when it can, without the CSS fade on top', async () => {
+    ;(document as unknown as { startViewTransition?: unknown }).startViewTransition = () => ({ finished: Promise.resolve() })
+    const wrapper = await mountApp(undefined, '/login')
+    await flushPromises()
+    const pageTransitions = (wrapper.findAllComponents(Transition) as unknown as VueWrapper<any>[]).filter(t => t.props('name') === 'page')
+    expect(pageTransitions).toHaveLength(0)
+    expect(wrapper.find('.login-stub').exists()).toBe(true)
+  })
 
   it('renders a <Transition name="page"> wrapping the route outlet', async () => {
     const wrapper = await mountApp()

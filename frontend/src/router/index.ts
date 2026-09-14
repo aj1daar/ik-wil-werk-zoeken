@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { installViewTransitions } from './viewTransition'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -49,5 +50,7 @@ router.beforeEach((to) => {
 router.afterEach((to) => {
   document.title = pageTitle(to.meta.title)
 })
+
+installViewTransitions(router)
 
 export default router

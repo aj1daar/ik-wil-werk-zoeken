@@ -692,3 +692,40 @@ describe('ApplicationsView – ?open=<id> deep link', () => {
     expect(router.currentRoute.value.fullPath).toBe('/applications')
   })
 })
+
+// ── loading placeholders ──────────────────────────────────────────────────────
+
+describe('ApplicationsView – while applications load', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function mountLoading() {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.mocked(api.getApplications).mockReturnValue(new Promise(() => {}))
+    vi.mocked(api.getStats).mockResolvedValue(makeStats())
+    return mount(ApplicationsView, { global: { plugins: [pinia] } })
+  }
+
+  it('shows placeholder rows in the list layout, not a "Loading…" line', async () => {
+    const w = mountLoading()
+    await flushPromises()
+    const region = w.find('[role="status"]')
+    expect(region.text()).toBe('Loading your applications')
+    expect(w.findAll('.skeleton-row')).toHaveLength(6)
+    expect(w.findAll('.skeleton-row')[0].classes()).toContain('company-row')
+    expect(w.text()).not.toContain('Loading…')
+  })
+
+  it('keeps the placeholders away from screen readers and clicks', async () => {
+    const w = mountLoading()
+    await flushPromises()
+    expect(w.find('.loading-region ul').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('swaps the placeholders for real rows once the list arrives', async () => {
+    const w = mountView([makeApp({ id: 'a', companyName: 'Alpha' })])
+    await flushPromises()
+    expect(w.find('.loading-region').exists()).toBe(false)
+    expect(w.findAll('.company-row:not(.skeleton-row)')).toHaveLength(1)
+  })
+})

@@ -49,6 +49,18 @@ describe('ConfirmDialog – rendering', () => {
   })
 })
 
+describe('ConfirmDialog – animation', () => {
+  // Its root is a Teleport, which a <Transition> in the parent can't animate —
+  // four of those wrappers existed and did nothing. The dialog animates itself.
+  it('wraps its backdrop in its own modal transition that runs on first render', () => {
+    const w = mountDialog()
+    const t = w.findComponent({ name: 'Transition' })
+    expect(t.exists()).toBe(true)
+    expect(t.props('name')).toBe('modal')
+    expect(t.props('appear')).toBe(true)
+  })
+})
+
 describe('ConfirmDialog – accessibility', () => {
   it('is an alertdialog that names its own title and message', () => {
     mountDialog()

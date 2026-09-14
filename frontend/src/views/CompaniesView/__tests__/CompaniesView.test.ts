@@ -457,3 +457,22 @@ describe('CompaniesView – transitions', () => {
     expect(modalTransitions(w).length).toBeGreaterThanOrEqual(1)
   })
 })
+
+// ── loading placeholders ──────────────────────────────────────────────────────
+
+describe('CompaniesView – while companies load', () => {
+  it('shows a grid of placeholder tiles in the real grid', async () => {
+    setActivePinia(createPinia())
+    vi.mocked(api.getCompanies).mockReturnValue(new Promise(() => {}))
+    vi.mocked(api.getApplications).mockResolvedValue([])
+    const w = mount(CompaniesView, { global: { plugins: [createPinia()] } })
+    await flushPromises()
+    expect(w.find('[role="status"]').text()).toBe('Loading companies')
+    expect(w.findAll('.skeleton-tile')).toHaveLength(16)
+    // 8 rows by 2 columns, not one row of 16: the real grid's row count comes
+    // from loaded companies, of which there are none yet
+    expect(w.find('.loading-region .company-grid').attributes('style')).toContain('--tile-rows: 8')
+    expect(w.find('.loading-region .company-grid').attributes('aria-hidden')).toBe('true')
+    expect(w.text()).not.toContain('Loading…')
+  })
+})

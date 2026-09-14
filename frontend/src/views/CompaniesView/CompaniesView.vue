@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppIcon from '../../components/ui/AppIcon.vue'
+import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
@@ -135,6 +137,9 @@ const filteredRows = computed<SponsorCompany[]>(() => {
 // '@EasePay'), which put them ahead of every A. Sort on the first letter or
 // digit instead, ignore case and accents, and compare digits as numbers so
 // "2 Getthere" files before "10X Genomics".
+// "12,790", not "12790": the register is big enough that the digits blur
+const formatCount = (n: number) => n.toLocaleString('en-GB')
+
 function nameKey(name: string) {
   return name.replace(/^[^\p{L}\p{N}]+/u, '')
 }
@@ -284,9 +289,7 @@ const activeDropdownCount = computed(() =>
     <div class="filter-bar">
       <!-- Row 1: search -->
       <div class="filter-search">
-        <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-        </svg>
+        <AppIcon name="search" class="filter-icon" />
         <input v-model="search" placeholder="Search by name, city, industry or tags…" class="filter-input pl-9" aria-label="Search companies" />
       </div>
 
@@ -298,21 +301,17 @@ const activeDropdownCount = computed(() =>
           @click="showDropdownFilters = !showDropdownFilters"
           :aria-expanded="showDropdownFilters"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M7 12h10M11 18h2" />
-          </svg>
+          <AppIcon name="filter" class="btn-icon-sm" />
           Filters
           <span v-if="activeDropdownCount > 0" class="filter-count">{{ activeDropdownCount }}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" :class="['btn-icon-sm', 'btn-chevron', showDropdownFilters && 'btn-chevron--open']" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
+          <AppIcon name="chevron-down" :class="['btn-icon-sm', 'btn-chevron', showDropdownFilters && 'btn-chevron--open']" />
         </button>
 
         <!-- Sort -->
         <select v-model="sortOrder" class="filter-input filter-select filter-select--sm" aria-label="Sort companies">
-          <option value="az">A → Z</option>
-          <option value="za">Z → A</option>
-          <option value="city">City A → Z</option>
+          <option value="az">Name A–Z</option>
+          <option value="za">Name Z–A</option>
+          <option value="city">City A–Z</option>
           <option value="default">Default</option>
         </select>
 
@@ -337,9 +336,7 @@ const activeDropdownCount = computed(() =>
           :aria-expanded="showFilters"
           aria-controls="tag-filter-panel"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
-          </svg>
+          <AppIcon name="sort" class="btn-icon-sm" />
           Tags
           <span v-if="includeTags.length + excludeTags.length > 0" class="filter-count">
             {{ includeTags.length + excludeTags.length }}
@@ -386,9 +383,7 @@ const activeDropdownCount = computed(() =>
           <strong>Click once</strong> to include (green), <strong>click again</strong> to exclude (red), <strong>third click</strong> to clear.
         </p>
         <div class="tag-search-wrap">
-          <svg class="tag-search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-          </svg>
+          <AppIcon name="search" class="tag-search-icon" />
           <input
             v-model="tagSearch"
             placeholder="Search tags…"
@@ -422,7 +417,7 @@ const activeDropdownCount = computed(() =>
          company count never reflows the controls above it. -->
     <div class="pagination-bar">
       <div v-if="sortedCompanies.length > 0" class="pagination">
-        <span class="pagination-info">{{ (currentPage - 1) * PAGE_SIZE + 1 }}–{{ Math.min(currentPage * PAGE_SIZE, sortedCompanies.length) }} of {{ sortedCompanies.length }}</span>
+        <span class="pagination-info">{{ formatCount((currentPage - 1) * PAGE_SIZE + 1) }}–{{ formatCount(Math.min(currentPage * PAGE_SIZE, sortedCompanies.length)) }} of {{ formatCount(sortedCompanies.length) }}</span>
         <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" aria-label="Previous page">‹</button>
         <template v-for="(p, i) in visiblePages" :key="i">
           <span v-if="p === null" class="page-ellipsis">…</span>
@@ -438,7 +433,16 @@ const activeDropdownCount = computed(() =>
     </div>
 
     <div class="grid-wrap">
-      <div v-if="store.loading" class="state-msg">Loading…</div>
+      <LoadingRegion v-if="store.loading" label="Loading companies">
+        <!-- A full page of rows: gridRows counts loaded companies, which is none
+             yet, and one row would lay the 16 tiles out as a single strip -->
+        <div class="company-grid" :style="{ '--tile-rows': 8 }" aria-hidden="true">
+          <div v-for="n in 16" :key="n" class="company-tile skeleton-tile">
+            <span class="skeleton skeleton--title" :style="{ width: `${40 + (n * 17) % 35}%` }" />
+            <span class="skeleton" :style="{ width: `${55 + (n * 23) % 35}%` }" />
+          </div>
+        </div>
+      </LoadingRegion>
       <div v-else-if="store.error" class="state-msg state-msg--error" role="alert">{{ store.error }}</div>
       <div v-else-if="pagedCompanies.length === 0" class="state-msg">
         {{ hasActiveFilters ? 'No companies match your filters.' : 'No IND sponsor companies loaded yet.' }}
@@ -519,12 +523,12 @@ const activeDropdownCount = computed(() =>
   background: var(--col-bg); color: var(--col-muted);
   border: 1px solid var(--col-border); border-radius: var(--radius);
   padding: .4rem .75rem; font-size: .8rem; cursor: pointer; white-space: nowrap;
-  transition: background .15s, color .15s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
 .btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-chevron { transition: transform .2s ease; }
+.btn-chevron { transition: transform var(--dur-base) var(--ease-standard); }
 .btn-chevron--open { transform: rotate(180deg); }
 .filter-count {
   background: var(--col-accent); color: var(--col-on-accent);
@@ -580,7 +584,7 @@ const activeDropdownCount = computed(() =>
   padding: .2rem .65rem; border-radius: 9999px; font-size: .75rem; font-weight: 500;
   cursor: pointer; border: 1px solid var(--col-border);
   background: var(--col-raised); color: var(--col-muted);
-  transition: background .12s, color .12s, border-color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
 }
 .tag-toggle--include { background: var(--col-success-lt); color: var(--col-success); border-color: color-mix(in srgb, var(--col-success) 40%, transparent); }
 .tag-toggle--exclude { background: var(--col-error-lt);   color: var(--col-error);   border-color: color-mix(in srgb, var(--col-error) 40%, transparent); text-decoration: line-through; }
@@ -588,6 +592,9 @@ const activeDropdownCount = computed(() =>
 /* ── company grid ─────────────────────────────────────────────────────────── */
 
 .grid-wrap { flex: 1; min-height: 0; }
+/* The placeholder grid fills the fixed-height card the way the real one does */
+.grid-wrap > .loading-region { height: 100%; }
+.skeleton-tile { display: flex; flex-direction: column; justify-content: center; gap: .5rem; cursor: default; pointer-events: none; }
 
 .company-grid {
   display: grid;
@@ -613,7 +620,7 @@ const activeDropdownCount = computed(() =>
   min-width: 0;
   overflow: hidden;
   cursor: pointer;
-  transition: background .12s;
+  transition: background var(--dur-instant) var(--ease-standard);
 }
 .company-tile:hover { background: var(--col-surface); }
 .company-tile--active { background: var(--col-accent-lt); }
@@ -666,7 +673,6 @@ const activeDropdownCount = computed(() =>
   .company-tile { min-height: 60px; }
   /* Full-bleed on phones (the scoped margin above outranks style.css's) */
   .dashboard { margin: 0; }
-  .page-btn { min-width: 2.75rem; height: 2.75rem; }  /* Apple HIG 44pt tap target */
 }
 
 @media (min-width: 768px) {
@@ -705,8 +711,20 @@ const activeDropdownCount = computed(() =>
 }
 
 @media (max-width: 767px) {
-  .pagination-bar { padding: .3rem 1rem; justify-content: center; }
-  .pagination { justify-content: center; }
+  .pagination-bar { padding: .5rem 1rem; justify-content: center; }
+  /* The count gets its own line; with 44px buttons it used to push "next"
+     onto a second row by itself. */
+  .pagination { justify-content: center; row-gap: .375rem; }
+  .pagination-info { flex-basis: 100%; text-align: center; margin: 0; font-size: .8125rem; }
+
+  /* Five controls wrapped into rows of uneven widths. A two-column grid lines
+     them up (Tags pairs with Clear when there is something to clear), and the
+     messages under them take the full width. */
+  .filter-controls-row { display: grid; grid-template-columns: 1fr 1fr; }
+  .filter-controls-row > * { width: 100%; max-width: none; min-width: 0; }
+  .filter-controls-row > .sync-badge,
+  .filter-controls-row > .list-error { grid-column: 1 / -1; }
+  .btn-filter-toggle { justify-content: center; }
 }
 .page-btn {
   min-width: 2rem;
@@ -719,10 +737,17 @@ const activeDropdownCount = computed(() =>
   font-size: .8rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background .12s, color .12s;
+  transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
 }
 .page-btn:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
 .page-btn--active { background: var(--col-invert-bg); color: var(--col-invert-text); border-color: var(--col-invert-bg); font-weight: 600; }
 .page-btn:disabled { opacity: .35; cursor: default; }
 .page-ellipsis { padding: 0 .15rem; color: var(--col-subtle); font-size: .8rem; line-height: 2rem; }
+
+/* After the base rule, not before it: an earlier media block loses to a later
+   plain rule of the same specificity, which is how this tap target spent a
+   while being 32px wide on phones. */
+@media (max-width: 767px) {
+  .page-btn { min-width: 2.75rem; height: 2.75rem; }  /* Apple HIG 44pt tap target */
+}
 </style>

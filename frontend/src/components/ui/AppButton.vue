@@ -22,7 +22,7 @@ defineProps<{
 .app-btn {
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s, color 0.15s, border-color 0.15s;
+  transition: background var(--dur-instant) var(--ease-standard), opacity var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
 }
 .app-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 

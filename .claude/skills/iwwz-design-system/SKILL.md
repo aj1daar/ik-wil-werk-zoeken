@@ -77,8 +77,77 @@ eyebrows.
 
 Motion only answers the user's own action: opening a modal, a filter panel dropping, the
 status chip flashing after a save, the bulk bar sliding in. No hover lifts, no staggered list
-entrances, no press-shrink on buttons. Route changes are a 120ms fade. Every animation has a
-`prefers-reduced-motion: reduce` override.
+entrances, no press-shrink on buttons.
+
+**Timing comes from tokens, never literals** (`style.css`; `motionTokens.test.ts` fails the build
+on a literal duration or a named curve like `ease`):
+
+| Token | Value | Use for |
+|---|---|---|
+| `--dur-instant` | 120ms | feedback on what is already under the pointer: hover colour, focus ring, a node dimming |
+| `--dur-base` | 180ms | something appearing, leaving or moving: modal, toast, bulk bar, filter panel, chevron, page change |
+| `--dur-sheet` | 280ms | a phone bottom sheet travelling the height of the screen |
+| `--dur-emphasis` | 600ms | the one flash that confirms a save |
+| `--dur-loop` | 900ms | spinners and "saving" pulses (with `linear` for a spinner) |
+| `--ease-standard` | `cubic-bezier(.2, 0, 0, 1)` | almost everything |
+| `--ease-out` | `cubic-bezier(0, 0, .2, 1)` | things arriving: the modal box, the chip flash |
+
+If something needs a speed that isn't here, it probably shouldn't move — ask before adding a token.
+
+**Page changes use the View Transitions API** (`src/router/viewTransition.ts`). The browser
+snapshots the old page and cross-fades to the new one in a single step, so there's no blank frame
+between routes. The nav has its own `view-transition-name` and doesn't fade; the you-are-here
+strip is a real `.nav-marker` element (not `::after`) named `nav-marker`, and it slides to the
+new link. A `view-transition-name` must be on exactly one element at a time, or the browser skips
+the animation. Query changes on the same page (`?open=<id>`) don't animate. Browsers without the API
+get the old CSS fade (`App.vue`). After a transition, if the focused element went away with the
+old page, focus moves to the new page's `h1`.
+
+**Modals on phones are bottom sheets.** Under 767px the new-application form, the company popup
+and the application panel sit on the bottom edge, full width, with top corners only, and rise
+from below (`translateY(100%)`) instead of scaling in. The confirm dialog stays a centred alert.
+
+**Three traps that silently delete an animation** — each shipped at least once:
+- *Tailwind purges runtime classes.* Rules inside `@layer components` survive only if the class
+  appears literally in a template. Vue's `*-enter-from` / `*-leave-active` never do, so transition
+  rules must live outside the layer (see "Vue transition classes" in `style.css`). The modal
+  backdrop fade, every toast and the list fade were missing from the build until this was found;
+  `transitionClasses.test.ts` guards it.
+- *A `<Transition>` only animates a single element root.* A component with two roots, or a
+  `<Teleport>` root, is inserted with no animation and a console warning. `NewApplicationModal`
+  had two roots; `ConfirmDialog`'s root is a Teleport, so it now carries its own
+  `<Transition name="modal" appear>` inside.
+- *A later plain rule undoes an earlier phone rule* (see Phones and tablets).
+
+Charts: the rejection bars grow and shrink between ranges (`width` on `--dur-base`). ECharts gets
+180ms `cubicOut`, mirroring `--dur-base` / `--ease-out`, instead of its one-second default.
+
+Reduced motion: the `*` backstop at the end of `style.css` stops every CSS animation, the router
+skips view transitions entirely, and a separate rule stops `::view-transition-*`, which the `*`
+selector can't reach. Canvas ignores all of that, so charts read `useReducedMotion()` (live — it
+follows the setting if it changes with the page open) and turn ECharts' animation off.
+
+## Icons
+
+Every icon goes through `AppIcon` (`components/ui/AppIcon.vue`) by name — `<AppIcon name="close"
+class="icon" />` — from the 24x24 outline paths in `components/ui/icons.ts`. Size it with a class;
+the stroke is always 1.5px, because it doesn't scale with the drawing, so a 16px chevron and a 24px
+close button look like one family. Icons are `aria-hidden`: the text beside them, or the button's
+own `aria-label`, carries the meaning. Need a new shape? Add it to `icons.ts`. A test fails on any
+inline `<svg>` outside AppIcon, the logo, the journey tree and the select caret.
+
+## Loading
+
+Nothing says "Loading…". While data is on its way, `LoadingRegion` shows grey shapes in the layout
+of what's coming — placeholder rows that use `.company-row`, tiles in `.company-grid`, cards in the
+dashboard's `.journey-layout`, rows on the Next up board — so the real content lands where the
+shapes were instead of pushing the page around. The region announces its `label` to screen readers
+(`role="status"`), the shapes are `aria-hidden`, and it waits `--dur-base` before fading in so a
+fast response never flashes grey. Shapes are `.skeleton` (plus `--title`, `--chip`, `--box`) on
+`--col-raised`; on the dark board they're tinted from the nav text instead.
+
+A layout sized from loaded data needs a fixed size for its placeholder: the companies grid takes
+its row count from loaded companies, and with none it laid 16 placeholder tiles out as one strip.
 
 ## Copy
 
@@ -114,6 +183,60 @@ Pick the simplest form that answers the question, and prefer text over canvas:
 - Link straight to an application with `/applications?open=<id>` (the Next up board does this).
 - A number with no label (like the nav count badge) gets `aria-hidden` plus `sr-only` text that
   says what it counts.
+
+## Phones and tablets
+
+The app is used on an **iPhone 15 Pro Max**, so that is the reference screen: 430 x 932 CSS
+pixels at DPR 3. `pnpm screenshots` carries a profile for it and for the screens either side of
+it, in CSS pixels (what the layout sees, not the marketing resolution):
+
+| Profile | CSS size | DPR | Why it is in the set |
+|---|---|---|---|
+| `iphone-15-pro-max` | 430 x 932 | 3 | the reference phone |
+| `iphone-15` | 393 x 852 | 3 | the common iPhone width |
+| `iphone-se` | 375 x 667 | 2 | shortest screen still worth passing |
+| `galaxy-s24` | 360 x 780 | 3 | narrowest width in real use |
+| `pixel-8` | 412 x 915 | 2.625 | a non-integer DPR, which catches hairline rounding |
+| `ipad-mini` | 744 x 1133 | 2 | between the phone rules and the desktop ones |
+| `ipad-pro-11` | 834 x 1194 | 2 | tablet portrait, still not desktop |
+| `desktop` / `wide` | 1440 x 900, 1920 x 1080 | 1 | |
+
+Groups: `--viewports=phones`, `--viewports=tablets`, `--viewports=all`. `mobile` still means the
+reference phone.
+
+**Breakpoints.** 767px is the house phone breakpoint and 900px switches the dashboard to two
+columns. Everything else in the codebase (640, 600, 560, 520, 480) is a one-off from earlier work —
+don't add more; reach for the existing two first.
+
+**A media query adds no specificity.** A phone rule written *above* the plain rule it means to
+override does nothing at all. `.page-btn` in CompaniesView and the custom date fields on the
+dashboard both shipped like that. Put phone overrides after the rule they override;
+`src/__tests__/cssOverrideOrder.test.ts` fails the build when one isn't (it knows an unlayered
+rule beats a later `@layer` one). The reverse also bites: a broad phone rule placed after a state
+class repaints it — scope it with `:not(.x--active)`.
+
+**Touch targets.** `@media (pointer: coarse)` in `style.css` holds every control to 44px (Apple's
+HIG minimum) — buttons, inputs, selects, status tabs, range buttons, icon buttons, pagination.
+It keys off the pointer, not the width, so a touchscreen laptop counts. Two deliberate exceptions:
+a checkbox takes the 24px WCAG 2.5.8 floor rather than pushing the row apart, and the name button
+inside an application row or company tile stays text-sized — the row or tile around it is the
+touch target, and the button exists for keyboards and screen readers.
+
+**Safe areas.** `index.html` sets `viewport-fit=cover`, so anything fixed or sticky at the bottom
+must add `env(safe-area-inset-bottom)` to its padding or offset, or the home indicator sits on top
+of it. The bulk bar and both toasts do this.
+
+**What collapses and what scrolls.** Rows stack, the toolbar takes its own full-width line with
+pagination centred under it, and the status tabs scroll sideways rather than wrapping. A small,
+fixed set of choices (the six dashboard ranges) becomes an even grid instead, so nothing hides
+off-screen; a wrapped flex row of controls (the Companies toolbar) becomes a two-column grid.
+Pagination puts its count on a line of its own so the buttons never wrap, and large counts get
+thousands separators (`12,790`). Controls that act on a selection (the bulk bar) are pinned to
+the bottom of the screen on phones, never sticky to the end of a long list. Modal footers split
+their buttons evenly across the sheet. A canvas
+that cannot shrink any further stops shrinking, scrolls with a faded edge, and puts the same
+numbers in text beside it (`StatusTree.vue`). Nothing else may scroll sideways — the screenshot
+run fails if the page is wider than the screen.
 
 ## Verify before calling UI work done
 

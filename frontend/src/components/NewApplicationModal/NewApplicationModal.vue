@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../ui/AppIcon.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useApplicationsStore, STATUS_LABELS } from '../../stores/applications'
 import { useCompaniesStore } from '../../stores/companies'
@@ -204,9 +205,7 @@ async function submit() {
       <div class="modal-header">
         <h2 id="modal-title" class="modal-title">New application</h2>
         <button @click="requestClose" class="btn-icon" aria-label="Close">
-          <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <AppIcon name="close" class="icon" />
         </button>
       </div>
 
@@ -316,14 +315,16 @@ async function submit() {
         <div class="footer-actions">
           <button @click="requestClose" class="btn-secondary">Cancel</button>
           <button @click="submit" :disabled="saving" class="btn-primary">
-            {{ saving ? 'Saving…' : 'Add Application' }}
+            {{ saving ? 'Saving…' : 'Add application' }}
           </button>
         </div>
       </div>
     </div>
-  </div>
 
-  <Transition name="modal">
+    <!-- Inside the one root element, not beside it: a component with two roots
+         can't be animated by the <Transition> its parent wraps it in, so this
+         modal used to appear and vanish with no transition at all. The dialog
+         teleports to <body> and animates itself. -->
     <ConfirmDialog
       v-if="showDiscardConfirm"
       title="Discard application?"
@@ -333,7 +334,7 @@ async function submit() {
       @confirm="emit('close')"
       @cancel="showDiscardConfirm = false"
     />
-  </Transition>
+  </div>
 </template>
 
 <style scoped>
@@ -349,6 +350,12 @@ async function submit() {
   max-height: 90dvh; /* tracks the visible viewport, not the toolbar-collapsed one on iOS Chrome */
   overflow: hidden;
 }
+/* Phones: a sheet anchored to the bottom edge (it rises from there — see
+   style.css), full width, with room for the home indicator */
+@media (max-width: 767px) {
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .modal { max-width: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--col-border);
@@ -357,6 +364,11 @@ async function submit() {
 .modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; overscroll-behavior: contain; }
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--col-border); }
 .footer-actions { display: flex; gap: .75rem; justify-content: flex-end; }
+/* Phones: two equal buttons across the sheet, primary on the thumb side */
+@media (max-width: 767px) {
+  .footer-actions > * { flex: 1 1 0; justify-content: center; }
+  .modal-footer { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+}
 .field { display: flex; flex-direction: column; gap: .375rem; }
 .required { color: var(--col-error); }
 .optional { color: var(--col-subtle); font-weight: 400; text-transform: none; font-size: .7rem; }

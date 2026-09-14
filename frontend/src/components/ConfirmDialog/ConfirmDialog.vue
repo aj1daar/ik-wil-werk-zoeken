@@ -28,6 +28,9 @@ useBodyScrollLock()
 
 <template>
   <Teleport to="body">
+    <!-- The transition lives in here: this component's root is a Teleport,
+         which a <Transition> wrapped around it by a parent cannot animate. -->
+    <Transition name="modal" appear>
     <div class="cd-backdrop" @mousedown.self="emit('cancel')">
       <div class="cd-dialog modal-box" role="alertdialog" aria-modal="true" :aria-labelledby="'cd-title'" :aria-describedby="'cd-msg'">
         <h3 id="cd-title" class="cd-title">{{ title }}</h3>
@@ -38,6 +41,7 @@ useBodyScrollLock()
         </div>
       </div>
     </div>
+    </Transition>
   </Teleport>
 </template>
 
