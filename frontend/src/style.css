@@ -239,7 +239,7 @@ textarea::placeholder { color: var(--col-subtle); }
     outline: none;
   }
   .filter-input::placeholder { color: var(--col-subtle); }
-  .filter-input:focus { border-color: var(--col-accent); }
+  .filter-input:focus { border-color: var(--col-accent); box-shadow: 0 0 0 3px var(--col-accent-lt); }
 
   /* Auth page inputs */
   .auth-input {
@@ -252,6 +252,7 @@ textarea::placeholder { color: var(--col-subtle); }
     font-size: 1rem;
     transition: border-color var(--dur-instant) var(--ease-standard), box-shadow var(--dur-instant) var(--ease-standard);
     outline: none;
+    min-height: 3rem;
   }
   .auth-input::placeholder { color: var(--col-subtle); }
   .auth-input:focus {
@@ -261,22 +262,52 @@ textarea::placeholder { color: var(--col-subtle); }
 
   /* Buttons — primary actions are ink, not a brand colour, so the signal
      yellow stays reserved for the things that need attention. */
+  /* Every button shares one box: 38px tall, 14px text, 6px corners, icon
+     and label centred with the same gap. Pages set layout (width, flex), never
+     these — sharedClasses.test.ts fails on a scoped copy. */
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: 2.375rem;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    white-space: nowrap;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-ghost:disabled,
+  .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
+
   .btn-primary {
     background: var(--col-invert-bg);
     color: var(--col-invert-text);
-    font-size: 0.875rem;
     font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius);
-    border: none;
-    cursor: pointer;
+    border: 1px solid var(--col-invert-bg);
     transition: opacity var(--dur-instant) var(--ease-standard);
   }
+
+  .btn-secondary {
+    background: var(--col-bg);
+    color: var(--col-text);
+    border: 1px solid var(--col-border);
+    transition: background var(--dur-instant) var(--ease-standard);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--col-raised); }
   .btn-primary:hover:not(:disabled) { opacity: 0.88; }
-  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-submit {
     width: 100%;
+    min-height: 3rem; /* the height of the .auth-input fields above it */
     background: var(--col-invert-bg);
     color: var(--col-invert-text);
     font-weight: 600;
@@ -291,8 +322,6 @@ textarea::placeholder { color: var(--col-subtle); }
   .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .btn-danger {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
     color: var(--col-error);
     background: transparent;
     border: 1px solid color-mix(in srgb, var(--col-error) 35%, transparent);
@@ -300,7 +329,7 @@ textarea::placeholder { color: var(--col-subtle); }
     cursor: pointer;
     transition: background var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
   }
-  .btn-danger:hover { background: var(--col-error-lt); }
+  .btn-danger:hover:not(:disabled) { background: var(--col-error-lt); }
 
   .btn-icon {
     background: none;
@@ -318,15 +347,10 @@ textarea::placeholder { color: var(--col-subtle); }
   .btn-ghost {
     background: transparent;
     color: var(--col-muted);
-    font-size: 0.875rem;
-    font-weight: 500;
-    padding: 0.375rem 0.75rem;
-    border-radius: var(--radius);
     border: 1px solid var(--col-border);
-    cursor: pointer;
     transition: background var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard);
   }
-  .btn-ghost:hover { background: var(--col-raised); color: var(--col-text); }
+  .btn-ghost:hover:not(:disabled) { background: var(--col-raised); color: var(--col-text); }
 
   /* Status chip flash after save — answers the user's own action */
   @keyframes chip-flash {
@@ -375,6 +399,7 @@ textarea::placeholder { color: var(--col-subtle); }
     padding: 0.15rem 0.5rem;
     border-radius: var(--radius-sm);
     font-size: 0.75rem;
+    font-weight: 500;
     border: 1px solid transparent;
     white-space: nowrap;
     transition: background-color var(--dur-instant) var(--ease-standard), color var(--dur-instant) var(--ease-standard), border-color var(--dur-instant) var(--ease-standard);
@@ -382,6 +407,9 @@ textarea::placeholder { color: var(--col-subtle); }
   @media (prefers-reduced-motion: reduce) {
     .chip { transition: none; }
   }
+  /* The one smaller chip, for tight spots: beside a company name in a row or on
+     a company tile */
+  .chip--sm { font-size: 0.6875rem; padding: 0.05rem 0.4rem; }
 
   /* Status colour classes (.chip-applied …) live below, outside this layer —
      see the note there. */

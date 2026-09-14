@@ -439,7 +439,7 @@ const activeDropdownCount = computed(() =>
             <button type="button" class="tile-name" @click.stop="openCompany(c.id)">{{ c.name }}</button>
             <span
               v-if="mostRecentForCompany.has(c.id)"
-              :class="['status-chip', STATUS_COLOR[mostRecentForCompany.get(c.id)!.status]]"
+              :class="['chip', 'chip--sm', 'status-chip', STATUS_COLOR[mostRecentForCompany.get(c.id)!.status]]"
             >{{ STATUS_LABELS[mostRecentForCompany.get(c.id)!.status] }}</span>
             <a
               v-if="c.websiteUrl"
@@ -644,12 +644,6 @@ const activeDropdownCount = computed(() =>
 .tile-chip--city { background: var(--col-accent-lt); color: var(--col-accent-dk); }
 .tile-empty { font-size: .72rem; color: var(--col-subtle); font-style: italic; margin: 0; }
 
-/* Colours come from the global .chip-* status classes (style.css) */
-.status-chip {
-  display: inline-block; padding: .1rem .45rem; border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  font-size: .7rem; font-weight: 500; white-space: nowrap;
-}
 
 @media (max-width: 767px) {
   /* One column, natural tile height, page scrolls. */

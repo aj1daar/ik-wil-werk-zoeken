@@ -511,7 +511,7 @@ function edgeDim(from: ApplicationStatus, to: ApplicationStatus) {
   flex-shrink: 0;
 }
 .st-title {
-  font-size: .9375rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--col-text);
   margin: 0;

@@ -901,7 +901,6 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .save-error { color: var(--col-error); font-size: .875rem; margin-bottom: .5rem; }
 .icon { width: 1.25rem; height: 1.25rem; }
 .footer-primary { flex: 1; }
-.btn-danger:disabled { opacity: .5; cursor: not-allowed; }
 .mailto-link { font-size: .8rem; color: var(--col-accent); text-decoration: none; margin-top: .125rem; }
 .mailto-link:hover { text-decoration: underline; }
 
@@ -970,8 +969,6 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
 .sh-edit-row { display: flex; gap: .5rem; align-items: center; }
 .sh-edit-select { flex: 1; }
 .sh-edit-actions { display: flex; gap: .5rem; margin-top: .375rem; }
-.sh-save-btn { font-size: .8rem; padding: .3rem .75rem; }
-.sh-cancel-btn { font-size: .8rem; padding: .3rem .75rem; }
 
 .sh-add-form { border: 1px dashed var(--col-border); border-radius: .375rem; padding: .625rem; margin-top: .5rem; display: flex; flex-direction: column; gap: .375rem; }
 .sh-rejection-select { width: 100%; }

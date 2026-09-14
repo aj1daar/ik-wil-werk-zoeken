@@ -266,7 +266,7 @@ onMounted(loadMerged)
         <div v-if="application" class="field">
           <label class="field-label">Your application</label>
           <div class="applied-badge-row">
-            <span :class="['status-chip', STATUS_COLOR[application.status]]">{{ STATUS_LABELS[application.status] }}</span>
+            <span :class="['chip', 'status-chip', STATUS_COLOR[application.status]]">{{ STATUS_LABELS[application.status] }}</span>
             <span class="applied-position">{{ application.position }}</span>
           </div>
         </div>
@@ -594,8 +594,6 @@ onMounted(loadMerged)
 .applied-badge-row { display: flex; align-items: center; gap: .5rem; }
 .applied-position { font-size: .8rem; color: var(--col-muted); }
 
-/* Colours come from the global .chip-* status classes (style.css) */
-.status-chip { display: inline-block; padding: .1rem .45rem; border-radius: var(--radius-sm); border: 1px solid transparent; font-size: .75rem; font-weight: 500; white-space: nowrap; }
 
 /* Company facts are plain facts, not categories to tell apart by colour —
    one neutral chip style; the parent company is set apart by an outline. */
@@ -644,10 +642,4 @@ onMounted(loadMerged)
 .merge-undo { padding: .25rem .625rem; font-size: .72rem; }
 .merge-submit { margin-top: .625rem; align-self: flex-start; }
 .merge-notice { font-size: .8rem; color: var(--col-success); margin: 0; }
-.btn-danger {
-  background: var(--col-error); color: var(--col-bg); border: none; border-radius: var(--radius);
-  padding: .45rem 1rem; font-size: .8rem; font-weight: 600; cursor: pointer;
-}
-.btn-danger:disabled { opacity: .55; cursor: not-allowed; }
-.btn-danger:not(:disabled):hover { opacity: .88; }
 </style>

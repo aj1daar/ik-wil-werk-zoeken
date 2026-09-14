@@ -294,7 +294,7 @@ onUnmounted(() => {
   width: 100%;
   cursor: pointer;
   text-align: left;
-  font-size: inherit;
+  font-size: .875rem; /* a field like the others, not the body text size */
 }
 .dp-ph       { color: var(--col-subtle); }
 .dp-val      { color: var(--col-text); }
@@ -384,12 +384,13 @@ onUnmounted(() => {
   margin-top: .625rem; padding-top: .625rem;
   border-top: 1px solid var(--col-border-lt);
 }
-.dp-ft-btn { font-size: .8125rem; padding: .25rem .625rem; }
+/* Clear and Today are ordinary ghost buttons; only their spacing is set here */
+.dp-ft-btn { padding-inline: .625rem; }
 
 @media (max-width: 767px) {
   /* Apple HIG minimum 44pt tap target */
   .dp-nav { width: 2.75rem; height: 2.75rem; }
   .dp-day { min-height: 2.75rem; }
-  .dp-ft-btn { min-height: 2.75rem; padding: .25rem .875rem; }
+  .dp-ft-btn { min-height: 2.75rem; padding-inline: .875rem; }
 }
 </style>

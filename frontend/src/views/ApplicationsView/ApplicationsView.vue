@@ -288,7 +288,7 @@ function printPage() {
             <AppIcon name="chevron-down" :class="['btn-icon-sm', 'btn-chevron', showFiltersPanel && 'btn-chevron--open']" />
           </button>
 
-          <button @click="modalOpen = true" class="btn-new" title="New application (N)">
+          <button @click="modalOpen = true" class="btn-primary btn-new" title="New application (N)">
             <AppIcon name="plus" class="btn-new-icon" />
             New application
           </button>
@@ -394,7 +394,7 @@ function printPage() {
                     :aria-label="`Open ${app.companyName}, ${app.position}`"
                     @click.stop="selectRow(app.id)"
                   >{{ app.companyName }}</button>
-                  <span :class="['chip', 'sponsor-chip', 'sponsor-chip--inline', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
+                  <span :class="['chip', 'chip--sm', 'sponsor-chip', 'sponsor-chip--inline', app.sponsorCompanyId ? 'sponsor-chip--yes' : 'sponsor-chip--no']">
                     {{ app.sponsorCompanyId ? 'HSM sponsor' : 'Not HSM sponsor' }}
                   </span>
                 </p>
@@ -587,11 +587,7 @@ function printPage() {
 @media (prefers-reduced-motion: reduce) {
   .status-tab { transition: none; }
 }
-.sponsor-chip--inline {
-  flex-shrink: 0;
-  font-size: .6875rem;
-  padding: .05rem .4rem;
-}
+.sponsor-chip--inline { flex-shrink: 0; }
 
 .bulk-bar {
   position: sticky;
@@ -699,13 +695,6 @@ function printPage() {
   .app-detail-leave-active .modal-box { transition: none; }
 }
 
-.btn-new {
-  display: inline-flex; align-items: center; gap: .375rem;
-  background: var(--col-invert-bg); color: var(--col-invert-text); border: none; border-radius: var(--radius);
-  padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
-  white-space: nowrap;
-}
-.btn-new:hover { opacity: .85; }
 .btn-new-icon { width: 1rem; height: 1rem; }
 /* Every row is a 2-row grid — checkbox/name/chevron on top, meta chips
    spanning the full width underneath — instead of split-panel.css's single
@@ -737,7 +726,6 @@ function printPage() {
   width: 100%;
 }
 .row-date { font-size: .75rem; color: var(--col-subtle); font-variant-numeric: tabular-nums; }
-.chip { font-weight: 500; }
 .add-first-link { background: none; border: none; color: var(--col-text); cursor: pointer; font-size: .875rem; text-decoration: underline; margin-left: .25rem; }
 .btn-filter-toggle {
   display: inline-flex; align-items: center; gap: .375rem;
