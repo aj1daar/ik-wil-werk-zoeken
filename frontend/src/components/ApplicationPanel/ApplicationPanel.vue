@@ -84,6 +84,8 @@ const addingEntry             = ref(false)
 const newEntryStatus          = ref(ALL_STATUSES[0])
 const newEntryDate            = ref(todayYmd)
 const newEntryRejectionReason = ref<RejectionReason | ''>('')
+const editRejectionReason     = ref<RejectionReason | ''>('')
+const editRejectionNote       = ref('')
 const newEntryRejectionNote   = ref('')
 
 // Delete-entry confirm
@@ -431,6 +433,10 @@ function startEdit(entry: JourneyEntry) {
   editingTempId.value = entry.tempId
   editStatus.value    = entry.status
   editDate.value      = entry.statusDate
+  // The reason belongs to the application, not to the entry, so editing a
+  // Rejected entry edits the same reason the form below shows
+  editRejectionReason.value = rejectionReason.value
+  editRejectionNote.value   = rejectionNote.value
 }
 
 function cancelEdit() {
@@ -443,6 +449,10 @@ function confirmEdit() {
   const entry = journeyEntries.value[idx]
   if (entry.isApplied) appliedAt.value = editDate.value
   journeyEntries.value[idx] = { ...entry, status: entry.isApplied ? 'Applied' : editStatus.value, statusDate: editDate.value }
+  if (!entry.isApplied && editStatus.value === 'Rejected') {
+    rejectionReason.value = editRejectionReason.value
+    rejectionNote.value   = editRejectionNote.value
+  }
   updateStatusFromJourney()
   editingTempId.value = null
 }
@@ -615,6 +625,21 @@ function fieldLabel(f: string) { return FIELD_LABELS[f] ?? f }
                     <span v-else :class="['chip', STATUS_COLOR['Applied'], 'sh-edit-applied-chip']">Applied</span>
                     <DatePicker v-model="editDate" placeholder="Date" />
                   </div>
+                  <!-- Same pair as the add form below: editing an entry into (or
+                       already at) Rejected is where you change why -->
+                  <template v-if="!entry.isApplied && editStatus === 'Rejected'">
+                    <select v-model="editRejectionReason" class="field-input sh-rejection-select" aria-label="Rejection reason">
+                      <option value="">— Rejection reason (optional) —</option>
+                      <option v-for="[val, label] in REJECTION_REASONS" :key="val" :value="val">{{ label }}</option>
+                    </select>
+                    <textarea
+                      v-model="editRejectionNote"
+                      class="field-input sh-rejection-note"
+                      rows="2"
+                      placeholder="Additional note (optional)…"
+                      aria-label="Rejection note"
+                    />
+                  </template>
                   <div class="sh-edit-actions">
                     <button class="btn-primary sh-save-btn" @click="confirmEdit">Save</button>
                     <button class="btn-ghost sh-cancel-btn" @click="cancelEdit">Cancel</button>
