@@ -181,7 +181,8 @@ jobs:
       - name: Write environment file on server
         env:
           ASPNETCORE_ENVIRONMENT: Production
-          ASPNETCORE_URLS: http://*:5000
+          # Loopback only: nginx is the sole way in, from Cloudflare.
+          ASPNETCORE_URLS: http://127.0.0.1:5000
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
