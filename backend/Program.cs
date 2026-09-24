@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using backend;
 using backend.Data;
@@ -83,6 +83,11 @@ builder.Services.AddHostedService<MonthlyIndSponsorSyncWorker>();
 builder.Services.AddHostedService<GhostDetectionWorker>();
 
 var app = builder.Build();
+
+// Must run before anything reads the client address: it replaces
+// Connection.RemoteIpAddress with the address nginx forwarded, but only when
+// the request really came from the local nginx.
+app.UseForwardedHeaders(ProxyHeaders.Options());
 
 app.UseCors();
 app.MapControllers();
