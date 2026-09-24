@@ -86,6 +86,36 @@ the lifetime of the (per-request) store.
 - Rate limiter is in-memory — fine for one instance, resets on restart, won't work if we ever
   scale to multiple backend processes.
 
+## Origin hardening
+
+Traffic reaches the API as Cloudflare, then nginx on the Hetzner box, then Kestrel. Each hop
+narrows what the one before it can claim.
+
+- Kestrel binds `127.0.0.1:5000` (`ASPNETCORE_URLS` in the deploy job, written to
+  `/var/www/iwwz/.env`). It used to bind `*:5000`, which let anyone with the origin IP skip
+  Cloudflare, nginx and the rate limits entirely.
+- nginx reads the client address from `CF-Connecting-IP` and only from the Cloudflare ranges in
+  `/etc/nginx/conf.d/cloudflare-realip.conf`, then passes it on as `X-Forwarded-For $remote_addr`.
+  It overwrites that header rather than appending, so a caller cannot smuggle an address of its
+  own into it.
+- `ForwardedHeaders` (see `backend/ProxyHeaders.cs`) applies the header only for requests that
+  arrive from loopback, with `ForwardLimit = 1` and `KnownNetworks` cleared, so no other process
+  on the host can rewrite the client address either. `ApiControllerBase.GetClientIp` reads
+  `Connection.RemoteIpAddress` and no headers at all, which is what the rate limits key off.
+- ufw: deny incoming by default, 22 open, 80 and 443 open to the Cloudflare ranges only.
+  `scripts/cf-realip.sh --ufw` writes both the nginx range list and those rules, and
+  `/etc/cron.d/cf-realip` re-runs it weekly so a Cloudflare renumbering cannot lock the site out.
+  The script refuses to write anything if fewer than 10 ranges come back.
+
+Server files that are not in this repo, and where they come from: `/etc/nginx/sites-available/iwwz`
+is `deploy/nginx/iwwz.conf`, `/usr/local/bin/cf-realip.sh` is `scripts/cf-realip.sh`. Copy either
+one up, then `nginx -t && systemctl reload nginx`.
+
+Before enabling or changing the firewall, arm a rollback first:
+`echo 'ufw --force reset; ufw disable' | at now + 10 minutes`, make the change, open a second SSH
+session to prove it still works, then `atrm <job>`. The Hetzner Cloud console is the way back in
+if that fails.
+
 ## CI/CD
 
 `.github/workflows/ci-cd.yml`: lint → test → build → deploy on push to `main`. Migrations run
