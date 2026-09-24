@@ -45,12 +45,13 @@ for cidr in $ranges; do
   ufw allow proto tcp from "$cidr" to any port 80,443 comment cloudflare >/dev/null
 done
 
-# Remove rules for ranges Cloudflare no longer publishes. Rule numbers shift as
-# they are deleted, so walk the list from the bottom.
-ufw status numbered | grep '# cloudflare' | tac | while read -r line; do
-  num=$(echo "$line" | sed -n 's/^\[ *\([0-9]*\)\].*/\1/p')
-  src=$(echo "$line" | awk '{ print $(NF - 1) }')
-  printf '%s\n' "$ranges" | grep -qx "$src" || yes | ufw delete "$num" >/dev/null
+# Remove rules for ranges Cloudflare no longer publishes. Deleting by spec rather
+# than by rule number on purpose: numbers shift under each delete, and the number
+# in a row is one misread column away from removing a rule that should stay.
+installed=$(ufw status | sed -n 's|^80,443/tcp *ALLOW IN *\([^ ]*\) *# cloudflare.*|\1|p')
+for cidr in $installed; do
+  printf '%s\n' "$ranges" | grep -qx "$cidr" && continue
+  ufw --force delete allow proto tcp from "$cidr" to any port 80,443 >/dev/null </dev/null
 done
 
 echo "cf-realip: ufw rules synced"
