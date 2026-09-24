@@ -102,6 +102,12 @@ narrows what the one before it can claim.
   arrive from loopback, with `ForwardLimit = 1` and `KnownNetworks` cleared, so no other process
   on the host can rewrite the client address either. `ApiControllerBase.GetClientIp` reads
   `Connection.RemoteIpAddress` and no headers at all, which is what the rate limits key off.
+- Cloudflare to origin is TLS. nginx serves 443 with a Cloudflare Origin CA certificate
+  (`/etc/ssl/cloudflare/origin.pem`, key mode 600 beside it, valid to 21 Sep 2041) and the zone is
+  on **Full (strict)**, so the edge checks that certificate on every hop. The certificate is only
+  trusted by Cloudflare, which is the point: it is worthless to anyone else. Port 80 redirects,
+  which it may only do while the zone is on Full (strict); on a Flexible zone the same redirect is
+  an infinite loop. Zone settings that go with it: `always_use_https = on`, `min_tls_version = 1.2`.
 - ufw: deny incoming by default, 22 open, 80 and 443 open to the Cloudflare ranges only.
   `scripts/cf-realip.sh --ufw` writes both the nginx range list and those rules, and
   `/etc/cron.d/cf-realip` re-runs it weekly so a Cloudflare renumbering cannot lock the site out.
