@@ -205,8 +205,26 @@ writes `/var/www/iwwz/backups/iwwz-<UTC timestamp>.sql.gz`, keeps the last 10 an
 rest. It uses the host's `pg_dump` when there is one and otherwise the client inside the running
 Postgres container (`PG_CONTAINER` overrides the auto-detected name). A dump that fails, or that
 comes back unreadable, fails the deploy before anything is stopped — and leaves the previous
-backups in place. There is no scheduled backup between deploys; `scripts/backup-db.sh` can be run
-by hand or from cron for that.
+backups in place. Every dump is also copied to Cloudflare R2, so a lost server does not take the backups with
+it. The credentials live in `/var/www/iwwz/backup.env` (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, `R2_BUCKET`), which is a separate file on purpose: the deploy job rewrites
+`/var/www/iwwz/.env` from GitHub secrets on every run and would drop anything added to it. The
+upload goes through `rclone`, configured from environment variables for the length of the command
+so the secrets are never written to a second place on disk. A failed upload is a warning, because a
+Cloudflare outage should not fail a deploy; `--require-remote` turns it into an error and is what
+the nightly cron uses, since nobody is watching that one. The local dump is written and verified
+before the upload is attempted, so a failure there never costs a backup.
+
+`/etc/cron.d/iwwz-backup` runs it nightly, which covers the gap between deploys. Retention: 10
+dumps on the server, 30 days in R2 through a bucket lifecycle rule, so pruning is the bucket's job
+rather than a script's.
+
+Restore from R2:
+
+```
+rclone copy r2:iwwz-backups/db/iwwz-20260906-120000.sql.gz .
+gunzip -c iwwz-20260906-120000.sql.gz | psql "postgres://user:pass@host:5432/iwwz"
+```
 
 Restore:
 

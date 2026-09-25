@@ -10,25 +10,44 @@
 # keyword form ("Host=...;Database=...") and the URI form
 # ("postgres://user:pass@host:port/db") are understood.
 #
+# A copy also goes to Cloudflare R2 when /var/www/iwwz/backup.env holds R2
+# credentials. That file is deliberately not the deploy env file: the workflow
+# rewrites /var/www/iwwz/.env on every deploy and would drop anything added here.
+#
 #   ./backup-db.sh [--env-file PATH] [--out-dir DIR] [--keep N]
+#                  [--r2-env-file PATH] [--no-remote] [--require-remote]
 #
 # Defaults: --env-file /var/www/iwwz/.env  --out-dir /var/www/iwwz/backups  --keep 10
+#           --r2-env-file /var/www/iwwz/backup.env
+#
+# An upload that fails is a warning, so a Cloudflare outage cannot fail a deploy.
+# --require-remote turns it into an error, which is what the nightly cron uses:
+# there, nobody is watching and a silent failure is the whole problem.
 #
 # Restore a dump with:
 #   gunzip -c iwwz-20260906-120000.sql.gz | psql "$DATABASE_URL_AS_URI"
+#
+# Fetch one from R2 with:
+#   rclone copy r2:$R2_BUCKET/db/iwwz-20260906-120000.sql.gz .
 
 set -euo pipefail
 
 ENV_FILE="/var/www/iwwz/.env"
 OUT_DIR="/var/www/iwwz/backups"
 KEEP=10
+R2_ENV_FILE="/var/www/iwwz/backup.env"
+REMOTE=1
+REQUIRE_REMOTE=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --env-file) ENV_FILE="$2"; shift 2 ;;
     --out-dir)  OUT_DIR="$2";  shift 2 ;;
     --keep)     KEEP="$2";     shift 2 ;;
-    -h|--help)  sed -n '2,18p' "$0"; exit 0 ;;
+    --r2-env-file)    R2_ENV_FILE="$2"; shift 2 ;;
+    --no-remote)      REMOTE=0;         shift ;;
+    --require-remote) REQUIRE_REMOTE=1; shift ;;
+    -h|--help)  sed -n '2,32p' "$0"; exit 0 ;;
     *) echo "backup-db: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -160,6 +179,43 @@ trap - EXIT
 size="$(du -h "$target" | cut -f1)"
 echo "backup-db: wrote $target ($size)"
 
+# ── offsite copy ─────────────────────────────────────────────────────────────
+
+# A backup on the same disk as the database survives a bad migration but not a
+# lost server, so the dump goes to Cloudflare R2 as well.
+remote_failed=0
+
+if [ "$REMOTE" -eq 1 ] && [ -f "$R2_ENV_FILE" ]; then
+  # Same reasoning as the main env file: read the four values, leave the rest.
+  r2_account="$(sed -n 's/^R2_ACCOUNT_ID=//p'        "$R2_ENV_FILE" | head -n 1)"
+  r2_key="$(sed -n 's/^R2_ACCESS_KEY_ID=//p'         "$R2_ENV_FILE" | head -n 1)"
+  r2_secret="$(sed -n 's/^R2_SECRET_ACCESS_KEY=//p'  "$R2_ENV_FILE" | head -n 1)"
+  r2_bucket="$(sed -n 's/^R2_BUCKET=//p'             "$R2_ENV_FILE" | head -n 1)"
+
+  if [ -z "$r2_account" ] || [ -z "$r2_key" ] || [ -z "$r2_secret" ] || [ -z "$r2_bucket" ]; then
+    echo "backup-db: $R2_ENV_FILE is missing one of R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET" >&2
+    remote_failed=1
+  elif ! command -v rclone >/dev/null 2>&1; then
+    echo "backup-db: rclone is not installed, cannot copy the dump offsite" >&2
+    remote_failed=1
+  else
+    # Configured through the environment rather than a config file, so the
+    # secrets exist only for the length of this command and never land on disk
+    # in a second place.
+    echo "backup-db: uploading $(basename "$target") to r2:$r2_bucket/db/"
+    if RCLONE_CONFIG_R2_TYPE=s3        RCLONE_CONFIG_R2_PROVIDER=Cloudflare        RCLONE_CONFIG_R2_ACCESS_KEY_ID="$r2_key"        RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$r2_secret"        RCLONE_CONFIG_R2_ENDPOINT="https://$r2_account.r2.cloudflarestorage.com"        RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true        rclone copy --s3-no-check-bucket --retries 3 --low-level-retries 3          "$target" "r2:$r2_bucket/db/"
+    then
+      echo "backup-db: uploaded to r2:$r2_bucket/db/$(basename "$target")"
+    else
+      echo "backup-db: the upload to R2 failed" >&2
+      remote_failed=1
+    fi
+  fi
+elif [ "$REMOTE" -eq 1 ]; then
+  echo "backup-db: no $R2_ENV_FILE, keeping this dump on the server only"
+  [ "$REQUIRE_REMOTE" -eq 1 ] && remote_failed=1
+fi
+
 # ── prune ────────────────────────────────────────────────────────────────────
 
 if [ "$KEEP" -gt 0 ]; then
@@ -168,4 +224,11 @@ if [ "$KEEP" -gt 0 ]; then
     echo "backup-db: pruning $old"
     rm -f "$old"
   done
+fi
+
+# The local dump is already written and verified by this point, so a failed
+# upload never throws away a good backup. It only decides the exit status.
+if [ "$REQUIRE_REMOTE" -eq 1 ] && [ "$remote_failed" -eq 1 ]; then
+  echo "backup-db: no offsite copy was made and --require-remote was given" >&2
+  exit 1
 fi
