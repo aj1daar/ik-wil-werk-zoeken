@@ -205,25 +205,41 @@ writes `/var/www/iwwz/backups/iwwz-<UTC timestamp>.sql.gz`, keeps the last 10 an
 rest. It uses the host's `pg_dump` when there is one and otherwise the client inside the running
 Postgres container (`PG_CONTAINER` overrides the auto-detected name). A dump that fails, or that
 comes back unreadable, fails the deploy before anything is stopped — and leaves the previous
-backups in place. Every dump is also copied to Cloudflare R2, so a lost server does not take the backups with
-it. The credentials live in `/var/www/iwwz/backup.env` (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-`R2_SECRET_ACCESS_KEY`, `R2_BUCKET`), which is a separate file on purpose: the deploy job rewrites
-`/var/www/iwwz/.env` from GitHub secrets on every run and would drop anything added to it. The
-upload goes through `rclone`, configured from environment variables for the length of the command
-so the secrets are never written to a second place on disk. A failed upload is a warning, because a
-Cloudflare outage should not fail a deploy; `--require-remote` turns it into an error and is what
-the nightly cron uses, since nobody is watching that one. The local dump is written and verified
-before the upload is attempted, so a failure there never costs a backup.
+backups in place. Every dump is also copied to Cloudflare R2, so a lost server does not take the backups with it.
+The credentials live in `/var/www/iwwz/backup.env` (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_JURISDICTION`), which is a separate file on purpose: the
+deploy job rewrites `/var/www/iwwz/.env` from GitHub secrets on every run and would drop anything
+added to it. The upload goes through `rclone`, configured from environment variables for the length
+of the command so the secrets never land on disk in a second place. A failed upload is a warning,
+because a Cloudflare outage should not fail a deploy; `--require-remote` turns it into an error and
+is what the nightly cron uses, since nobody is watching that one. The local dump is written and
+verified before the upload is attempted, so a failure there never costs a backup.
 
-`/etc/cron.d/iwwz-backup` runs it nightly, which covers the gap between deploys. Retention: 10
-dumps on the server, 30 days in R2 through a bucket lifecycle rule, so pruning is the bucket's job
-rather than a script's.
+Two things about R2 that cost an hour to find, both of which return misleading errors:
 
-Restore from R2:
+- The bucket was created under the **EU jurisdiction**, so it answers only on
+  `https://<account>.eu.r2.cloudflarestorage.com`. The plain endpoint returns `403 AccessDenied`,
+  which reads exactly like a token permissions problem and is not one. That is what
+  `R2_JURISDICTION=eu` is for.
+- `rclone` re-reads an object it has just uploaded, and R2 answers that HEAD with
+  `501 Not Implemented`, costing a retry on every upload. `--s3-no-head` skips it.
+
+The token is scoped to object read and write on one bucket, which does not include listing, so
+`rclone ls` and `rclone purge` return 403. Fetching a known key works, which is all a restore needs.
+
+`/etc/cron.d/iwwz-backup` runs the script nightly at 02:30, covering the gap between deploys, and
+logs to `/var/log/iwwz-backup.log`. Retention: 10 dumps on the server, 30 days in R2 through a
+bucket lifecycle rule, so pruning old objects is the bucket's job rather than a script's.
+
+Restore from R2 (the object name is `db/iwwz-<UTC timestamp>.sql.gz`):
 
 ```
-rclone copy r2:iwwz-backups/db/iwwz-20260906-120000.sql.gz .
-gunzip -c iwwz-20260906-120000.sql.gz | psql "postgres://user:pass@host:5432/iwwz"
+set -a; . /var/www/iwwz/backup.env; set +a
+curl -o dump.sql.gz --aws-sigv4 "aws:amz:auto:s3" \
+  --user "$R2_ACCESS_KEY_ID:$R2_SECRET_ACCESS_KEY" \
+  "https://$R2_ACCOUNT_ID.$R2_JURISDICTION.r2.cloudflarestorage.com/$R2_BUCKET/db/iwwz-20260925-160851.sql.gz"
+gzip -t dump.sql.gz
+gunzip -c dump.sql.gz | psql "postgres://user:pass@host:5432/iwwz"
 ```
 
 Restore:

@@ -11,7 +11,8 @@
 # ("postgres://user:pass@host:port/db") are understood.
 #
 # A copy also goes to Cloudflare R2 when /var/www/iwwz/backup.env holds R2
-# credentials. That file is deliberately not the deploy env file: the workflow
+# credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET,
+# plus R2_JURISDICTION=eu for a bucket created under the EU jurisdiction). That file is deliberately not the deploy env file: the workflow
 # rewrites /var/www/iwwz/.env on every deploy and would drop anything added here.
 #
 #   ./backup-db.sh [--env-file PATH] [--out-dir DIR] [--keep N]
@@ -186,11 +187,28 @@ echo "backup-db: wrote $target ($size)"
 remote_failed=0
 
 if [ "$REMOTE" -eq 1 ] && [ -f "$R2_ENV_FILE" ]; then
-  # Same reasoning as the main env file: read the four values, leave the rest.
-  r2_account="$(sed -n 's/^R2_ACCOUNT_ID=//p'        "$R2_ENV_FILE" | head -n 1)"
-  r2_key="$(sed -n 's/^R2_ACCESS_KEY_ID=//p'         "$R2_ENV_FILE" | head -n 1)"
-  r2_secret="$(sed -n 's/^R2_SECRET_ACCESS_KEY=//p'  "$R2_ENV_FILE" | head -n 1)"
-  r2_bucket="$(sed -n 's/^R2_BUCKET=//p'             "$R2_ENV_FILE" | head -n 1)"
+  # Same reasoning as the main env file: read the values we need, leave the rest.
+  # Carriage returns are stripped because this file is written by hand, often on
+  # Windows, and a trailing one turns the endpoint into an unparseable URL.
+  read_r2() { sed -n "s/^$1=//p" "$R2_ENV_FILE" | head -n 1 | tr -d '\r'; }
+
+  r2_account="$(read_r2 R2_ACCOUNT_ID)"
+  r2_key="$(read_r2 R2_ACCESS_KEY_ID)"
+  r2_secret="$(read_r2 R2_SECRET_ACCESS_KEY)"
+  r2_bucket="$(read_r2 R2_BUCKET)"
+  # A bucket created under a jurisdiction (eu, fedramp) answers only on its own
+  # endpoint. The plain one returns 403 AccessDenied, which reads exactly like a
+  # permissions problem and is not one. R2_ENDPOINT overrides both.
+  r2_jurisdiction="$(read_r2 R2_JURISDICTION)"
+  r2_endpoint="$(read_r2 R2_ENDPOINT)"
+
+  if [ -z "$r2_endpoint" ]; then
+    if [ -n "$r2_jurisdiction" ]; then
+      r2_endpoint="https://$r2_account.$r2_jurisdiction.r2.cloudflarestorage.com"
+    else
+      r2_endpoint="https://$r2_account.r2.cloudflarestorage.com"
+    fi
+  fi
 
   if [ -z "$r2_account" ] || [ -z "$r2_key" ] || [ -z "$r2_secret" ] || [ -z "$r2_bucket" ]; then
     echo "backup-db: $R2_ENV_FILE is missing one of R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET" >&2
@@ -202,8 +220,20 @@ if [ "$REMOTE" -eq 1 ] && [ -f "$R2_ENV_FILE" ]; then
     # Configured through the environment rather than a config file, so the
     # secrets exist only for the length of this command and never land on disk
     # in a second place.
+    #
+    # --s3-no-head: rclone re-reads the object it has just written to confirm it,
+    # and R2 answers that HEAD with 501 Not Implemented, which costs a retry on
+    # every single upload. The dump is verified before it is sent and fetched back
+    # for a real check after, which is worth more than a HEAD anyway.
     echo "backup-db: uploading $(basename "$target") to r2:$r2_bucket/db/"
-    if RCLONE_CONFIG_R2_TYPE=s3        RCLONE_CONFIG_R2_PROVIDER=Cloudflare        RCLONE_CONFIG_R2_ACCESS_KEY_ID="$r2_key"        RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$r2_secret"        RCLONE_CONFIG_R2_ENDPOINT="https://$r2_account.r2.cloudflarestorage.com"        RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true        rclone copy --s3-no-check-bucket --retries 3 --low-level-retries 3          "$target" "r2:$r2_bucket/db/"
+    if RCLONE_CONFIG_R2_TYPE=s3 \
+       RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
+       RCLONE_CONFIG_R2_ACCESS_KEY_ID="$r2_key" \
+       RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$r2_secret" \
+       RCLONE_CONFIG_R2_ENDPOINT="$r2_endpoint" \
+       RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true \
+       rclone copy --s3-no-check-bucket --s3-no-head --retries 3 --low-level-retries 3 \
+         "$target" "r2:$r2_bucket/db/"
     then
       echo "backup-db: uploaded to r2:$r2_bucket/db/$(basename "$target")"
     else
