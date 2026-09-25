@@ -37,8 +37,73 @@ enrich-sponsors (Gemini, batches of 100), sync-logs, companies/{id} (PUT — man
 override, including the company name), companies/merge (POST), companies/{id}/merged (GET),
 companies/{id}/unmerge (POST).
 
+### Export `/api/export/`
+sponsors (GET). Machine to machine, no browser involved. See "Sponsor export contract" below.
+
 All non-auth routes require `Authorization: Bearer <jwt>`; admin routes additionally check
-`role === "admin"`.
+`role === "admin"`. `/api/export/` is the exception: a user token is not accepted there.
+
+## Sponsor export contract
+
+`GET /api/export/sponsors` is consumed daily by
+[nl-tech-jobs-pipeline](https://github.com/aj1daar/nl-tech-jobs-pipeline), which runs on another
+host with no database credentials. It is a published contract: the field names below are what that
+repository reads, so changing one is a breaking change.
+
+```json
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-25T14:31:07.123456+00:00",
+  "count": 12797,
+  "sponsors": [
+    {
+      "id": "01031782",
+      "name": "Essity Operations Suameer",
+      "kvkNumber": "01031782",
+      "isIndRecognizedSponsor": true,
+      "lastVerifiedAt": "2026-06-16T20:14:08.446755+00:00",
+      "removedAt": null,
+      "mergedIntoId": null,
+      "aliasNames": null,
+      "city": null,
+      "locations": null,
+      "websiteUrl": null,
+      "coreIndustry": null,
+      "techStackTags": null,
+      "workingLanguage": null,
+      "companySize": null,
+      "remotePolicy": null,
+      "enrichedAt": null,
+      "enrichmentVersion": null
+    }
+  ]
+}
+```
+
+Rules the consumer can rely on:
+
+- **Every row, always.** Removed companies (`removedAt` set) and companies merged away
+  (`mergedIntoId` set) are included. The export mirrors the table; a company that was merged must
+  not be indistinguishable from one that never existed. `id` is the IND KvK number for anything the
+  sync created, and a GUID for the seeded rows that predate it.
+- **Null means unknown.** It is never a stand-in for false or for an empty list. An empty or
+  whitespace-only string arrives as `null`, and so does an empty array or one holding only blanks.
+  `kvkNumber` is the field where this matters most: the column is `not null` in Postgres and the
+  only way to say "no number" is the empty string, which the export turns into `null`. The same
+  treatment covers `city`, `websiteUrl`, `coreIndustry`, `workingLanguage`, `companySize`,
+  `remotePolicy`, `mergedIntoId`, `aliasNames`, `locations` and `techStackTags`.
+  `enrichmentVersion` is `null` when no version was recorded, which covers both a company the
+  enrichment never touched and the seeded rows that predate versioning, where `enrichedAt` is set
+  and the version is 0.
+- **Stable order.** Rows are ordered by `id`, so two exports of an unchanged register differ only
+  in `generatedAt`.
+- **One response.** No pagination. Around 12.8k rows, 5.1 MB of JSON, which brotli takes to roughly
+  470 KB; compression is enabled for `/api/export` only (see `Program.cs` for why not globally).
+- **Never cached.** `Cache-Control: no-store` and `CDN-Cache-Control: no-store`, the second because
+  Cloudflare reads it first.
+- **`schemaVersion` is 1.** It goes up when a field is removed or renamed, or an existing field
+  changes meaning. Adding a field does not bump it, so a consumer must ignore fields it does not
+  know.
 
 ## AI enrichment
 
