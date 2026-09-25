@@ -13,6 +13,14 @@ public sealed class SponsorStore(AppDbContext db)
     public async Task<IReadOnlyList<SponsorCompany>> GetAllAsync() =>
         await db.Sponsors.ToListAsync();
 
+    // Everything the register holds, removed and merged rows included, in a fixed
+    // order. The export is a mirror of this table for another system to rebuild
+    // from, so hiding rows would make a company that was merged away look like a
+    // company that never existed. AsNoTracking because nothing here is written
+    // back and the result set is the whole table.
+    public async Task<IReadOnlyList<SponsorCompany>> GetAllForExportAsync() =>
+        await db.Sponsors.AsNoTracking().OrderBy(c => c.Id).ToListAsync();
+
     public async Task<IReadOnlyList<SponsorCompany>> GetActiveAsync() =>
         await db.Sponsors
             .Where(c => c.RemovedAt == null && c.MergedIntoId == null)

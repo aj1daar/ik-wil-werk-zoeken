@@ -62,6 +62,15 @@ builder.Services.AddHttpClient("joblink", client =>
     ConnectCallback         = JobLinkParser.SafeConnectAsync,
 });
 
+// The sponsor export is one response holding the whole register, roughly 10k rows
+// of JSON. Compression turns megabytes into a few hundred kilobytes for a daily
+// caller on another host.
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.MimeTypes = ["application/json"];
+});
+
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? throw new InvalidOperationException("DATABASE_URL is not set");
 
@@ -88,6 +97,13 @@ var app = builder.Build();
 // Connection.RemoteIpAddress with the address nginx forwarded, but only when
 // the request really came from the local nginx.
 app.UseForwardedHeaders(ProxyHeaders.Options());
+
+// Only the export. Compressing a response that mixes a secret with text the
+// caller chose is how BREACH works, and the auth endpoints return tokens next to
+// an echoed email address. The export holds no secrets and no caller input.
+app.UseWhen(
+    ctx => ctx.Request.Path.StartsWithSegments("/api/export"),
+    branch => branch.UseResponseCompression());
 
 app.UseCors();
 app.MapControllers();
