@@ -19,7 +19,13 @@ frontend/            Vue 3 SPA
   **/__tests__/        Vitest (985 tests), beside the code they cover
 ```
 
-Request flow: `Browser → Cloudflare → Nginx :80 → ASP.NET Core :5000 → Postgres 18`.
+Request flow: `Browser → Cloudflare → Nginx :443 → ASP.NET Core :5000 (loopback) → Postgres 18`.
+Every hop is TLS except the last two, which never leave the host. See "Origin hardening".
+
+Postgres is 18.6 in production and `postgres:18` in `docker-compose.yml`, deliberately the same
+major version: a local database a version behind hides collation and planner differences until
+they appear in production. The 18 images keep the cluster in a major-version subdirectory, so the
+volume mounts at `/var/lib/postgresql`, not at `/var/lib/postgresql/data`.
 
 ## API
 
