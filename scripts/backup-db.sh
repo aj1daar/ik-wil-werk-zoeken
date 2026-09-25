@@ -12,7 +12,12 @@
 #
 # A copy also goes to Cloudflare R2 when /var/www/iwwz/backup.env holds R2
 # credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET,
-# plus R2_JURISDICTION=eu for a bucket created under the EU jurisdiction). That file is deliberately not the deploy env file: the workflow
+# plus R2_JURISDICTION=eu for a bucket created under the EU jurisdiction).
+#
+# When BACKUP_AGE_RECIPIENT is set in that file, the copy that leaves the server
+# is encrypted to that age public key first. The matching private key is not on
+# this machine on purpose: losing the server then costs nothing, and a restore
+# needs the key out of the password manager. That file is deliberately not the deploy env file: the workflow
 # rewrites /var/www/iwwz/.env on every deploy and would drop anything added here.
 #
 #   ./backup-db.sh [--env-file PATH] [--out-dir DIR] [--keep N]
@@ -201,6 +206,7 @@ if [ "$REMOTE" -eq 1 ] && [ -f "$R2_ENV_FILE" ]; then
   # permissions problem and is not one. R2_ENDPOINT overrides both.
   r2_jurisdiction="$(read_r2 R2_JURISDICTION)"
   r2_endpoint="$(read_r2 R2_ENDPOINT)"
+  age_recipient="$(read_r2 BACKUP_AGE_RECIPIENT)"
 
   if [ -z "$r2_endpoint" ]; then
     if [ -n "$r2_jurisdiction" ]; then
@@ -225,7 +231,28 @@ if [ "$REMOTE" -eq 1 ] && [ -f "$R2_ENV_FILE" ]; then
     # and R2 answers that HEAD with 501 Not Implemented, which costs a retry on
     # every single upload. The dump is verified before it is sent and fetched back
     # for a real check after, which is worth more than a HEAD anyway.
-    echo "backup-db: uploading $(basename "$target") to r2:$r2_bucket/db/"
+    # What leaves the machine is encrypted; the local copy stays plain, since it
+    # sits on the same disk as the database it came from and hiding it there buys
+    # nothing. A configured recipient that cannot be honoured is a hard failure:
+    # quietly uploading the plaintext instead would be the worst of both.
+    upload="$target"
+    if [ -n "$age_recipient" ]; then
+      if ! command -v age >/dev/null 2>&1; then
+        echo "backup-db: BACKUP_AGE_RECIPIENT is set but age is not installed, refusing to upload unencrypted" >&2
+        remote_failed=1
+        upload=""
+      elif ! age -r "$age_recipient" -o "$target.age" "$target"; then
+        echo "backup-db: encryption failed, refusing to upload unencrypted" >&2
+        rm -f "$target.age"
+        remote_failed=1
+        upload=""
+      else
+        upload="$target.age"
+      fi
+    fi
+
+    if [ -n "$upload" ]; then
+    echo "backup-db: uploading $(basename "$upload") to r2:$r2_bucket/db/"
     if RCLONE_CONFIG_R2_TYPE=s3 \
        RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
        RCLONE_CONFIG_R2_ACCESS_KEY_ID="$r2_key" \
@@ -233,12 +260,15 @@ if [ "$REMOTE" -eq 1 ] && [ -f "$R2_ENV_FILE" ]; then
        RCLONE_CONFIG_R2_ENDPOINT="$r2_endpoint" \
        RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true \
        rclone copy --s3-no-check-bucket --s3-no-head --retries 3 --low-level-retries 3 \
-         "$target" "r2:$r2_bucket/db/"
+         "$upload" "r2:$r2_bucket/db/"
     then
-      echo "backup-db: uploaded to r2:$r2_bucket/db/$(basename "$target")"
+      echo "backup-db: uploaded to r2:$r2_bucket/db/$(basename "$upload")"
     else
       echo "backup-db: the upload to R2 failed" >&2
       remote_failed=1
+    fi
+    # The encrypted copy is a transfer artefact, not a second backup.
+    [ "$upload" != "$target" ] && rm -f "$upload"
     fi
   fi
 elif [ "$REMOTE" -eq 1 ]; then

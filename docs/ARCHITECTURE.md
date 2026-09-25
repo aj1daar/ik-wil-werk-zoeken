@@ -227,20 +227,35 @@ Two things about R2 that cost an hour to find, both of which return misleading e
 The token is scoped to object read and write on one bucket, which does not include listing, so
 `rclone ls` and `rclone purge` return 403. Fetching a known key works, which is all a restore needs.
 
+Everything that leaves the server is encrypted with [age](https://github.com/FiloSottile/age) to the
+public key in `BACKUP_AGE_RECIPIENT`, so the objects in R2 are `iwwz-<timestamp>.sql.gz.age`. The
+**private key is not on the server**: it was generated there, used once to prove the round trip, then
+moved off and shredded. A stolen R2 token, or the whole box, therefore yields nothing readable. The
+local dumps under `/var/www/iwwz/backups` stay unencrypted, because they sit on the same disk as the
+database they came from and encrypting them there protects nothing.
+
+The trade is real: **lose the private key and every offsite backup is lost with it.** It belongs in
+the password manager, and nowhere on this infrastructure. A configured recipient that cannot be
+honoured (no `age` binary, encryption fails) is a hard failure rather than a fallback to plaintext.
+
 `/etc/cron.d/iwwz-backup` runs the script nightly at 02:30, covering the gap between deploys, and
 logs to `/var/log/iwwz-backup.log`. Retention: 10 dumps on the server, 30 days in R2 through a
 bucket lifecycle rule, so pruning old objects is the bucket's job rather than a script's.
 
-Restore from R2 (the object name is `db/iwwz-<UTC timestamp>.sql.gz`):
+Restore from R2 (the object name is `db/iwwz-<UTC timestamp>.sql.gz.age`), on a machine that has the
+private key:
 
 ```
 set -a; . /var/www/iwwz/backup.env; set +a
-curl -o dump.sql.gz --aws-sigv4 "aws:amz:auto:s3" \
+curl -o dump.sql.gz.age --aws-sigv4 "aws:amz:auto:s3" \
   --user "$R2_ACCESS_KEY_ID:$R2_SECRET_ACCESS_KEY" \
-  "https://$R2_ACCOUNT_ID.$R2_JURISDICTION.r2.cloudflarestorage.com/$R2_BUCKET/db/iwwz-20260925-160851.sql.gz"
+  "https://$R2_ACCOUNT_ID.$R2_JURISDICTION.r2.cloudflarestorage.com/$R2_BUCKET/db/iwwz-20260925-170318.sql.gz.age"
+age -d -i iwwz-backup-age.key dump.sql.gz.age > dump.sql.gz
 gzip -t dump.sql.gz
 gunzip -c dump.sql.gz | psql "postgres://user:pass@host:5432/iwwz"
 ```
+
+The local dumps on the server need no key: `gunzip -c /var/www/iwwz/backups/iwwz-<stamp>.sql.gz | psql ...`.
 
 Restore:
 
