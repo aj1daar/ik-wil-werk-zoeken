@@ -6,6 +6,24 @@ using backend.Services;
 using backend.Workers;
 using Microsoft.EntityFrameworkCore;
 
+// A key is printed once, here, and never stored: only its hash goes into
+// EXPORT_API_KEYS on the server. Runs before the host is built so it needs no
+// DATABASE_URL and no JWT_SECRET.
+//   dotnet backend.dll new-export-key pipeline
+if (args.Length > 0 && args[0] == "new-export-key")
+{
+    var keyName = args.Length > 1 ? args[1] : "pipeline";
+    var (generated, hash) = ExportApiKeyService.GenerateKey();
+    Console.WriteLine();
+    Console.WriteLine("Key (store in the consumer, shown once, never on this server):");
+    Console.WriteLine($"  {generated}");
+    Console.WriteLine();
+    Console.WriteLine("Add this to EXPORT_API_KEYS on the server (comma-separated for rotation):");
+    Console.WriteLine($"  {keyName}={hash}");
+    Console.WriteLine();
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
@@ -82,6 +100,8 @@ builder.Services.AddSingleton<CompanyEnricher>();
 builder.Services.AddSingleton<JobLinkParser>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<RateLimiterService>();
+builder.Services.AddSingleton<ExportApiKeyService>();
+builder.Services.AddSingleton<backend.Controllers.ExportApiKeyFilter>();
 builder.Services.AddSingleton<EmailService>();
 builder.Services.AddScoped<UserStore>();
 builder.Services.AddScoped<StageStore>();
