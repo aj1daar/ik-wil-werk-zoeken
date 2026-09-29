@@ -270,26 +270,26 @@ describe('useCompaniesStore – filter', () => {
 
   it('no filters returns all companies', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [] })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [] })
     expect(result).toHaveLength(4)
   })
 
   it('filters by city', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: 'Amsterdam', includeTags: [], excludeTags: [] })
+    const result = store.filter({ query: '', city: ['Amsterdam'], includeTags: [], excludeTags: [] })
     expect(result).toHaveLength(2)
     expect(result.map(c => c.name).sort()).toEqual(['Adyen', 'Booking.com'])
   })
 
   it('city filter is exact match (not partial)', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: 'Amster', includeTags: [], excludeTags: [] })
+    const result = store.filter({ query: '', city: ['Amster'], includeTags: [], excludeTags: [] })
     expect(result).toHaveLength(0)
   })
 
   it('filters by query within city-filtered results', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: 'adyen', city: 'Amsterdam', includeTags: [], excludeTags: [] })
+    const result = store.filter({ query: 'adyen', city: ['Amsterdam'], includeTags: [], excludeTags: [] })
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Adyen')
   })
@@ -297,14 +297,14 @@ describe('useCompaniesStore – filter', () => {
   it('include tag requires all included tags to be present', () => {
     const store = seedStore(companies)
     // 'Java' matches Adyen and Booking.com; 'Go' only matches Adyen
-    const result = store.filter({ query: '', city: '', includeTags: ['Java', 'Go'], excludeTags: [] })
+    const result = store.filter({ query: '', city: [], includeTags: ['Java', 'Go'], excludeTags: [] })
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Adyen')
   })
 
   it('single include tag returns all matching companies', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: ['Java'], excludeTags: [] })
+    const result = store.filter({ query: '', city: [], includeTags: ['Java'], excludeTags: [] })
     expect(result).toHaveLength(2)
     expect(result.map(c => c.name).sort()).toEqual(['Adyen', 'Booking.com'])
   })
@@ -312,7 +312,7 @@ describe('useCompaniesStore – filter', () => {
   it('exclude tag removes matching companies', () => {
     const store = seedStore(companies)
     // Exclude 'Hardware' — removes ASML and Signify
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: ['Hardware'] })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: ['Hardware'] })
     expect(result).toHaveLength(2)
     expect(result.map(c => c.name).sort()).toEqual(['Adyen', 'Booking.com'])
   })
@@ -321,14 +321,14 @@ describe('useCompaniesStore – filter', () => {
     // includeTags and excludeTags are separate; the UI prevents overlap but the store handles it gracefully
     const store = seedStore(companies)
     // Include 'Java', Exclude 'Kotlin' — Adyen has Java (no Kotlin) → stays; Booking.com has both → excluded
-    const result = store.filter({ query: '', city: '', includeTags: ['Java'], excludeTags: ['Kotlin'] })
+    const result = store.filter({ query: '', city: [], includeTags: ['Java'], excludeTags: ['Kotlin'] })
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Adyen')
   })
 
   it('coreIndustry is treated as a tag for include/exclude', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: ['Fintech'], excludeTags: [] })
+    const result = store.filter({ query: '', city: [], includeTags: ['Fintech'], excludeTags: [] })
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Adyen')
   })
@@ -336,13 +336,13 @@ describe('useCompaniesStore – filter', () => {
   it('city + includeTags combined filter', () => {
     const store = seedStore(companies)
     // Amsterdam companies with Hardware tag — none (Adyen and Booking.com are in Amsterdam, neither has Hardware)
-    const result = store.filter({ query: '', city: 'Amsterdam', includeTags: ['Hardware'], excludeTags: [] })
+    const result = store.filter({ query: '', city: ['Amsterdam'], includeTags: ['Hardware'], excludeTags: [] })
     expect(result).toHaveLength(0)
   })
 
   it('empty companies list returns empty', () => {
     const store = seedStore([])
-    const result = store.filter({ query: 'anything', city: 'Amsterdam', includeTags: ['Java'], excludeTags: [] })
+    const result = store.filter({ query: 'anything', city: ['Amsterdam'], includeTags: ['Java'], excludeTags: [] })
     expect(result).toHaveLength(0)
   })
 
@@ -350,13 +350,13 @@ describe('useCompaniesStore – filter', () => {
     const manyCompanies = Array.from({ length: 120 }, (_, i) =>
       makeCompany({ id: `c${i}`, name: `Company ${i}`, city: 'Amsterdam' }))
     const store = seedStore(manyCompanies)
-    const result = store.filter({ query: '', city: 'Amsterdam', includeTags: [], excludeTags: [] })
+    const result = store.filter({ query: '', city: ['Amsterdam'], includeTags: [], excludeTags: [] })
     expect(result).toHaveLength(120)
   })
 
   it('query on company with no city does not throw', () => {
     const store = seedStore([makeCompany({ id: 'c1', name: 'NoCityCompany' })])
-    expect(() => store.filter({ query: 'city', city: '', includeTags: [], excludeTags: [] })).not.toThrow()
+    expect(() => store.filter({ query: 'city', city: [], includeTags: [], excludeTags: [] })).not.toThrow()
   })
 })
 
@@ -474,43 +474,43 @@ describe('useCompaniesStore – filter (workingLanguage / companySize / remotePo
 
   it('filters by workingLanguage', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'Dutch' })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], workingLanguage: ['Dutch'] })
     expect(result.map(c => c.name).sort()).toEqual(['Mollie', 'Picnic'])
   })
 
   it('filters by companySize', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], companySize: 'mid' })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], companySize: ['mid'] })
     expect(result.map(c => c.name)).toEqual(['Adyen'])
   })
 
   it('filters by remotePolicy', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], remotePolicy: 'hybrid' })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], remotePolicy: ['hybrid'] })
     expect(result.map(c => c.name).sort()).toEqual(['Adyen', 'Picnic'])
   })
 
   it('combines workingLanguage and remotePolicy filters', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'Dutch', remotePolicy: 'hybrid' })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], workingLanguage: ['Dutch'], remotePolicy: ['hybrid'] })
     expect(result.map(c => c.name)).toEqual(['Picnic'])
   })
 
   it('all three extended filters together', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'English', companySize: 'mid', remotePolicy: 'hybrid' })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], workingLanguage: ['English'], companySize: ['mid'], remotePolicy: ['hybrid'] })
     expect(result.map(c => c.name)).toEqual(['Adyen'])
   })
 
   it('extended filter with no match returns empty', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], companySize: 'enterprise' })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], companySize: ['enterprise'] })
     expect(result).toHaveLength(0)
   })
 
   it('undefined extended params act as no filter', () => {
     const store = seedStore(companies)
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: undefined, companySize: undefined, remotePolicy: undefined })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], workingLanguage: undefined, companySize: undefined, remotePolicy: undefined })
     expect(result).toHaveLength(4)
   })
 
@@ -519,7 +519,7 @@ describe('useCompaniesStore – filter (workingLanguage / companySize / remotePo
       makeCompany({ id: 'c1', name: 'A', workingLanguage: 'English' }),
       makeCompany({ id: 'c2', name: 'B' }), // no workingLanguage
     ])
-    const result = store.filter({ query: '', city: '', includeTags: [], excludeTags: [], workingLanguage: 'English' })
+    const result = store.filter({ query: '', city: [], includeTags: [], excludeTags: [], workingLanguage: ['English'] })
     expect(result.map(c => c.name)).toEqual(['A'])
   })
 })

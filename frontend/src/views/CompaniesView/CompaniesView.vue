@@ -2,6 +2,7 @@
 import AppIcon from '../../components/ui/AppIcon.vue'
 import LoadingRegion from '../../components/ui/LoadingRegion.vue'
 import AppPagination from '../../components/AppPagination/AppPagination.vue'
+import MultiSelectFilter from '../../components/MultiSelectFilter/MultiSelectFilter.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCompaniesStore } from '../../stores/companies'
 import { useApplicationsStore, STATUS_LABELS, STATUS_COLOR } from '../../stores/applications'
@@ -17,10 +18,21 @@ const auth      = useAuthStore()
 const isAdmin = computed(() => auth.user?.role === 'admin')
 
 const search              = ref('')
-const filterCity          = ref('')
-const filterWorkingLanguage = ref('')
-const filterCompanySize   = ref('')
-const filterRemotePolicy  = ref('')
+// Each facet holds the values chosen for it. Several cities at once is the
+// normal case here: a search runs across the Randstad, not one town.
+const filterCity          = ref<string[]>([])
+const filterWorkingLanguage = ref<string[]>([])
+const filterCompanySize   = ref<string[]>([])
+const filterRemotePolicy  = ref<string[]>([])
+
+// Counts chosen values, not facets in use: picking three cities reads as 3, which
+// is the number the user is holding in their head. Declared with the refs it adds
+// up, because the filtering below runs during setup and would otherwise reach a
+// const that does not exist yet.
+const activeDropdownCount = computed(() =>
+  filterCity.value.length + filterWorkingLanguage.value.length +
+  filterCompanySize.value.length + filterRemotePolicy.value.length
+)
 const appliedFilter       = ref<'all' | 'applied' | 'not-applied'>('all')
 const includeTags         = ref<string[]>([])
 const excludeTags         = ref<string[]>([])
@@ -90,23 +102,21 @@ const mostRecentForCompany = computed((): Map<string, Application> => {
 })
 
 const anyFilter = computed(() =>
-  search.value.trim() !== '' || filterCity.value !== '' ||
-  filterWorkingLanguage.value !== '' || filterCompanySize.value !== '' || filterRemotePolicy.value !== '' ||
+  search.value.trim() !== '' || activeDropdownCount.value > 0 ||
   appliedFilter.value !== 'all' ||
   includeTags.value.length > 0 || excludeTags.value.length > 0
 )
 
 const filteredRows = computed<SponsorCompany[]>(() => {
   let list: SponsorCompany[]
-  if (search.value.trim() !== '' || filterCity.value !== '' ||
-      filterWorkingLanguage.value !== '' || filterCompanySize.value !== '' || filterRemotePolicy.value !== '' ||
+  if (search.value.trim() !== '' || activeDropdownCount.value > 0 ||
       includeTags.value.length > 0 || excludeTags.value.length > 0) {
     list = store.filter({
       query:           search.value,
       city:            filterCity.value,
-      workingLanguage: filterWorkingLanguage.value || undefined,
-      companySize:     filterCompanySize.value || undefined,
-      remotePolicy:    filterRemotePolicy.value || undefined,
+      workingLanguage: filterWorkingLanguage.value,
+      companySize:     filterCompanySize.value,
+      remotePolicy:    filterRemotePolicy.value,
       includeTags:     includeTags.value,
       excludeTags:     excludeTags.value,
     })
@@ -249,10 +259,10 @@ function tagState(tag: string): 'include' | 'exclude' | 'none' {
 
 function clearFilters() {
   search.value = ''
-  filterCity.value = ''
-  filterWorkingLanguage.value = ''
-  filterCompanySize.value = ''
-  filterRemotePolicy.value = ''
+  filterCity.value = []
+  filterWorkingLanguage.value = []
+  filterCompanySize.value = []
+  filterRemotePolicy.value = []
   appliedFilter.value = 'all'
   includeTags.value = []
   excludeTags.value = []
@@ -261,11 +271,6 @@ function clearFilters() {
 }
 
 const hasActiveFilters = computed(() => anyFilter.value)
-
-const activeDropdownCount = computed(() =>
-  [filterCity.value, filterWorkingLanguage.value, filterCompanySize.value, filterRemotePolicy.value]
-    .filter(v => v !== '').length
-)
 </script>
 
 <template>
@@ -342,22 +347,30 @@ const activeDropdownCount = computed(() =>
     <!-- Collapsible dropdown filters panel -->
     <Transition name="filter-drop">
       <div v-if="showDropdownFilters" class="dropdown-filters-panel">
-        <select v-model="filterCity" class="filter-input filter-select" aria-label="Filter by city">
-          <option value="">All cities</option>
-          <option v-for="city in store.allCities" :key="city" :value="city">{{ city }}</option>
-        </select>
-        <select v-model="filterWorkingLanguage" class="filter-input filter-select" aria-label="Filter by working language">
-          <option value="">All languages</option>
-          <option v-for="lang in store.allWorkingLanguages" :key="lang" :value="lang">{{ lang }}</option>
-        </select>
-        <select v-model="filterCompanySize" class="filter-input filter-select" aria-label="Filter by company size">
-          <option value="">All sizes</option>
-          <option v-for="size in store.allCompanySizes" :key="size" :value="size">{{ size }}</option>
-        </select>
-        <select v-model="filterRemotePolicy" class="filter-input filter-select" aria-label="Filter by remote policy">
-          <option value="">All policies</option>
-          <option v-for="policy in store.allRemotePolicies" :key="policy" :value="policy">{{ policy }}</option>
-        </select>
+        <MultiSelectFilter
+          v-model="filterCity"
+          :options="store.allCities"
+          all-label="All cities"
+          label="Filter by city"
+        />
+        <MultiSelectFilter
+          v-model="filterWorkingLanguage"
+          :options="store.allWorkingLanguages"
+          all-label="All languages"
+          label="Filter by working language"
+        />
+        <MultiSelectFilter
+          v-model="filterCompanySize"
+          :options="store.allCompanySizes"
+          all-label="All sizes"
+          label="Filter by company size"
+        />
+        <MultiSelectFilter
+          v-model="filterRemotePolicy"
+          :options="store.allRemotePolicies"
+          all-label="All policies"
+          label="Filter by remote policy"
+        />
       </div>
     </Transition>
 
@@ -511,14 +524,6 @@ const activeDropdownCount = computed(() =>
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
-.btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-chevron { transition: transform var(--dur-base) var(--ease-standard); }
-.btn-chevron--open { transform: rotate(180deg); }
-.filter-count {
-  background: var(--col-accent); color: var(--col-on-accent);
-  border-radius: var(--radius-sm); font-size: .7rem; font-weight: 600;
-  padding: .05rem .4rem; line-height: 1.4; font-variant-numeric: tabular-nums;
-}
 
 .btn-clear-filters {
   background: none; border: none; color: var(--col-error); font-size: .8rem;

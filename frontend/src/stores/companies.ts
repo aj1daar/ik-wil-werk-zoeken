@@ -202,15 +202,21 @@ export const useCompaniesStore = defineStore('companies', {
         .slice(0, 60)
     },
 
+    // Each facet takes a list. Values inside one facet are alternatives (Amsterdam
+    // or Utrecht), and the facets narrow each other (Amsterdam or Utrecht, and
+    // hybrid). An empty list means the facet is not filtering at all.
     filter(opts: {
-      query:           string
-      city:            string
-      includeTags:     string[]
-      excludeTags:     string[]
-      workingLanguage?: string
-      companySize?:    string
-      remotePolicy?:   string
+      query:            string
+      city:             string[]
+      includeTags:      string[]
+      excludeTags:      string[]
+      workingLanguage?: string[]
+      companySize?:     string[]
+      remotePolicy?:    string[]
     }): SponsorCompany[] {
+      const matches = (chosen: string[] | undefined, value: string | null | undefined) =>
+        !chosen || chosen.length === 0 || (value != null && chosen.includes(value))
+
       const q = opts.query.trim().toLowerCase()
       return this.companies
         .filter(c => {
@@ -222,11 +228,10 @@ export const useCompaniesStore = defineStore('companies', {
             c.functionalTags?.some(t => t.toLowerCase().includes(q))
           )) return false
 
-          if (opts.city && c.city !== opts.city) return false
-
-          if (opts.workingLanguage && c.workingLanguage !== opts.workingLanguage) return false
-          if (opts.companySize && c.companySize !== opts.companySize) return false
-          if (opts.remotePolicy && c.remotePolicy !== opts.remotePolicy) return false
+          if (!matches(opts.city, c.city)) return false
+          if (!matches(opts.workingLanguage, c.workingLanguage)) return false
+          if (!matches(opts.companySize, c.companySize)) return false
+          if (!matches(opts.remotePolicy, c.remotePolicy)) return false
 
           if (opts.includeTags.length > 0) {
             const tags = companyTags(c)
