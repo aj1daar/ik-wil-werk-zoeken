@@ -189,6 +189,9 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
+          # name=sha256hex pairs, comma separated, hashes only. The keys
+          # themselves live in the consumers and in a password manager.
+          EXPORT_API_KEYS: ${{ secrets.EXPORT_API_KEYS }}
         run: |
           {
             printf "ASPNETCORE_ENVIRONMENT=%s\n" "$ASPNETCORE_ENVIRONMENT"
@@ -199,6 +202,7 @@ jobs:
             printf "RESEND_API_KEY=%s\n" "$RESEND_API_KEY"
             printf "ADMIN_EMAIL=%s\n" "$ADMIN_EMAIL"
             printf "ALLOWED_ORIGIN=%s\n" "$ALLOWED_ORIGIN"
+            printf "EXPORT_API_KEYS=%s\n" "$EXPORT_API_KEYS"
           } | ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "cat > /var/www/iwwz/.env"
 
       # Migrations run on startup, so the only safe moment for a dump is before
