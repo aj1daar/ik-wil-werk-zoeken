@@ -735,14 +735,6 @@ function printPage() {
 }
 .btn-filter-toggle:hover { background: var(--col-raised); color: var(--col-text); }
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
-.btn-icon-sm { width: .9rem; height: .9rem; }
-.btn-chevron { transition: transform var(--dur-base) var(--ease-standard); }
-.btn-chevron--open { transform: rotate(180deg); }
-.filter-count {
-  background: var(--col-accent); color: var(--col-on-accent);
-  border-radius: var(--radius-sm); font-size: .7rem; font-weight: 600;
-  padding: .05rem .4rem; line-height: 1.4; font-variant-numeric: tabular-nums;
-}
 
 .btn-export {
   display: inline-flex; align-items: center; gap: .375rem;
