@@ -44,7 +44,8 @@ override, including the company name), companies/merge (POST), companies/{id}/me
 companies/{id}/unmerge (POST).
 
 ### Export `/api/export/`
-sponsors (GET). Machine to machine, no browser involved. See "Sponsor export contract" below.
+sponsors (GET). Machine to machine, no browser involved, `X-Api-Key` rather than a bearer token.
+See "Sponsor export contract" below.
 
 All non-auth routes require `Authorization: Bearer <jwt>`; admin routes additionally check
 `role === "admin"`. `/api/export/` is the exception: a user token is not accepted there.
@@ -110,6 +111,55 @@ Rules the consumer can rely on:
 - **`schemaVersion` is 1.** It goes up when a field is removed or renamed, or an existing field
   changes meaning. Adding a field does not bump it, so a consumer must ignore fields it does not
   know.
+
+### Authentication
+
+`X-Api-Key: <key>`. Anything else is `401` with an empty body: no message, no problem document, no
+hint as to whether the header was missing, wrong or rate limited. A user's bearer token does not
+work here, and an API key does not work on any other route, because the check is a filter attached
+to `ExportController` alone (`ExportApiKeyFilter`) and the user routes keep their own bearer check.
+
+The server holds **only SHA-256 hashes**, read from `EXPORT_API_KEYS` as `name=hash` pairs,
+comma separated:
+
+```
+EXPORT_API_KEYS=pipeline=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08,pipeline-next=...
+```
+
+No keys configured means the export is closed, not open. An entry that cannot be parsed is skipped
+rather than throwing, so one typo cannot take the API down at boot, and a key that goes missing
+fails closed anyway. Keys are compared with `CryptographicOperations.FixedTimeEquals`, every
+configured key is checked, and the loop does not stop early, so neither the comparison nor its
+duration says which bytes were right.
+
+Each entry is named so the logs can say which caller it was. Every request logs the key **name**,
+the status, the row count and the duration. The key itself is never logged, in full or in part.
+
+Rate limit: 30 requests per key per hour, `429` with `Retry-After` beyond that. Rejected requests do
+not count against it, so a stranger with a wrong key cannot exhaust the real caller's budget. The
+limiter is in memory, so it resets when the API restarts.
+
+### Minting and rotating a key
+
+```
+# on the server, or anywhere with the published build
+dotnet /var/www/iwwz/app/backend.dll new-export-key pipeline
+```
+
+It prints the key once and the `name=hash` entry to configure. 32 random bytes, base64url, 43
+characters. The key is never written to disk by the command and never stored on the server.
+
+Rotation, without a window where nothing works:
+
+1. Mint a second key: `new-export-key pipeline-next`.
+2. Add its entry to the `EXPORT_API_KEYS` GitHub secret, **keeping the old one**, and deploy.
+3. Put the new key in the consumer (`IWWZ_API_KEY` in the pipeline's `.env`) and let it run once.
+4. Confirm from the logs that the new name is the one being served.
+5. Remove the old entry from the secret and deploy again.
+
+The hash belongs in the `EXPORT_API_KEYS` repository secret, nowhere else. The deploy job writes
+`/var/www/iwwz/.env` from that secret on every run, so editing that file by hand is undone by the
+next deploy.
 
 ## AI enrichment
 
