@@ -585,7 +585,8 @@ const hasActiveFilters = computed(() => anyFilter.value)
 
 /* ── company grid ─────────────────────────────────────────────────────────── */
 
-.grid-wrap { flex: 1; min-height: 0; }
+/* overflow clips the hairline the right-hand column casts past the card edge. */
+.grid-wrap { flex: 1; min-height: 0; overflow: hidden; }
 /* The placeholder grid fills the fixed-height card the way the real one does */
 .grid-wrap > .loading-region { height: 100%; }
 .skeleton-tile { display: flex; flex-direction: column; justify-content: center; gap: .5rem; cursor: default; pointer-events: none; }
@@ -593,16 +594,31 @@ const hasActiveFilters = computed(() => anyFilter.value)
 .company-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(var(--tile-rows, 8), minmax(0, 1fr));
-  grid-auto-flow: column;
-  gap: 1px;
-  background: var(--col-border);
+  /* A row is an eighth of the card whatever the page holds, so two companies
+     draw the same tile as a full page of sixteen. `1fr` sized rows to the space
+     available instead, which stretched a page of two into two half-card slabs. */
+  grid-template-rows: repeat(var(--tile-rows, 8), calc(100% / 8));
+  /* Row by row, so a short page fills the top line across both columns instead
+     of stacking down the left one. It also means the sort order reads left to
+     right, the way a table does, rather than down one column and up the next. */
+  grid-auto-flow: row;
+  /* Rows stay at the top; the card keeps its height and the leftover space below
+     is plain background, so pagination never moves between pages. */
+  align-content: start;
+  gap: 0;
+  background: var(--col-bg);
   height: 100%;
 }
 
 .company-tile {
   background: var(--col-bg);
-  border: none;
+  /* The hairlines between tiles belong to the tile, not to a 1px gap over a
+     border-coloured grid: that version painted the whole empty area under a
+     short page grey. A shadow does not survive here either, because the next
+     tile's background paints over it. */
+  border: 0;
+  border-right: 1px solid var(--col-border);
+  border-bottom: 1px solid var(--col-border);
   text-align: left;
   font: inherit;
   color: inherit;
@@ -614,8 +630,14 @@ const hasActiveFilters = computed(() => anyFilter.value)
   min-width: 0;
   overflow: hidden;
   cursor: pointer;
+  /* The hairlines between tiles. Drawn by the tile rather than by a 1px gap over
+     a border-coloured grid, which painted the empty area under a short page
+     grey, and a shadow rather than a border so it costs no layout. */
   transition: background var(--dur-instant) var(--ease-standard);
 }
+/* The right-hand column would otherwise draw a line against the card's own
+   edge. */
+.company-tile:nth-child(2n) { border-right: none; }
 .company-tile:hover { background: var(--col-surface); }
 .company-tile--active { background: var(--col-accent-lt); }
 
@@ -652,6 +674,8 @@ const hasActiveFilters = computed(() => anyFilter.value)
 
 @media (max-width: 767px) {
   /* One column, natural tile height, page scrolls. */
+  .company-tile { border-right: none; }
+
   .company-grid {
     grid-template-columns: 1fr;
     grid-template-rows: none;

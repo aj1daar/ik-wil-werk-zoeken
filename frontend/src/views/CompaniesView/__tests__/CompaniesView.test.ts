@@ -304,6 +304,20 @@ describe('CompaniesView – pagination (16 per page)', () => {
     expect(w.find('.company-grid').attributes('style')).toContain('--tile-rows: 2')
   })
 
+  it('asks for one row when two companies are left, so they sit side by side', async () => {
+    // The row height is a fixed eighth of the card (see .company-grid), so the
+    // row count only decides placement, never the size of a tile.
+    const w = mountView(manySponsors(2))
+    await flushPromises()
+    expect(w.find('.company-grid').attributes('style')).toContain('--tile-rows: 1')
+  })
+
+  it('asks for one row for a single company too', async () => {
+    const w = mountView(manySponsors(1))
+    await flushPromises()
+    expect(w.find('.company-grid').attributes('style')).toContain('--tile-rows: 1')
+  })
+
   it('a single page when there are 16 or fewer', async () => {
     const w = mountView(manySponsors(16))
     await flushPromises()
