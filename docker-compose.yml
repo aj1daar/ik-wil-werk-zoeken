@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16
+    image: postgres:18
     environment:
       POSTGRES_DB: iwwz
       POSTGRES_USER: postgres
@@ -8,7 +8,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Postgres 18 images keep the cluster in a major-version subdirectory, so the
+      # mount goes one level up. Mounting .../data instead makes the container
+      # refuse to start.
+      - postgres_data:/var/lib/postgresql
 
 volumes:
   postgres_data:

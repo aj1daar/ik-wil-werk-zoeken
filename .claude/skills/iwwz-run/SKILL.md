@@ -13,7 +13,7 @@ request.
 
 | Piece | Address | Notes |
 |---|---|---|
-| Postgres | `localhost:5432` | `docker compose up -d db`, image `postgres:16`, db/user/password all `iwwz`/`postgres`/`postgres` |
+| Postgres | `localhost:5432` | `docker compose up -d db`, image `postgres:18`, matching production, db/user/password all `iwwz`/`postgres`/`postgres` |
 | API | `http://localhost:7198` | set by `backend/Properties/launchSettings.json` — **not** 5000, which is what production uses behind Nginx |
 | Dev server | `http://localhost:5173` | `vite.config.ts` proxies `/api` here to 7198 |
 

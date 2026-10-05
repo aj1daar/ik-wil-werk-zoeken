@@ -181,13 +181,17 @@ jobs:
       - name: Write environment file on server
         env:
           ASPNETCORE_ENVIRONMENT: Production
-          ASPNETCORE_URLS: http://*:5000
+          # Loopback only: nginx is the sole way in, from Cloudflare.
+          ASPNETCORE_URLS: http://127.0.0.1:5000
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
+          # name=sha256hex pairs, comma separated, hashes only. The keys
+          # themselves live in the consumers and in a password manager.
+          EXPORT_API_KEYS: ${{ secrets.EXPORT_API_KEYS }}
         run: |
           {
             printf "ASPNETCORE_ENVIRONMENT=%s\n" "$ASPNETCORE_ENVIRONMENT"
@@ -198,6 +202,7 @@ jobs:
             printf "RESEND_API_KEY=%s\n" "$RESEND_API_KEY"
             printf "ADMIN_EMAIL=%s\n" "$ADMIN_EMAIL"
             printf "ALLOWED_ORIGIN=%s\n" "$ALLOWED_ORIGIN"
+            printf "EXPORT_API_KEYS=%s\n" "$EXPORT_API_KEYS"
           } | ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "cat > /var/www/iwwz/.env"
 
       # Migrations run on startup, so the only safe moment for a dump is before
@@ -230,7 +235,7 @@ jobs:
           sleep 10
           for i in 1 2 3 4 5; do
             STATUS=$(ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} \
-              "curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5000/api/auth/login \
+              "curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:5000/api/auth/login \
                -H 'Content-Type: application/json' -d '{\"email\":\"h\",\"password\":\"h\"}'")
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "401" ]; then
