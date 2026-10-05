@@ -804,3 +804,96 @@ describe('ApplicationPanel – status journey', () => {
     expect(values).toContain('Assessment')
   })
 })
+
+// ── editing a status entry's rejection reason ────────────────────────────────
+
+describe('ApplicationPanel – rejection reason when editing a status entry', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // The pencil editor used to offer status and date only, so an entry that was
+  // already Rejected — or one switched to Rejected here — gave no way to say why.
+  async function editLastEntry(w: ReturnType<typeof mountPanel>) {
+    await flushPromises()
+    const editBtns = w.findAll('.sh-btn:not(.sh-btn--danger)')
+    await editBtns[editBtns.length - 1].trigger('click')
+  }
+
+  it('offers the reason and note when editing a Rejected entry', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1', status: 'Rejected', statusDate: '2026-02-01' }),
+    ])
+    const w = mountPanel(makeApp({ status: 'Rejected', rejectionReason: 'dutch_language' }))
+    await editLastEntry(w)
+
+    const reason = w.find('.sh-rejection-select')
+    expect(reason.exists()).toBe(true)
+    expect((reason.element as HTMLSelectElement).value).toBe('dutch_language')
+    expect(w.find('.sh-rejection-note').exists()).toBe(true)
+  })
+
+  it('reveals them as soon as the entry is switched to Rejected', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1', status: 'InterviewScheduled', statusDate: '2026-02-01' }),
+    ])
+    const w = mountPanel(makeApp())
+    await editLastEntry(w)
+    expect(w.find('.sh-rejection-select').exists()).toBe(false)
+
+    await w.find('.sh-edit-select').setValue('Rejected')
+
+    expect(w.find('.sh-rejection-select').exists()).toBe(true)
+  })
+
+  it('keeps them out of the Applied entry, which is never a rejection', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1', status: 'Applied', statusDate: '2026-01-15' }),
+    ])
+    const w = mountPanel(makeApp({ status: 'Rejected', rejectionReason: 'no_vacancies' }))
+    await editLastEntry(w)
+    expect(w.find('.sh-rejection-select').exists()).toBe(false)
+  })
+
+  it('saves a changed reason into the form below, ready for Save changes', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1', status: 'Rejected', statusDate: '2026-02-01' }),
+    ])
+    const w = mountPanel(makeApp({ status: 'Rejected', rejectionReason: 'dutch_language' }))
+    await editLastEntry(w)
+
+    await w.find('.sh-rejection-select').setValue('salary_mismatch')
+    await w.find('.sh-rejection-note').setValue('They came back under my range')
+    await w.find('.sh-save-btn').trigger('click')
+
+    expect((w.find('#ap-reason').element as HTMLSelectElement).value).toBe('salary_mismatch')
+    expect((w.find('#ap-reason-note').element as HTMLTextAreaElement).value).toBe('They came back under my range')
+  })
+
+  it('sends the edited reason when the panel is saved', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1', status: 'Rejected', statusDate: '2026-02-01' }),
+    ])
+    vi.mocked(api.updateApplication).mockResolvedValue(makeApp({ status: 'Rejected' }))
+    const w = mountPanel(makeApp({ status: 'Rejected', rejectionReason: 'dutch_language' }))
+    await editLastEntry(w)
+
+    await w.find('.sh-rejection-select').setValue('internal_hire')
+    await w.find('.sh-save-btn').trigger('click')
+    await w.find('.btn-primary.footer-primary').trigger('click')
+    await flushPromises()
+
+    expect(vi.mocked(api.updateApplication).mock.calls[0][1]).toMatchObject({ rejectionReason: 'internal_hire' })
+  })
+
+  it('starts from what the application already says, not from the last edit', async () => {
+    vi.mocked(api.getStatusHistory).mockResolvedValue([
+      makeHistory({ id: 'h1', status: 'Rejected', statusDate: '2026-02-01' }),
+    ])
+    const w = mountPanel(makeApp({ status: 'Rejected', rejectionReason: 'another_candidate' }))
+    await editLastEntry(w)
+    await w.find('.sh-rejection-select').setValue('salary_mismatch')
+    await w.find('.sh-cancel-btn').trigger('click')
+
+    await editLastEntry(w)
+    expect((w.find('.sh-rejection-select').element as HTMLSelectElement).value).toBe('another_candidate')
+  })
+})
