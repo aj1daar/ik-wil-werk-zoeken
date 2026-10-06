@@ -32,8 +32,8 @@ describe('useSessionExpiry', () => {
     expect(isExpiringSoon.value).toBe(false)
   })
 
-  it('isExpiringSoon is false when session has > 24 h remaining', () => {
-    sessionStorage.setItem('token', makeJwtWithExp(NOW + 7 * 86400)) // 7 days
+  it('isExpiringSoon is false well inside a fresh twelve-hour session', () => {
+    sessionStorage.setItem('token', makeJwtWithExp(NOW + 12 * 3600)) // a new session
     setActivePinia(createPinia())
     const store = useAuthStore()
     // token must be set on the store too (the composable reads from auth store)
@@ -42,8 +42,18 @@ describe('useSessionExpiry', () => {
     expect(isExpiringSoon.value).toBe(false)
   })
 
-  it('isExpiringSoon is true when session expires in < 24 h', () => {
-    const token = makeJwtWithExp(NOW + 3600) // 1 hour remaining
+  it('isExpiringSoon is false an hour out, which a sliding session still fixes', () => {
+    // Any activity inside that hour slides the window, so warning here would cry
+    // wolf through most of a working day.
+    const token = makeJwtWithExp(NOW + 3600)
+    const store = useAuthStore()
+    store.$patch({ token })
+    const { isExpiringSoon } = useSessionExpiry()
+    expect(isExpiringSoon.value).toBe(false)
+  })
+
+  it('isExpiringSoon is true inside the last half hour', () => {
+    const token = makeJwtWithExp(NOW + 29 * 60)
     const store = useAuthStore()
     store.$patch({ token })
     const { isExpiringSoon } = useSessionExpiry()
@@ -58,12 +68,12 @@ describe('useSessionExpiry', () => {
     expect(isExpiringSoon.value).toBe(true)
   })
 
-  it('isExpiringSoon is false when session has exactly 24 h remaining', () => {
-    const token = makeJwtWithExp(NOW + 86400)
+  it('isExpiringSoon is false at exactly the warning threshold', () => {
+    const token = makeJwtWithExp(NOW + 30 * 60)
     const store = useAuthStore()
     store.$patch({ token })
     const { isExpiringSoon } = useSessionExpiry()
-    // exactly 86400 is NOT < ONE_DAY_S (86400), so false
+    // exactly 1800 is not < WARN_BELOW_S (1800), so false
     expect(isExpiringSoon.value).toBe(false)
   })
 

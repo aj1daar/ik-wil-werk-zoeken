@@ -33,7 +33,7 @@ function makeJwt(expOffset: number, role = 'user'): string {
 // Far-future token: exp ~year 2286, isExpiringSoon = false
 const FAR_TOKEN       = makeJwt(86400 * 365 * 260)
 // Near-expiry token: exp in 1 hour (< 24 h), isExpiringSoon = true
-const NEAR_EXP_TOKEN  = makeJwt(3600)
+const NEAR_EXP_TOKEN  = makeJwt(600)   // inside the last half hour, where the banner lives
 
 async function mountApp(token?: string, path = '/login') {
   if (token) sessionStorage.setItem('token', token)
@@ -151,7 +151,7 @@ describe('App – session expiry banner', () => {
     expect(wrapper.find('.session-expiry-banner').exists()).toBe(false)
   })
 
-  it('renders the banner when token expires within 24 hours', async () => {
+  it('renders the banner in the last half hour of the session', async () => {
     const wrapper = await mountApp(NEAR_EXP_TOKEN, '/')
     await flushPromises()
     expect(wrapper.find('.session-expiry-banner').exists()).toBe(true)

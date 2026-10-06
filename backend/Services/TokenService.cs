@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using backend.Models;
@@ -7,7 +7,11 @@ namespace backend.Services;
 
 public sealed class TokenService
 {
-    private const int TokenLifetimeDays = 7;
+    // A working day plus slack. The frontend slides this window forward while
+    // someone is using the app (see useTokenRefresh), so the twelve hours are
+    // counted from the last activity rather than from signing in; leave the app
+    // alone for twelve hours and the token is dead.
+    private const int TokenLifetimeHours = 12;
 
     public string? CreateToken(User user)
     {
@@ -27,7 +31,7 @@ public sealed class TokenService
                 Location = user.PreferredLocation,
                 WorkType = user.WorkType,
             },
-            Exp = DateTimeOffset.UtcNow.AddDays(TokenLifetimeDays).ToUnixTimeSeconds(),
+            Exp = DateTimeOffset.UtcNow.AddHours(TokenLifetimeHours).ToUnixTimeSeconds(),
         };
 
         var header = Base64UrlEncode(Encoding.UTF8.GetBytes("""{"alg":"HS256","typ":"JWT"}"""));

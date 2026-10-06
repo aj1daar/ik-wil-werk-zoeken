@@ -203,7 +203,12 @@ the lifetime of the (per-request) store.
 - PBKDF2-SHA256, 100k iterations, 16-byte salt. Constant-time compare on login and token checks.
 - Login/forgot-password/resend-verification give no signal on whether the email exists.
 - Reset and email-change tokens are stateless HMAC (`userId.exp.sig`), 1h / 24h expiry.
-- JWTs last 7 days; refresh endpoint rate-limited to 10/hour/IP.
+- JWTs last 12 hours, and the window slides: while the app is open and being used,
+  `useTokenRefresh` swaps the token for a fresh one about once an hour, so the twelve hours run
+  from the last activity rather than from signing in. Mouse, keyboard, pointer, touch and scroll
+  all count, because a phone never fires `mousemove`. Stop using it and the session ends twelve
+  hours later. The expiry banner appears in the last 30 minutes; refresh is rate-limited to
+  10/hour/IP, which an hourly slide stays well inside.
 - Rate limiter is in-memory — fine for one instance, resets on restart, won't work if we ever
   scale to multiple backend processes.
 
