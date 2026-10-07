@@ -394,6 +394,44 @@ describe('CompaniesView – status dropdown', () => {
   })
 })
 
+// ── the dead end a filter can leave you in ───────────────────────────────────
+
+describe('CompaniesView – empty results', () => {
+  const clearButton = (w: ReturnType<typeof mountView>) =>
+    w.findAll('.state-msg button').find(b => b.text() === 'Clear filters')
+
+  it('offers a way out when a filter matches nothing', async () => {
+    const w = mountView([makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })])
+    await flushPromises()
+    await w.find('.filter-search input').setValue('nothing matches this')
+    await nextTick()
+
+    expect(w.find('.state-msg').text()).toContain('No companies match your filters')
+    expect(clearButton(w)).toBeDefined()
+  })
+
+  it('clearing from the empty state brings the companies back', async () => {
+    const w = mountView([makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })])
+    await flushPromises()
+    await w.find('.filter-search input').setValue('nothing matches this')
+    await nextTick()
+    await clearButton(w)!.trigger('click')
+    await nextTick()
+
+    expect(w.findAll('.company-tile')).toHaveLength(1)
+    expect(w.find('.state-msg').exists()).toBe(false)
+  })
+
+  it('offers nothing to clear when the register itself is empty', async () => {
+    // Nothing is filtered here, so a Clear button would be a dead control.
+    const w = mountView([])
+    await flushPromises()
+
+    expect(w.find('.state-msg').text()).toContain('No IND sponsor companies loaded yet')
+    expect(clearButton(w)).toBeUndefined()
+  })
+})
+
 // ── facet filters, several values at a time ──────────────────────────────────
 
 describe('CompaniesView – multi-select facet filters', () => {

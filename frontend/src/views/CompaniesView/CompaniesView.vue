@@ -435,10 +435,17 @@ const hasActiveFilters = computed(() => anyFilter.value)
       </LoadingRegion>
       <div v-else-if="store.error" class="state-msg state-msg--error" role="alert">{{ store.error }}</div>
       <div v-else-if="pagedCompanies.length === 0" class="state-msg">
-        {{ hasActiveFilters ? 'No companies match your filters.' : 'No IND sponsor companies loaded yet.' }}
+        <template v-if="hasActiveFilters">
+          No companies match your filters.
+          <button @click="clearFilters" class="btn-ghost state-msg-action">Clear filters</button>
+        </template>
+        <template v-else>No IND sponsor companies loaded yet.</template>
       </div>
 
-      <div v-else class="company-grid" :style="{ '--tile-rows': gridRows }">
+      <!-- A TransitionGroup, so changing a filter or turning a page fades the
+           tiles instead of swapping all sixteen in one frame. The same `list`
+           transition My applications uses on its rows. -->
+      <TransitionGroup v-else tag="div" name="list" class="company-grid" :style="{ '--tile-rows': gridRows }">
         <div
           v-for="c in pagedCompanies"
           :key="c.id"
@@ -471,7 +478,7 @@ const hasActiveFilters = computed(() => anyFilter.value)
           </div>
           <p v-else class="tile-empty">No details yet</p>
         </div>
-      </div>
+      </TransitionGroup>
     </div>
 
     <Transition name="modal">
@@ -526,7 +533,7 @@ const hasActiveFilters = computed(() => anyFilter.value)
 .btn-filter-toggle--active { background: var(--col-accent-lt); color: var(--col-accent-dk); border-color: var(--col-accent-lt); }
 
 .btn-clear-filters {
-  background: none; border: none; color: var(--col-error); font-size: .8rem;
+  background: none; border: none; color: var(--col-muted); font-size: .8rem;
   cursor: pointer; padding: .45rem .5rem; white-space: nowrap;
   /* The height of the filter toggles it sits beside */
   min-height: 2.375rem;
@@ -534,7 +541,10 @@ const hasActiveFilters = computed(() => anyFilter.value)
 @media (pointer: coarse) {
   .btn-clear-filters { min-height: 44px; }
 }
-.btn-clear-filters:hover { text-decoration: underline; }
+.btn-clear-filters:hover { color: var(--col-text); text-decoration: underline; }
+
+/* Positioned here, styled by .btn-ghost in style.css. */
+.state-msg-action { display: block; margin: .75rem auto 0; }
 
 /* split-panel's .filter-select--sm caps at 110px, which clips "Not applied". */
 .filter-select--auto {
