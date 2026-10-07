@@ -569,7 +569,6 @@ onMounted(loadMerged)
    looked different from one company to the next. */
 .footer-primary { flex: 1 1 100%; }
 .footer-website { display: inline-flex; align-items: center; gap: .3rem; font-size: .875rem; white-space: nowrap; flex-shrink: 0; }
-.btn-icon-sm { width: .9rem; height: .9rem; }
 /* The look is .btn-secondary's; this only places the list buttons */
 .btn-list { flex-shrink: 0; }
 /* After the base rule, so it wins: on phones the list buttons split the row

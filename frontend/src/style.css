@@ -241,6 +241,18 @@ textarea::placeholder { color: var(--col-subtle); }
   .filter-input::placeholder { color: var(--col-subtle); }
   .filter-input:focus { border-color: var(--col-accent); box-shadow: 0 0 0 3px var(--col-accent-lt); }
 
+  /* Toolbar trimmings. Defined here because three views and two components draw
+     the same filter toggle: an icon, an optional count, and a chevron that turns
+     when the panel opens. The copies had already started to drift. */
+  .btn-icon-sm { width: .9rem; height: .9rem; flex: none; }
+  .btn-chevron { transition: transform var(--dur-base) var(--ease-standard); }
+  .btn-chevron--open { transform: rotate(180deg); }
+  .filter-count {
+    background: var(--col-accent); color: var(--col-on-accent);
+    border-radius: var(--radius-sm); font-size: .7rem; font-weight: 600;
+    padding: .05rem .4rem; line-height: 1.4; font-variant-numeric: tabular-nums;
+  }
+
   /* Auth page inputs */
   .auth-input {
     width: 100%;

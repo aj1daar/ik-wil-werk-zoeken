@@ -304,6 +304,20 @@ describe('CompaniesView – pagination (16 per page)', () => {
     expect(w.find('.company-grid').attributes('style')).toContain('--tile-rows: 2')
   })
 
+  it('asks for one row when two companies are left, so they sit side by side', async () => {
+    // The row height is a fixed eighth of the card (see .company-grid), so the
+    // row count only decides placement, never the size of a tile.
+    const w = mountView(manySponsors(2))
+    await flushPromises()
+    expect(w.find('.company-grid').attributes('style')).toContain('--tile-rows: 1')
+  })
+
+  it('asks for one row for a single company too', async () => {
+    const w = mountView(manySponsors(1))
+    await flushPromises()
+    expect(w.find('.company-grid').attributes('style')).toContain('--tile-rows: 1')
+  })
+
   it('a single page when there are 16 or fewer', async () => {
     const w = mountView(manySponsors(16))
     await flushPromises()
@@ -377,6 +391,166 @@ describe('CompaniesView – status dropdown', () => {
     await nextTick()
     expect((statusSelect(w).element as HTMLSelectElement).value).toBe('all')
     expect((listSelect(w).element as HTMLSelectElement).value).toBe('all')
+  })
+})
+
+// ── the dead end a filter can leave you in ───────────────────────────────────
+
+describe('CompaniesView – empty results', () => {
+  const clearButton = (w: ReturnType<typeof mountView>) =>
+    w.findAll('.state-msg button').find(b => b.text() === 'Clear filters')
+
+  it('offers a way out when a filter matches nothing', async () => {
+    const w = mountView([makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })])
+    await flushPromises()
+    await w.find('.filter-search input').setValue('nothing matches this')
+    await nextTick()
+
+    expect(w.find('.state-msg').text()).toContain('No companies match your filters')
+    expect(clearButton(w)).toBeDefined()
+  })
+
+  it('clearing from the empty state brings the companies back', async () => {
+    const w = mountView([makeSponsor({ id: 'sp-1', name: 'Acme B.V.' })])
+    await flushPromises()
+    await w.find('.filter-search input').setValue('nothing matches this')
+    await nextTick()
+    await clearButton(w)!.trigger('click')
+    await nextTick()
+
+    expect(w.findAll('.company-tile')).toHaveLength(1)
+    expect(w.find('.state-msg').exists()).toBe(false)
+  })
+
+  it('offers nothing to clear when the register itself is empty', async () => {
+    // Nothing is filtered here, so a Clear button would be a dead control.
+    const w = mountView([])
+    await flushPromises()
+
+    expect(w.find('.state-msg').text()).toContain('No IND sponsor companies loaded yet')
+    expect(clearButton(w)).toBeUndefined()
+  })
+})
+
+// ── facet filters, several values at a time ──────────────────────────────────
+
+describe('CompaniesView – multi-select facet filters', () => {
+  async function openFacets(w: ReturnType<typeof mountView>) {
+    const toggle = w.findAll('.btn-filter-toggle').find(b => b.text().includes('Filters'))!
+    await toggle.trigger('click')
+    await nextTick()
+    return w
+  }
+
+  function facet(w: ReturnType<typeof mountView>, label: string) {
+    return w.findAll('.multi-filter').find(f =>
+      f.find('.multi-filter-trigger').attributes('aria-label') === label)!
+  }
+
+  async function choose(w: ReturnType<typeof mountView>, label: string, values: string[]) {
+    const group = facet(w, label)
+    // The panel stays open while choosing, so a second call to this helper must
+    // not toggle it shut.
+    if (!group.find('.multi-filter-panel').exists()) {
+      await group.find('.multi-filter-trigger').trigger('click')
+      await nextTick()
+    }
+    for (const value of values) {
+      const box = group.findAll('.multi-filter-option')
+        .find(o => o.text().trim() === value)!
+        .find('input')
+      await box.trigger('change')
+      await nextTick()
+    }
+    return w
+  }
+
+  const CITY_SPONSORS = [
+    makeSponsor({ id: 'sp-1', name: 'Amsterdam Co', city: 'Amsterdam' }),
+    makeSponsor({ id: 'sp-2', name: 'Rotterdam Co', city: 'Rotterdam' }),
+    makeSponsor({ id: 'sp-3', name: 'Utrecht Co',   city: 'Utrecht' }),
+  ]
+
+  it('shows companies from every chosen city, not just the last one', async () => {
+    const w = mountView(CITY_SPONSORS)
+    await flushPromises()
+    await openFacets(w)
+    await choose(w, 'Filter by city', ['Amsterdam', 'Utrecht'])
+
+    const names = w.findAll('.company-tile').map(t => t.text())
+    expect(names).toHaveLength(2)
+    expect(names.join(' ')).toContain('Amsterdam Co')
+    expect(names.join(' ')).toContain('Utrecht Co')
+    expect(names.join(' ')).not.toContain('Rotterdam Co')
+  })
+
+  it('narrows again when a city is unticked', async () => {
+    const w = mountView(CITY_SPONSORS)
+    await flushPromises()
+    await openFacets(w)
+    await choose(w, 'Filter by city', ['Amsterdam', 'Utrecht'])
+    await choose(w, 'Filter by city', ['Utrecht'])
+
+    expect(w.findAll('.company-tile')).toHaveLength(1)
+    expect(w.find('.company-tile').text()).toContain('Amsterdam Co')
+  })
+
+  it('combines facets: either city, and only that policy', async () => {
+    const w = mountView([
+      makeSponsor({ id: 'sp-1', name: 'Hybrid Amsterdam', city: 'Amsterdam', remotePolicy: 'hybrid' }),
+      makeSponsor({ id: 'sp-2', name: 'Onsite Amsterdam', city: 'Amsterdam', remotePolicy: 'onsite' }),
+      makeSponsor({ id: 'sp-3', name: 'Hybrid Utrecht',   city: 'Utrecht',   remotePolicy: 'hybrid' }),
+      makeSponsor({ id: 'sp-4', name: 'Hybrid Delft',     city: 'Delft',     remotePolicy: 'hybrid' }),
+    ])
+    await flushPromises()
+    await openFacets(w)
+    await choose(w, 'Filter by city', ['Amsterdam', 'Utrecht'])
+    await choose(w, 'Filter by remote policy', ['hybrid'])
+
+    const names = w.findAll('.company-tile').map(t => t.text()).join(' ')
+    expect(w.findAll('.company-tile')).toHaveLength(2)
+    expect(names).toContain('Hybrid Amsterdam')
+    expect(names).toContain('Hybrid Utrecht')
+  })
+
+  it('counts every chosen value on the Filters button', async () => {
+    const w = mountView(CITY_SPONSORS)
+    await flushPromises()
+    await openFacets(w)
+    await choose(w, 'Filter by city', ['Amsterdam', 'Utrecht'])
+
+    const toggle = w.findAll('.btn-filter-toggle').find(b => b.text().includes('Filters'))!
+    expect(toggle.find('.filter-count').text()).toBe('2')
+  })
+
+  it('Clear empties every facet', async () => {
+    const w = mountView(CITY_SPONSORS)
+    await flushPromises()
+    await openFacets(w)
+    await choose(w, 'Filter by city', ['Amsterdam', 'Utrecht'])
+    await w.find('.btn-clear-filters').trigger('click')
+    await nextTick()
+
+    expect(w.findAll('.company-tile')).toHaveLength(3)
+    expect(facet(w, 'Filter by city').find('.multi-filter-trigger').text()).toContain('All cities')
+  })
+
+  it('goes back to the first page when a facet changes', async () => {
+    const w = mountView([
+      ...manySponsors(40),
+      makeSponsor({ id: 'sp-x', name: 'Zuid Co', city: 'Rotterdam' }),
+    ])
+    await flushPromises()
+    const pageTwo = w.findAll('.page-btn').find(b => b.text().trim() === '2')
+    if (pageTwo) {
+      await pageTwo.trigger('click')
+      await nextTick()
+    }
+    await openFacets(w)
+    await choose(w, 'Filter by city', ['Rotterdam'])
+
+    expect(w.findAll('.company-tile')).toHaveLength(1)
+    expect(w.find('.company-tile').text()).toContain('Zuid Co')
   })
 })
 

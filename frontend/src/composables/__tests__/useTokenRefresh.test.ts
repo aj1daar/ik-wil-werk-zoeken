@@ -183,6 +183,110 @@ describe('useTokenRefresh – activity listeners', () => {
 
 // ── interval ──────────────────────────────────────────────────────────────────
 
+// ── the sliding twelve-hour window ───────────────────────────────────────────
+
+describe('useTokenRefresh – sliding the session window', () => {
+  const HOUR = 3600
+  const CHECK_INTERVAL_MS = 5 * 60 * 1000
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.mocked(api.refreshToken).mockResolvedValue({ token: makeJwt(NOW + 12 * HOUR) } as never)
+  })
+  afterEach(() => vi.useRealTimers())
+
+  // The composable only acts on its own interval, so a test has to let one tick.
+  async function tick(times = 1) {
+    for (let i = 0; i < times; i++) {
+      await vi.advanceTimersByTimeAsync(CHECK_INTERVAL_MS)
+      await flushPromises()
+    }
+  }
+
+  function withToken(secondsRemaining: number) {
+    const mounted = mountComposable()
+    mounted.store.$patch({ token: makeJwt(Math.floor(Date.now() / 1000) + secondsRemaining) })
+    return mounted
+  }
+
+  it('leaves a session alone while more than eleven hours are left', async () => {
+    const { wrapper } = withToken(12 * HOUR)
+    window.dispatchEvent(new Event('keydown'))
+    await tick()
+
+    expect(api.refreshToken).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('slides the window once the session drops below eleven hours', async () => {
+    // An hour of use, so the token is renewed and the twelve hours start again
+    // from now rather than from signing in.
+    const { wrapper } = withToken(10 * HOUR)
+    window.dispatchEvent(new Event('keydown'))
+    await tick()
+
+    expect(api.refreshToken).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('stops sliding the window once someone walks away', async () => {
+    const { wrapper } = withToken(2 * HOUR)
+
+    // Mounting counts as activity, so the first tick still renews. After that
+    // nothing happens on the page and the window stops moving, which is what
+    // ends the session twelve hours after the last thing the user did.
+    await tick()
+    const afterFirst = vi.mocked(api.refreshToken).mock.calls.length
+    await tick(4)
+
+    expect(vi.mocked(api.refreshToken).mock.calls.length).toBe(afterFirst)
+    wrapper.unmount()
+  })
+
+  it('counts a touch as activity, so a phone session does not expire while reading', async () => {
+    const { wrapper } = withToken(10 * HOUR)
+    window.dispatchEvent(new Event('touchstart'))
+    await tick()
+
+    expect(api.refreshToken).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('counts scrolling as activity too', async () => {
+    const { wrapper } = withToken(10 * HOUR)
+    window.dispatchEvent(new Event('scroll'))
+    await tick()
+
+    expect(api.refreshToken).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('leaves an expired session to the API rather than refreshing it', async () => {
+    const { wrapper } = withToken(-60)
+    window.dispatchEvent(new Event('keydown'))
+    await tick()
+
+    expect(api.refreshToken).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('keeps sliding for as long as someone keeps working', async () => {
+    const { wrapper } = withToken(10 * HOUR)
+
+    for (let i = 0; i < 3; i++) {
+      // Each refreshed token comes back with less time left than the threshold,
+      // so a further tick with activity renews it again.
+      vi.mocked(api.refreshToken).mockResolvedValue({ token: makeJwt(Math.floor(Date.now() / 1000) + 10 * HOUR) } as never)
+      window.dispatchEvent(new Event('mousemove'))
+      await tick()
+    }
+
+    expect(api.refreshToken).toHaveBeenCalledTimes(3)
+    wrapper.unmount()
+  })
+})
+
 describe('useTokenRefresh – interval', () => {
   it('clears the interval on unmount', () => {
     const clearSpy = vi.spyOn(globalThis, 'clearInterval')
