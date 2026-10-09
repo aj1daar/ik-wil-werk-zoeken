@@ -33,6 +33,11 @@ const dismissed        = ref(false)
 
 const open = computed(() => props.suggestions.length > 0 && !dismissed.value)
 
+// role="combobox" is only a complete pattern with aria-controls naming the list
+// it opens, and the id has to be the caller's, since two of these can be on one
+// page.
+const listboxId = computed(() => `${props.inputId}-listbox`)
+
 function onInput(event: Event) {
   dismissed.value        = false
   highlightedIndex.value = -1
@@ -90,12 +95,13 @@ defineExpose({ reopen })
       :aria-expanded="open"
       aria-haspopup="listbox"
       aria-autocomplete="list"
+      :aria-controls="listboxId"
       :aria-activedescendant="highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined"
       @input="onInput"
       @keydown="onKeydown"
       @blur="onBlur"
     />
-    <ul v-if="open" class="combobox-dropdown" role="listbox" aria-label="Company suggestions">
+    <ul v-if="open" :id="listboxId" class="combobox-dropdown" role="listbox" aria-label="Company suggestions">
       <li
         v-for="(company, i) in suggestions"
         :id="`suggestion-${i}`"

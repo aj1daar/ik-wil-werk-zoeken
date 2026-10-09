@@ -7,7 +7,7 @@ import { api } from '../../api'
 import type { ApplicationStatus, SponsorCompany } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 import DatePicker from '../DatePicker/DatePicker.vue'
-import CompanyCombobox from '../CompanyCombobox/CompanyCombobox.vue'
+import CompanyCombobox, { type CompanyOption } from '../CompanyCombobox/CompanyCombobox.vue'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted', 'Ghosted'])
@@ -78,7 +78,12 @@ function onCompanyInput(value: string) {
   }, 300)
 }
 
-function selectCompany(company: SponsorCompany) {
+// The combobox hands back only what it displays, so the full register record is
+// taken from the list it was given.
+function selectCompany(option: CompanyOption) {
+  const company = suggestions.value.find(c => c.id === option.id)
+  if (!company) return
+
   companyName.value      = company.name
   sponsorCompanyId.value = company.id
   selectedCompany.value  = company
@@ -208,8 +213,8 @@ async function submit() {
         </div>
 
         <div class="field">
-          <label class="field-label">Application date <span class="required">*</span></label>
-          <DatePicker v-model="appliedAt" placeholder="Select date" />
+          <label class="field-label" for="application-date">Application date <span class="required">*</span></label>
+          <DatePicker id="application-date" v-model="appliedAt" placeholder="Select date" />
         </div>
 
         <div class="field">
