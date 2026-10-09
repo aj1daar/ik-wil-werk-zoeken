@@ -7,6 +7,7 @@ import { api } from '../../api'
 import type { ApplicationStatus, SponsorCompany } from '../../api'
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog.vue'
 import DatePicker from '../DatePicker/DatePicker.vue'
+import CompanyCombobox from '../CompanyCombobox/CompanyCombobox.vue'
 import { useBodyScrollLock } from '../../composables/useBodyScrollLock'
 
 const TERMINAL: Set<ApplicationStatus> = new Set(['Rejected', 'Withdrawn', 'Accepted', 'Ghosted'])
@@ -22,8 +23,6 @@ const companyName     = ref(initialCompany)
 const sponsorCompanyId = ref<string | undefined>(props.prefillSponsorId)
 const selectedCompany  = ref<SponsorCompany | null>(null)
 const suggestions      = ref<SponsorCompany[]>([])
-const highlightedIndex = ref(-1)
-const showDropdown     = computed(() => suggestions.value.length > 0)
 
 const position      = ref('')
 const appliedAt     = ref(new Date().toISOString().slice(0, 10))
@@ -69,51 +68,28 @@ const activeMatch = computed(() => {
   ) ?? null
 })
 
-function onCompanyInput() {
+function onCompanyInput(value: string) {
   sponsorCompanyId.value = undefined
   selectedCompany.value  = null
-  highlightedIndex.value = -1
 
   if (debounceTimer) clearTimeout(debounceTimer)
-  const q = companyName.value
   debounceTimer = setTimeout(() => {
-    suggestions.value = q.trim().length >= 1 ? companiesStore.search(q) : []
+    suggestions.value = value.trim().length >= 1 ? companiesStore.search(value) : []
   }, 300)
 }
 
 function selectCompany(company: SponsorCompany) {
-  companyName.value     = company.name
+  companyName.value      = company.name
   sponsorCompanyId.value = company.id
   selectedCompany.value  = company
   suggestions.value      = []
-  highlightedIndex.value = -1
+  // The debounce started by the typing that led here must not re-open the list
+  // a moment after the pick.
+  if (debounceTimer) clearTimeout(debounceTimer)
 
   if (company.city && !locations.value.includes(company.city)) {
     locations.value = [company.city, ...locations.value]
   }
-}
-
-function onCompanyKeydown(e: KeyboardEvent) {
-  if (!showDropdown.value) return
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    highlightedIndex.value = Math.min(highlightedIndex.value + 1, suggestions.value.length - 1)
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    highlightedIndex.value = Math.max(highlightedIndex.value - 1, 0)
-  } else if (e.key === 'Enter') {
-    if (highlightedIndex.value >= 0) {
-      e.preventDefault()
-      selectCompany(suggestions.value[highlightedIndex.value])
-    }
-  } else if (e.key === 'Escape') {
-    suggestions.value      = []
-    highlightedIndex.value = -1
-  }
-}
-
-function onCompanyBlur() {
-  setTimeout(() => { suggestions.value = []; highlightedIndex.value = -1 }, 150)
 }
 
 function addLocation() {
@@ -212,38 +188,13 @@ async function submit() {
       <div class="modal-body">
         <div class="field">
           <label class="field-label" for="company-name">Company name <span class="required">*</span></label>
-          <div class="combobox-wrapper">
-            <input
-              id="company-name"
-              v-model="companyName"
-              class="field-input"
-              placeholder="e.g. Acme B.V."
-              autocomplete="off"
-              role="combobox"
-              :aria-expanded="showDropdown"
-              aria-haspopup="listbox"
-              aria-autocomplete="list"
-              :aria-activedescendant="highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined"
-              @input="onCompanyInput"
-              @keydown="onCompanyKeydown"
-              @blur="onCompanyBlur"
-            />
-            <ul v-if="showDropdown" class="combobox-dropdown" role="listbox" aria-label="Company suggestions">
-              <li
-                v-for="(company, i) in suggestions"
-                :id="`suggestion-${i}`"
-                :key="company.id"
-                :class="['combobox-option', { 'combobox-option--active': i === highlightedIndex }]"
-                role="option"
-                :aria-selected="i === highlightedIndex"
-                @mousedown.prevent="selectCompany(company)"
-              >
-                <span class="combobox-name">{{ company.name }}</span>
-                <span v-if="company.city" class="city-chip combobox-city">{{ company.city }}</span>
-                <span v-if="company.coreIndustry" class="industry-badge">{{ company.coreIndustry }}</span>
-              </li>
-            </ul>
-          </div>
+          <CompanyCombobox
+            v-model="companyName"
+            :suggestions="suggestions"
+            input-id="company-name"
+            @update:model-value="onCompanyInput"
+            @select="selectCompany"
+          />
           <div v-if="selectedCompany" class="company-context-card">
             <span class="context-ind-badge">IND sponsor</span>
             <span v-if="selectedCompany.coreIndustry" class="context-field">{{ selectedCompany.coreIndustry }}</span>
@@ -390,25 +341,6 @@ async function submit() {
 }
 .icon { width: 1.25rem; height: 1.25rem; }
 
-.combobox-wrapper { position: relative; }
-.combobox-dropdown {
-  position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0;
-  background: var(--col-bg); border: 1px solid var(--col-border);
-  border-radius: var(--radius); box-shadow: var(--shadow-lg);
-  max-height: 220px; overflow-y: auto; overscroll-behavior: contain; list-style: none; margin: 0; padding: .25rem 0;
-}
-.combobox-option {
-  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
-  padding: .5rem .75rem; font-size: .875rem; cursor: pointer; color: var(--col-text);
-}
-.combobox-option:hover,
-.combobox-option--active { background: var(--col-raised); }
-.combobox-name { font-weight: 500; }
-.combobox-city { font-size: .75rem; }
-.industry-badge {
-  font-size: .7rem; background: color-mix(in srgb, var(--col-accent) 15%, transparent);
-  color: var(--col-accent-dk); border-radius: 9999px; padding: .1rem .45rem;
-}
 .company-context-card {
   display: flex; flex-wrap: wrap; align-items: center; gap: .375rem;
   padding: .375rem .625rem; font-size: .775rem;
