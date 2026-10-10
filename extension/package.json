@@ -1,0 +1,35 @@
+{
+  "name": "iwwz-extension",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vue-tsc --noEmit && vite build",
+    "type-check": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "icons": "node scripts/icons.mjs",
+    "panel-shot": "node scripts/panel-shot.mjs"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/ibm-plex-sans-condensed": "^5.3.0",
+    "vue": "^3.5.34"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.28",
+    "@types/node": "^24.12.3",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/test-utils": "^2.4.11",
+    "@vue/tsconfig": "^0.9.1",
+    "autoprefixer": "^10.4.22",
+    "axe-core": "^4.14.0",
+    "happy-dom": "^20.10.2",
+    "playwright-core": "^1.63.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.18",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.8",
+    "vue-tsc": "^3.2.8"
+  }
+}

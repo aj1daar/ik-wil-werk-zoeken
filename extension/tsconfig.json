@@ -1,0 +1,18 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "types": ["chrome", "vite/client"],
+    "noEmit": true,
+    "paths": { "@app/*": ["../frontend/src/*"] }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "../frontend/src/components/ui/AppIcon.vue",
+    "../frontend/src/components/ui/icons.ts",
+    "../frontend/src/components/DatePicker/DatePicker.vue",
+    "../frontend/src/components/CompanyCombobox/CompanyCombobox.vue"
+  ]
+}
