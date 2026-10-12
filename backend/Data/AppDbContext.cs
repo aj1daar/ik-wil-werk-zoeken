@@ -22,6 +22,9 @@ public sealed class AppDbContext : DbContext
         {
             e.HasKey(u => u.UserId);
             e.HasIndex(u => u.Email).IsUnique();
+            // Unique where it is set: Postgres and SQLite both allow any number
+            // of nulls in a unique index, and most accounts have no Google link.
+            e.HasIndex(u => u.GoogleSubject).IsUnique();
         });
 
         modelBuilder.Entity<ApplicationStage>(e =>

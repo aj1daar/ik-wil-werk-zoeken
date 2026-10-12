@@ -58,6 +58,12 @@ builder.Services.AddHttpClient("gemini", client =>
     client.Timeout = TimeSpan.FromSeconds(60);
 });
 
+// Google's published signing keys, nothing else.
+builder.Services.AddHttpClient("google", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
 builder.Services.AddHttpClient("resend", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
@@ -103,6 +109,8 @@ builder.Services.AddSingleton<RateLimiterService>();
 builder.Services.AddSingleton<ExportApiKeyService>();
 builder.Services.AddSingleton<backend.Controllers.ExportApiKeyFilter>();
 builder.Services.AddSingleton<EmailService>();
+// Singleton so Google's signing keys are fetched once an hour, not per request.
+builder.Services.AddSingleton<GoogleIdentityService>();
 builder.Services.AddScoped<UserStore>();
 builder.Services.AddScoped<StageStore>();
 builder.Services.AddScoped<SponsorStore>();
