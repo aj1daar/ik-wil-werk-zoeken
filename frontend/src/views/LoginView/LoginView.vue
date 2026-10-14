@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/auth'
 import { api } from '../../api'
 import AppLogo from '../../components/AppLogo/AppLogo.vue'
 import PasswordField from '../../components/PasswordField/PasswordField.vue'
+import GoogleSignIn from '../../components/GoogleSignIn/GoogleSignIn.vue'
 
 const router = useRouter()
 const auth   = useAuthStore()
@@ -115,6 +116,8 @@ async function resendVerification() {
           <router-link to="/forgot-password" class="auth-link">Forgot your password?</router-link>
         </p>
       </form>
+
+      <GoogleSignIn text="signin_with" @signed-in="router.push('/')" />
 
       <p class="auth-footer">
         Don't have an account?

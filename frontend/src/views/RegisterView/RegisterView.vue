@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import AppLogo from '../../components/AppLogo/AppLogo.vue'
 import PasswordField from '../../components/PasswordField/PasswordField.vue'
+import GoogleSignIn from '../../components/GoogleSignIn/GoogleSignIn.vue'
 
-const auth = useAuthStore()
+const auth   = useAuthStore()
+const router = useRouter()
+
+// A Google sign-up is finished the moment it returns: there is no email to
+// verify, so the account is ready and the app is where they wanted to be.
+function onGoogleSignedIn() {
+  router.push('/')
+}
 
 const firstName   = ref('')
 const lastName    = ref('')
@@ -180,6 +189,8 @@ async function submit() {
           {{ loading ? 'Creating account…' : 'Create account' }}
         </button>
       </form>
+
+      <GoogleSignIn text="signup_with" @signed-in="onGoogleSignedIn" />
 
       <p class="auth-footer">
         Already have an account?

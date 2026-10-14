@@ -36,6 +36,17 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ token: string }>('POST', '/api/auth/login', { email, password }),
 
+  // The ID token from the Google button. gdprConsentAt is sent only on the
+  // second call, once someone with no account here has agreed to the terms.
+  googleSignIn: (credential: string, gdprConsentAt?: string) =>
+    request<{
+      token?: string
+      needsConsent?: boolean
+      email?: string
+      firstName?: string
+      lastName?: string
+    }>('POST', '/api/auth/google', { credential, gdprConsentAt }),
+
   refreshToken: () =>
     request<{ token: string }>('POST', '/api/auth/refresh'),
 

@@ -9,7 +9,8 @@
         "JWT_SECRET": "dev-only-not-for-production-change-me",
         "ADMIN_EMAIL": "atainogoibaev@gmail.com",
         "ALLOWED_ORIGIN": "http://localhost:5173",
-        "DATABASE_URL": "Host=localhost;Database=iwwz;Username=postgres;Password=postgres"
+        "DATABASE_URL": "Host=localhost;Database=iwwz;Username=postgres;Password=postgres",
+        "GOOGLE_CLIENT_ID": "150810666478-l8029uol75fj2nqa7v93d7hbs8d9n44u.apps.googleusercontent.com"
       }
     }
   }

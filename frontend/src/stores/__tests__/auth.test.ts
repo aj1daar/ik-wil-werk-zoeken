@@ -5,6 +5,7 @@ import { useAuthStore } from '../auth'
 vi.mock('../../api', () => ({
   api: {
     login:          vi.fn(),
+    googleSignIn:   vi.fn(),
     register:       vi.fn(),
     updateProfile:  vi.fn(),
     changePassword: vi.fn(),
@@ -419,5 +420,69 @@ describe('useAuthStore', () => {
     const store = useAuthStore()
     expect(store.user?.userId).toBe('url-safe-id')
     expect(store.user?.email).toBe('url@test.com')
+  })
+
+  // ── signing in with Google ───────────────────────────────────────────────
+
+  describe('signInWithGoogle', () => {
+    it('keeps the session it is given', async () => {
+      const token = makeJwt()
+      vi.mocked(api.googleSignIn).mockResolvedValue({ token })
+      const store = useAuthStore()
+
+      expect(await store.signInWithGoogle('credential')).toEqual({ kind: 'signed-in' })
+      expect(store.token).toBe(token)
+      expect(store.user?.email).toBe('test@example.com')
+      expect(sessionStorage.getItem('token')).toBe(token)
+    })
+
+    it('sends no consent date on the first attempt', async () => {
+      vi.mocked(api.googleSignIn).mockResolvedValue({ token: makeJwt() })
+      await useAuthStore().signInWithGoogle('credential')
+      expect(api.googleSignIn).toHaveBeenCalledWith('credential', undefined)
+    })
+
+    it('reports an address that has no account here yet', async () => {
+      vi.mocked(api.googleSignIn).mockResolvedValue({
+        needsConsent: true, email: 'new@example.com', firstName: 'Jan', lastName: 'de Vries',
+      })
+      const store = useAuthStore()
+
+      expect(await store.signInWithGoogle('credential')).toEqual({
+        kind: 'needs-consent', email: 'new@example.com', firstName: 'Jan', lastName: 'de Vries',
+      })
+      expect(store.token).toBeNull()
+      expect(sessionStorage.getItem('token')).toBeNull()
+    })
+
+    it('passes the consent date on the second attempt', async () => {
+      vi.mocked(api.googleSignIn).mockResolvedValue({ token: makeJwt() })
+      await useAuthStore().signInWithGoogle('credential', '2026-10-16T12:00:00.000Z')
+      expect(api.googleSignIn).toHaveBeenCalledWith('credential', '2026-10-16T12:00:00.000Z')
+    })
+
+    it('passes the failure through', async () => {
+      vi.mocked(api.googleSignIn).mockRejectedValue(new Error('That Google sign-in could not be verified.'))
+      expect(await useAuthStore().signInWithGoogle('credential'))
+        .toEqual({ kind: 'error', message: 'That Google sign-in could not be verified.' })
+    })
+
+    it('treats an answer with neither a session nor a question as a failure', async () => {
+      vi.mocked(api.googleSignIn).mockResolvedValue({})
+      const result = await useAuthStore().signInWithGoogle('credential')
+      expect(result.kind).toBe('error')
+      expect(useAuthStore().token).toBeNull()
+    })
+
+    it('leaves the old session alone when a later sign-in fails', async () => {
+      const token = makeJwt()
+      vi.mocked(api.googleSignIn).mockResolvedValue({ token })
+      const store = useAuthStore()
+      await store.signInWithGoogle('credential')
+
+      vi.mocked(api.googleSignIn).mockRejectedValue(new Error('nope'))
+      await store.signInWithGoogle('another')
+      expect(store.token).toBe(token)
+    })
   })
 })
