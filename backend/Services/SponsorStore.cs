@@ -59,6 +59,30 @@ public sealed class SponsorStore(AppDbContext db)
             c.AliasNames!.Any(a => string.Equals(a.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)));
     }
 
+    // Free-text search over the live register, for a client that cannot hold the
+    // whole table. Matches name, city and industry only: the web app's own
+    // search also looks inside the tag arrays, but it does that in memory over
+    // companies it has already loaded, and a tag array is a JSON column on
+    // SQLite and a text[] on Postgres, so one query cannot search it on both.
+    // Starts-with ranks above contains, which puts the company you are typing
+    // the name of at the top instead of three lines down.
+    public async Task<IReadOnlyList<SponsorCompany>> SearchAsync(string query, int limit)
+    {
+        var q = query.Trim().ToLower();
+        if (q.Length == 0 || limit <= 0) return [];
+
+        return await db.Sponsors
+            .AsNoTracking()
+            .Where(c => c.RemovedAt == null && c.MergedIntoId == null &&
+                   (c.Name.ToLower().Contains(q) ||
+                    (c.City != null && c.City.ToLower().Contains(q)) ||
+                    (c.CoreIndustry != null && c.CoreIndustry.ToLower().Contains(q))))
+            .OrderByDescending(c => c.Name.ToLower().StartsWith(q))
+            .ThenBy(c => c.Name)
+            .Take(limit)
+            .ToListAsync();
+    }
+
     public async Task UpsertAsync(SponsorCompany company)
     {
         var existing = await db.Sponsors.FindAsync(company.Id);

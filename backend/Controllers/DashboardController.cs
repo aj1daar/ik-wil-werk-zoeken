@@ -57,6 +57,39 @@ public sealed class DashboardController : ApiControllerBase
         return Ok((await _sponsors.GetActiveAsync()).ToArray());
     }
 
+    // Company suggestions and the HSM sponsor verdict in one request, for the
+    // browser extension: it has no copy of the register to search, where the web
+    // app loads the whole thing once per session and filters it in memory.
+    // `exact` answers "is this an HSM sponsor", through the same alias-aware
+    // lookup the application save uses, so a renamed or merged-away name still
+    // resolves. `matches` feeds the company combobox.
+    [HttpGet("sponsors/lookup")]
+    public async Task<IActionResult> LookupSponsors([FromQuery] string? q, [FromQuery] int? limit)
+    {
+        if (CheckAuth(out var userId) is { } err) return err;
+
+        var query = (q ?? string.Empty).Trim();
+        if (query.Length == 0) return Error(400, "q is required");
+        if (query.Length > 100) return Error(400, "q must not exceed 100 characters");
+
+        // A keystroke-driven combobox is debounced client-side, so this is
+        // generous for typing and still a ceiling on scraping the register row
+        // by row through a stolen token.
+        if (!_rateLimiter.IsAllowed($"sponsor-lookup:{userId}", 120, 60))
+            return Error(429, "Too many lookups — please wait a minute.");
+
+        var take = Math.Clamp(limit ?? 10, 1, 25);
+        var exact   = await _sponsors.FindByNameAsync(query);
+        var matches = await _sponsors.SearchAsync(query, take);
+
+        return Ok(new SponsorLookupResponse
+        {
+            Query   = query,
+            Exact   = exact is null ? null : SponsorLookupMatch.From(exact),
+            Matches = matches.Select(SponsorLookupMatch.From).ToArray(),
+        });
+    }
+
     // The user's per-company shortlist ("interested") and dismissed list
     // ("hidden") — a company is on at most one of them.
     [HttpGet("company-lists")]

@@ -1,0 +1,23 @@
+/* Panel-only layout. Everything visual comes from the app's style.css, imported
+   before this file; what is here is what a 320-to-500px panel needs and the app
+   has no equivalent of. */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-width: 300px;
+  background: var(--col-bg);
+  color: var(--col-text);
+}
+
+/* The app sets this on its own shell; a panel page has no shell. */
+body {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 14px;
+}
+
+#app { min-height: 100vh; }
+
+/* A panel is narrow enough that the date picker's popover would otherwise push
+   the page sideways, and nothing may scroll sideways here either. */
+#app { overflow-x: hidden; }
