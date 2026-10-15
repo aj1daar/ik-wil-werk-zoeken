@@ -46,6 +46,9 @@ function render() {
     text: props.text,
     shape: 'rectangular',
     logo_alignment: 'center',
+    // Google picks the browser's language unless told otherwise, which put
+    // "Inloggen met Google" under an English form on a Dutch machine.
+    locale: 'en',
     // The button takes a number of pixels and nothing else, so it is measured
     // from the column it sits in rather than guessed.
     width: Math.round(Math.min(400, Math.max(200, host.value.clientWidth || 320))),
