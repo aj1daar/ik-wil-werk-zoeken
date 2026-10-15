@@ -101,6 +101,9 @@ jobs:
         run: pnpm run build
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          # Public by design: it ships inside the built page. Without it the
+          # Google button is not rendered at all.
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
@@ -189,6 +192,9 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN }}
+          # The audience a Google credential has to name. Public, and the same
+          # value the frontend is built with.
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           # name=sha256hex pairs, comma separated, hashes only. The keys
           # themselves live in the consumers and in a password manager.
           EXPORT_API_KEYS: ${{ secrets.EXPORT_API_KEYS }}
@@ -202,6 +208,7 @@ jobs:
             printf "RESEND_API_KEY=%s\n" "$RESEND_API_KEY"
             printf "ADMIN_EMAIL=%s\n" "$ADMIN_EMAIL"
             printf "ALLOWED_ORIGIN=%s\n" "$ALLOWED_ORIGIN"
+            printf "GOOGLE_CLIENT_ID=%s\n" "$GOOGLE_CLIENT_ID"
             printf "EXPORT_API_KEYS=%s\n" "$EXPORT_API_KEYS"
           } | ssh -i ~/.ssh/deploy_key iwwz@${{ secrets.HETZNER_HOST }} "cat > /var/www/iwwz/.env"
 

@@ -30,8 +30,9 @@ volume mounts at `/var/lib/postgresql`, not at `/var/lib/postgresql/data`.
 ## API
 
 ### Auth `/api/auth/`
-login, register, refresh, verify-email, resend-verification, profile (PUT), change-password,
-change-email, confirm-email-change, forgot-password, reset-password, account (DELETE).
+login, register, google, refresh, verify-email, resend-verification, profile (PUT),
+change-password, change-email, confirm-email-change, forgot-password, reset-password,
+account (DELETE).
 
 ### Dashboard `/api/dashboard/`
 sponsors (GET), applications (GET/POST/PUT/PATCH bulk/DELETE), stats?from=&to=,
@@ -198,6 +199,42 @@ sponsor" — matches the display name first and the alias list second, so applic
 an old or duplicate name stay linked. Alias-carrying companies are a small set and are cached for
 the lifetime of the (per-request) store.
 
+## Signing in with Google
+
+The sign-in and register pages offer Google's own button, which hands the page an ID token. That
+token goes to `POST /api/auth/google` and is checked there before anything is believed:
+
+- the signature, against Google's published keys (`https://www.googleapis.com/oauth2/v3/certs`),
+  with the key the token's header names. RS256 only, so a token re-signed with HMAC using the
+  public key as the secret is refused, as is `alg: none`.
+- the issuer (`accounts.google.com`, with or without the scheme) and the audience, which has to
+  equal `GOOGLE_CLIENT_ID` or the token was minted for somebody else's application.
+- expiry and issue time, with a minute of clock skew.
+
+Keys are cached for an hour. A key id we have not seen causes one refetch, and at most one a
+minute, so invented key ids cannot turn into traffic to Google.
+
+Accounts:
+
+- a Google account already linked signs in.
+- an address that already has a password account is linked to it, provided Google says the
+  address is verified. The password keeps working, and the account's address counts as verified
+  from then on.
+- an unknown address gets `needsConsent` back and **no account**. The page then asks, and sends
+  the same credential again with a consent timestamp, which is what creates the account. Such an
+  account has an empty password hash, which nothing verifies against, so it has no password until
+  its owner sets one through the reset flow.
+- the link is on Google's `sub`, not the address, so changing the address at Google still lands
+  on the same account.
+
+`GOOGLE_CLIENT_ID` (the API) and `VITE_GOOGLE_CLIENT_ID` (the build) are the same public value,
+kept as GitHub Actions variables rather than secrets. With neither set the endpoint answers 503
+and the button is never rendered, which is what a local checkout without configuration does.
+
+Google's script is the only third-party code the app loads, and only on those two pages. One Tap
+is never called and `auto_select` is off, so nothing from Google runs for a signed-in person.
+
+
 ## Security
 
 - PBKDF2-SHA256, 100k iterations, 16-byte salt. Constant-time compare on login and token checks.
@@ -209,6 +246,8 @@ the lifetime of the (per-request) store.
   all count, because a phone never fires `mousemove`. Stop using it and the session ends twelve
   hours later. The expiry banner appears in the last 30 minutes; refresh is rate-limited to
   10/hour/IP, which an hourly slide stays well inside.
+- Google credentials are verified by signature, issuer, audience, expiry and issue time before
+  any claim in them is read; a rejected credential is logged by reason, never by value.
 - Rate limiter is in-memory — fine for one instance, resets on restart, won't work if we ever
   scale to multiple backend processes.
 
