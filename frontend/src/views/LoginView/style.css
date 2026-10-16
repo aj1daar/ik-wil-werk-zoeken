@@ -15,3 +15,5 @@
   margin-bottom: 0.5rem;
 }
 .btn-resend:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.auth-footer--quiet { margin-top: .5rem; font-size: .75rem; }

@@ -12,13 +12,23 @@ public sealed class AuthController : ApiControllerBase
     private readonly UserStore _users;
     private readonly EmailService _email;
     private readonly RateLimiterService _limiter;
+    private readonly GoogleIdentityService _google;
+    private readonly MyDataExporter _export;
 
-    public AuthController(TokenService tokens, UserStore users, EmailService email, RateLimiterService limiter)
+    public AuthController(
+        TokenService tokens,
+        UserStore users,
+        EmailService email,
+        RateLimiterService limiter,
+        GoogleIdentityService google,
+        MyDataExporter export)
     {
         _tokens = tokens;
         _users = users;
         _email = email;
         _limiter = limiter;
+        _google = google;
+        _export = export;
     }
 
     [HttpPost("login")]
@@ -49,19 +59,23 @@ public sealed class AuthController : ApiControllerBase
         if (!_limiter.IsAllowed($"register:{GetClientIp()}", maxRequests: 5, windowSeconds: 3600))
             return Error(429, "Too many registration attempts. Please wait before trying again.");
 
+        // An address, a password and agreement to the privacy notice. A name and
+        // job-search preferences are not needed to create an account, so they are
+        // not asked for; the profile page edits them afterwards.
         if (body is null
-            || string.IsNullOrWhiteSpace(body.FirstName)
-            || string.IsNullOrWhiteSpace(body.LastName)
             || string.IsNullOrWhiteSpace(body.Email)
             || string.IsNullOrWhiteSpace(body.Password)
             || string.IsNullOrWhiteSpace(body.GdprConsentAt))
             return Error(400, "Missing required fields");
 
-        if (!ValidName(body.FirstName, out var nameErr)) return Error(400, nameErr);
-        if (!ValidName(body.LastName, out nameErr)) return Error(400, nameErr);
         if (!ValidEmail(body.Email, out var emailErr)) return Error(400, emailErr);
         if (!ValidPassword(body.Password, out var pwErr)) return Error(400, pwErr);
         if (!ValidGdprDate(body.GdprConsentAt, out var gdprErr)) return Error(400, gdprErr);
+        // A page showing an older notice must not record agreement to this one.
+        if (!PrivacyNotice.IsCurrent(body.PrivacyVersion))
+            return Error(400, "The privacy notice has changed. Please reload the page and read it again.");
+        if (!ValidName(body.FirstName ?? string.Empty, out var nameErr)) return Error(400, nameErr);
+        if (!ValidName(body.LastName ?? string.Empty, out nameErr)) return Error(400, nameErr);
         if (body.Preferences is not null && !ValidWorkType(body.Preferences.WorkType, out var wtErr)) return Error(400, wtErr);
         if (!ValidOptionalText(body.Preferences?.TargetRole, 200, "targetRole", out var trErr)) return Error(400, trErr);
         if (!ValidOptionalText(body.Preferences?.Location, 200, "location", out var locErr)) return Error(400, locErr);
@@ -73,13 +87,14 @@ public sealed class AuthController : ApiControllerBase
         var user = new User
         {
             Email = email,
-            FirstName = body.FirstName.Trim(),
-            LastName = body.LastName.Trim(),
+            FirstName = body.FirstName?.Trim() ?? string.Empty,
+            LastName = body.LastName?.Trim() ?? string.Empty,
             PasswordHash = PasswordHasher.Hash(body.Password),
             TargetRole = body.Preferences?.TargetRole?.Trim(),
             PreferredLocation = body.Preferences?.Location?.Trim(),
             WorkType = NormalizeWorkType(body.Preferences?.WorkType),
             GdprConsentAt = body.GdprConsentAt.Trim(),
+            PrivacyVersion = PrivacyNotice.Version,
             EmailVerified = false,
         };
 
@@ -90,6 +105,127 @@ public sealed class AuthController : ApiControllerBase
         await _email.SendVerificationAsync(email, verifyLink);
 
         return StatusCode(201, new MessageResponse { Message = "Account created. Please check your email to verify your address." });
+    }
+
+    /// <summary>
+    /// Signing in with the Google button. The page sends the ID token Google gave
+    /// it; everything the account is made from comes out of that token after it
+    /// has been verified, never out of the request body.
+    /// </summary>
+    [HttpPost("google")]
+    public async Task<IActionResult> Google([FromBody] GoogleAuthRequest? body)
+    {
+        if (!GoogleIdentityService.IsConfigured)
+            return Error(503, "Google sign-in is not available here.");
+
+        if (!_limiter.IsAllowed($"google:{GetClientIp()}", maxRequests: 20, windowSeconds: 600))
+            return Error(429, "Too many sign-in attempts. Please wait 10 minutes before trying again.");
+
+        var identity = await _google.VerifyAsync(body?.Credential);
+        if (identity is null)
+            return Error(401, "That Google sign-in could not be verified. Please try again.");
+
+        // Google will say so when an address has not been confirmed, and an
+        // unconfirmed address is not proof of anything.
+        if (!identity.EmailVerified)
+            return Error(403, "Google has not verified that address. Sign in with your password instead.");
+
+        // The link is on Google's account id, so a person who changes their
+        // address at Google still arrives at their own account.
+        var user = await _users.GetByGoogleSubjectAsync(identity.Subject);
+
+        if (user is null)
+        {
+            user = await _users.GetByEmailAsync(identity.Email);
+
+            if (user is not null)
+            {
+                // An account already uses this address, and Google vouches for
+                // it, so the two are the same person. The password keeps working.
+                user.GoogleSubject = identity.Subject;
+                user.EmailVerified = true;
+                await _users.UpdateAsync(user);
+            }
+            else
+            {
+                // Nobody here yet. Consent first, account second.
+                if (string.IsNullOrWhiteSpace(body?.GdprConsentAt))
+                {
+                    return Ok(new GoogleAuthResponse
+                    {
+                        NeedsConsent = true,
+                        Email        = identity.Email,
+                        FirstName    = identity.FirstName,
+                        LastName     = identity.LastName,
+                    });
+                }
+
+                if (!ValidGdprDate(body.GdprConsentAt, out var gdprErr)) return Error(400, gdprErr);
+                if (!PrivacyNotice.IsCurrent(body.PrivacyVersion))
+                    return Error(400, "The privacy notice has changed. Please reload the page and read it again.");
+
+                user = new User
+                {
+                    Email = identity.Email,
+                    // Google need not send a name at all, and an account has to
+                    // have something to greet.
+                    FirstName = Trimmed(identity.FirstName, "Signed", 100),
+                    LastName  = Trimmed(identity.LastName, "in", 100),
+                    // No password, rather than one nobody knows: the reset flow is
+                    // how such an account gains one.
+                    PasswordHash  = string.Empty,
+                    GdprConsentAt = body.GdprConsentAt.Trim(),
+                    PrivacyVersion = PrivacyNotice.Version,
+                    // Google verified the address, so there is nothing for us to
+                    // send a verification mail about.
+                    EmailVerified = true,
+                    GoogleSubject = identity.Subject,
+                };
+
+                await _users.CreateAsync(user);
+            }
+        }
+        else if (!user.EmailVerified)
+        {
+            user.EmailVerified = true;
+            await _users.UpdateAsync(user);
+        }
+
+        var token = _tokens.CreateToken(user);
+        if (token is null) return Error(500, "JWT_SECRET not configured");
+
+        return Ok(new GoogleAuthResponse { Token = token });
+    }
+
+    private static string Trimmed(string value, string fallback, int max)
+    {
+        var text = value.Trim();
+        if (text.Length == 0) return fallback;
+        return text.Length > max ? text[..max] : text;
+    }
+
+    /// <summary>
+    /// Everything this service holds about the signed-in account, as JSON. The
+    /// right of access and the right to take your data elsewhere, which a tracker
+    /// whose only exit is deletion does not satisfy.
+    /// </summary>
+    [HttpGet("my-data")]
+    public async Task<IActionResult> MyData()
+    {
+        var rawToken = GetBearerToken();
+        if (!_tokens.ValidateToken(rawToken)) return Error(401, "Unauthorized");
+        var userId = _tokens.GetUserId(rawToken);
+        if (userId is null) return Error(401, "Unauthorized");
+
+        // A whole-account read is heavier than anything else here, and nobody
+        // needs it twice a minute.
+        if (!_limiter.IsAllowed($"my-data:{userId}", maxRequests: 5, windowSeconds: 3600))
+            return Error(429, "You can download your data a few times an hour. Please wait a little.");
+
+        var data = await _export.ExportAsync(userId);
+        if (data is null) return Error(404, "User not found");
+
+        return Ok(data);
     }
 
     [HttpGet("verify-email")]
