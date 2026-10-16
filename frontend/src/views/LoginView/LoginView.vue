@@ -123,6 +123,9 @@ async function resendVerification() {
         Don't have an account?
         <router-link to="/register" class="auth-link">Create one</router-link>
       </p>
+      <p class="auth-footer auth-footer--quiet">
+        <router-link to="/privacy" class="auth-link">Privacy notice</router-link>
+      </p>
     </div>
   </div>
 </template>

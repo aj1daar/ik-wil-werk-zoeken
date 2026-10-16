@@ -17,12 +17,12 @@ export interface AuthUser {
 }
 
 export interface RegisterData {
-  firstName:     string
-  lastName:      string
-  email:         string
-  password:      string
-  preferences?:  { targetRole?: string; location?: string; workType?: string }
-  gdprConsentAt: string
+  email:          string
+  password:       string
+  gdprConsentAt:  string
+  // Which privacy notice was shown when they agreed. The API refuses any
+  // version but its own.
+  privacyVersion: string
 }
 
 function b64urlToStd(s: string): string {
@@ -77,9 +77,13 @@ export const useAuthStore = defineStore('auth', {
 
     // Three outcomes, not two: signed in, or the address belongs to nobody here
     // yet and the page has to ask for consent before an account is made.
-    async signInWithGoogle(credential: string, gdprConsentAt?: string): Promise<GoogleSignInResult> {
+    async signInWithGoogle(
+      credential: string,
+      gdprConsentAt?: string,
+      privacyVersion?: string,
+    ): Promise<GoogleSignInResult> {
       try {
-        const data = await api.googleSignIn(credential, gdprConsentAt)
+        const data = await api.googleSignIn(credential, gdprConsentAt, privacyVersion)
         if (data.needsConsent) {
           return {
             kind: 'needs-consent',

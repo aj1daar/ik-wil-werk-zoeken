@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import RegisterView from '../RegisterView.vue'
+import { PRIVACY_VERSION } from '../../../utils/privacy'
 
 vi.mock('../../../api', () => ({
   api: {
@@ -24,14 +25,13 @@ function makeRouter() {
       { path: '/',               component: { template: '<div id="home"/>' } },
       { path: '/login',          component: { template: '<div id="login"/>' } },
       { path: '/forgot-password', component: { template: '<div id="forgot"/>' } },
+      { path: '/privacy',        component: { template: '<div id="privacy"/>' } },
     ]
   })
 }
 
-// Fill all required fields. Returns the wrapper for chaining.
+// An address and a password, which is all registration asks for.
 async function fillRequired(wrapper: ReturnType<typeof mount>) {
-  await wrapper.find('#firstName').setValue('Jan')
-  await wrapper.find('#lastName').setValue('de Vries')
   await wrapper.find('#reg-email').setValue('jan@example.com')
   await wrapper.find('#reg-password').setValue('password123')
   await wrapper.find('#reg-confirm-password').setValue('password123')
@@ -56,12 +56,23 @@ describe('RegisterView', () => {
 
   // ── rendering ───────────────────────────────────────────────────────────
 
-  it('renders firstName input', () => {
-    expect(mountView().find('#firstName').exists()).toBe(true)
+  it('asks for no name', () => {
+    const w = mountView()
+    expect(w.find('#firstName').exists()).toBe(false)
+    expect(w.find('#lastName').exists()).toBe(false)
   })
 
-  it('renders lastName input', () => {
-    expect(mountView().find('#lastName').exists()).toBe(true)
+  it('asks for no job-search preferences', () => {
+    const w = mountView()
+    expect(w.find('#targetRole').exists()).toBe(false)
+    expect(w.find('#location').exists()).toBe(false)
+    expect(w.find('#workType').exists()).toBe(false)
+  })
+
+  it('says what creating an account means, and links the notice', () => {
+    const w = mountView()
+    expect(w.text()).toContain('privacy notice')
+    expect(w.find('a[href="/privacy"]').exists()).toBe(true)
   })
 
   it('renders email input', () => {
@@ -96,18 +107,15 @@ describe('RegisterView', () => {
     expect(w.find('button[type="submit"]').attributes('disabled')).toBeUndefined()
   })
 
-  it('submit button is disabled when firstName is missing', async () => {
+  it('submit button is disabled when the address is missing', async () => {
     const w = mountView()
-    await w.find('#lastName').setValue('de Vries')
-    await w.find('#reg-email').setValue('a@b.com')
-    await w.find('#reg-password').setValue('pass123')
+    await w.find('#reg-password').setValue('password123')
+    await w.find('#reg-confirm-password').setValue('password123')
     expect(w.find('button[type="submit"]').attributes('disabled')).toBeDefined()
   })
 
   it('submit button is disabled when password is shorter than 8 characters', async () => {
     const w = mountView()
-    await w.find('#firstName').setValue('Jan')
-    await w.find('#lastName').setValue('de Vries')
     await w.find('#reg-email').setValue('jan@example.com')
     await w.find('#reg-password').setValue('short')
     await w.find('#reg-confirm-password').setValue('short')
@@ -126,11 +134,9 @@ describe('RegisterView', () => {
 
   // ── successful registration ──────────────────────────────────────────────
 
-  it('calls api.register with trimmed data and a gdprConsentAt timestamp', async () => {
+  it('sends the address, the password, the moment of agreement and the notice version', async () => {
     vi.mocked(api.register).mockResolvedValue(undefined)
     const w = mountView()
-    await w.find('#firstName').setValue('  Jan  ')
-    await w.find('#lastName').setValue('  de Vries  ')
     await w.find('#reg-email').setValue('JAN@EXAMPLE.COM')
     await w.find('#reg-password').setValue('password123')
     await w.find('#reg-confirm-password').setValue('password123')
@@ -138,11 +144,21 @@ describe('RegisterView', () => {
     await flushPromises()
 
     const call = vi.mocked(api.register).mock.calls[0][0]
-    expect(call.firstName).toBe('Jan')
-    expect(call.lastName).toBe('de Vries')
     expect(call.email).toBe('jan@example.com')
     expect(call.password).toBe('password123')
     expect(call.gdprConsentAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    expect(call.privacyVersion).toBe(PRIVACY_VERSION)
+  })
+
+  it('sends nothing it was not asked for', async () => {
+    vi.mocked(api.register).mockResolvedValue(undefined)
+    const w = mountView()
+    await fillRequired(w)
+    await w.find('form').trigger('submit')
+    await flushPromises()
+
+    const call = vi.mocked(api.register).mock.calls[0][0] as Record<string, unknown>
+    expect(Object.keys(call).sort()).toEqual(['email', 'gdprConsentAt', 'password', 'privacyVersion'])
   })
 
   it('shows "check your inbox" screen on successful registration', async () => {
@@ -154,29 +170,6 @@ describe('RegisterView', () => {
     // No redirect — user must verify email first
     expect(router.currentRoute.value.path).toBe('/register')
     expect(w.text()).toContain('Check your inbox')
-  })
-
-  // ── optional preference fields ───────────────────────────────────────────
-
-  it('includes targetRole in preferences when filled', async () => {
-    vi.mocked(api.register).mockResolvedValue(undefined)
-    const w = mountView()
-    await fillRequired(w)
-    await w.find('#targetRole').setValue('Software Engineer')
-    await w.find('form').trigger('submit')
-    await flushPromises()
-    const call = vi.mocked(api.register).mock.calls[0][0]
-    expect(call.preferences?.targetRole).toBe('Software Engineer')
-  })
-
-  it('targetRole is undefined when left empty', async () => {
-    vi.mocked(api.register).mockResolvedValue(undefined)
-    const w = mountView()
-    await fillRequired(w)
-    await w.find('form').trigger('submit')
-    await flushPromises()
-    const call = vi.mocked(api.register).mock.calls[0][0]
-    expect(call.preferences?.targetRole).toBeUndefined()
   })
 
   // ── failed registration ──────────────────────────────────────────────────

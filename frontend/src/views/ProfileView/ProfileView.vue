@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useRouter } from 'vue-router'
 import PasswordField from '../../components/PasswordField/PasswordField.vue'
 import FormMessage from '../../components/FormMessage/FormMessage.vue'
+import { api } from '../../api'
 
 const auth   = useAuthStore()
 const router = useRouter()
@@ -28,6 +29,8 @@ const profileSaving  = ref(false)
 const profileMsg     = ref<{text:string;ok:boolean}|null>(null)
 const passwordSaving = ref(false)
 const passwordMsg    = ref<{text:string;ok:boolean}|null>(null)
+const exporting      = ref(false)
+const exportError    = ref('')
 const deleteConfirm  = ref(false)
 const deleteError    = ref('')
 const deleting       = ref(false)
@@ -38,6 +41,29 @@ const WORK_TYPES = [
   { value: 'hybrid', label: 'Hybrid' },
   { value: 'remote', label: 'Remote' },
 ]
+
+// The right to see everything held about you, as a file you can keep. Built in
+// the browser from the API's answer, so nothing new has to be stored anywhere.
+async function downloadMyData() {
+  exporting.value   = true
+  exportError.value = ''
+  try {
+    const data = await api.myData()
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url  = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `ik-wil-werk-zoeken-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    exportError.value = e instanceof Error ? e.message : 'Could not prepare your data. Try again.'
+  } finally {
+    exporting.value = false
+  }
+}
 
 async function saveProfile() {
   profileSaving.value = true
@@ -238,6 +264,22 @@ async function deleteAccount() {
             </button>
           </div>
         </form>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Your data</h2>
+        <p class="section-hint">
+          Everything this service holds about you, as one JSON file: your account, your
+          applications, their status history, the change log and your company lists. The
+          <router-link to="/privacy" class="auth-link">privacy notice</router-link> says who else
+          sees any of it.
+        </p>
+        <p v-if="exportError" class="danger-error" role="alert">{{ exportError }}</p>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" :disabled="exporting" @click="downloadMyData">
+            {{ exporting ? 'Preparing…' : 'Download my data' }}
+          </button>
+        </div>
       </section>
 
       <section class="card danger-zone">

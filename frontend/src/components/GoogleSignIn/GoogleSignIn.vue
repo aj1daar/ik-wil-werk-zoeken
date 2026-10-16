@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useTheme } from '../../composables/useTheme'
 import { useAuthStore } from '../../stores/auth'
+import { PRIVACY_VERSION } from '../../utils/privacy'
 import {
   GOOGLE_CLIENT_ID, googleSignInConfigured, loadGoogleIdentity,
   type GoogleIdentityApi,
@@ -74,7 +75,8 @@ async function createAccount() {
   error.value   = ''
   working.value = true
   // The moment of agreement is this click, which is what gets recorded.
-  const result = await auth.signInWithGoogle(pending.value.credential, new Date().toISOString())
+  const result = await auth.signInWithGoogle(
+    pending.value.credential, new Date().toISOString(), PRIVACY_VERSION)
   working.value = false
 
   if (result.kind === 'signed-in') { pending.value = null; emit('signed-in'); return }
@@ -130,9 +132,9 @@ watch(theme, () => render())
 
     <div v-if="pending" class="google-consent">
       <p class="google-consent-line">
-        No account here uses <strong>{{ pending.email }}</strong> yet.
-        Creating one stores your applications and the companies you track, and you can delete it
-        from your profile at any time.
+        No account here uses <strong>{{ pending.email }}</strong> yet. Creating one means you
+        accept the <router-link to="/privacy" class="auth-link">privacy notice</router-link>,
+        which says what is stored and how to get it back or have it deleted.
       </p>
       <div class="google-consent-actions">
         <button type="button" class="btn-primary" :disabled="working" @click="createAccount">

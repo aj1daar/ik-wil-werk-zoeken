@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/auth'
 import AppLogo from '../../components/AppLogo/AppLogo.vue'
 import PasswordField from '../../components/PasswordField/PasswordField.vue'
 import GoogleSignIn from '../../components/GoogleSignIn/GoogleSignIn.vue'
+import { PRIVACY_VERSION } from '../../utils/privacy'
 
 const auth   = useAuthStore()
 const router = useRouter()
@@ -15,13 +16,8 @@ function onGoogleSignedIn() {
   router.push('/')
 }
 
-const firstName   = ref('')
-const lastName    = ref('')
 const email       = ref('')
 const password    = ref('')
-const targetRole  = ref('')
-const location    = ref('')
-const workType    = ref<'any'|'onsite'|'hybrid'|'remote'>('any')
 const confirmPassword = ref('')
 const error       = ref('')
 const loading     = ref(false)
@@ -36,13 +32,6 @@ function checkEmail() {
   emailInvalid.value = !!email.value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value.trim())
 }
 
-const WORK_TYPES = [
-  { value: 'any',    label: 'Any arrangement' },
-  { value: 'onsite', label: 'On-site' },
-  { value: 'hybrid', label: 'Hybrid' },
-  { value: 'remote', label: 'Remote' },
-]
-
 async function submit() {
   if (password.value !== confirmPassword.value) {
     error.value = 'Passwords do not match.'
@@ -51,16 +40,12 @@ async function submit() {
   loading.value = true
   error.value   = ''
   const err = await auth.register({
-    firstName:   firstName.value.trim(),
-    lastName:    lastName.value.trim(),
-    email:       email.value.trim().toLowerCase(),
-    password:    password.value,
-    preferences: {
-      targetRole: targetRole.value.trim() || undefined,
-      location:   location.value.trim() || undefined,
-      workType:   workType.value,
-    },
-    gdprConsentAt: new Date().toISOString(),
+    email:          email.value.trim().toLowerCase(),
+    password:       password.value,
+    // The moment of agreement, and the notice that was agreed to. The API
+    // refuses any version but the one it is serving today.
+    gdprConsentAt:  new Date().toISOString(),
+    privacyVersion: PRIVACY_VERSION,
   })
   loading.value = false
   if (err) error.value = err
@@ -94,17 +79,6 @@ async function submit() {
       <p class="auth-subtitle">Track Dutch IND sponsors and manage your job search in one place.</p>
 
       <form @submit.prevent="submit" class="auth-form">
-        <div class="name-row">
-          <div>
-            <label class="field-label" for="firstName">First name</label>
-            <input id="firstName" v-model="firstName" type="text" placeholder="Jan" autocomplete="given-name" class="auth-input" required />
-          </div>
-          <div>
-            <label class="field-label" for="lastName">Last name</label>
-            <input id="lastName" v-model="lastName" type="text" placeholder="de Vries" autocomplete="family-name" class="auth-input" required />
-          </div>
-        </div>
-
         <div>
           <label class="field-label" for="reg-email">Email</label>
           <input
@@ -154,26 +128,11 @@ async function submit() {
           />
         </div>
 
-        <hr class="form-divider" />
-        <p class="section-label">Job search preferences <span class="optional">(optional — you can update these later)</span></p>
-
-        <div>
-          <label class="field-label" for="targetRole">Target role</label>
-          <input id="targetRole" v-model="targetRole" type="text" placeholder="e.g. Software Engineer, Data Analyst" class="auth-input" />
-        </div>
-
-        <div class="name-row">
-          <div>
-            <label class="field-label" for="location">Preferred location</label>
-            <input id="location" v-model="location" type="text" placeholder="e.g. Amsterdam" class="auth-input" />
-          </div>
-          <div>
-            <label class="field-label" for="workType">Work arrangement</label>
-            <select id="workType" v-model="workType" class="auth-input">
-              <option v-for="wt in WORK_TYPES" :key="wt.value" :value="wt.value">{{ wt.label }}</option>
-            </select>
-          </div>
-        </div>
+        <p class="consent-line">
+          Creating an account means you accept the
+          <router-link to="/privacy" class="auth-link">privacy notice</router-link>.
+          It says what is stored, who else sees it, and how to get it back or have it deleted.
+        </p>
 
         <div v-if="error" id="reg-error" role="alert">
           <p v-if="isEmailTaken" class="auth-error">
@@ -185,7 +144,7 @@ async function submit() {
           <p v-else class="auth-error">{{ error }}</p>
         </div>
 
-        <button type="submit" :disabled="loading || !firstName || !lastName || !email || emailInvalid || !pwLongEnough || !confirmPassword" class="btn-submit">
+        <button type="submit" :disabled="loading || !email || emailInvalid || !pwLongEnough || !confirmPassword" class="btn-submit">
           {{ loading ? 'Creating account…' : 'Create account' }}
         </button>
       </form>

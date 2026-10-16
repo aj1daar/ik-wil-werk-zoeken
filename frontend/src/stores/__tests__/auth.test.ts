@@ -1,6 +1,7 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '../auth'
+import { PRIVACY_VERSION } from '../../utils/privacy'
 
 vi.mock('../../api', () => ({
   api: {
@@ -165,9 +166,8 @@ describe('useAuthStore', () => {
     vi.mocked(api.register).mockResolvedValue(undefined)
     const store = useAuthStore()
     const err = await store.register({
-      firstName: 'New', lastName: 'User',
       email: 'new@example.com', password: 'password123',
-      gdprConsentAt: new Date().toISOString(),
+      gdprConsentAt: new Date().toISOString(), privacyVersion: PRIVACY_VERSION,
     })
     expect(err).toBeNull()
     // Registration no longer issues a JWT — user must verify email first
@@ -179,9 +179,8 @@ describe('useAuthStore', () => {
   it('register returns error message on failure', async () => {
     vi.mocked(api.register).mockRejectedValue(new Error('409 Email already in use'))
     const err = await useAuthStore().register({
-      firstName: 'A', lastName: 'B',
       email: 'dup@example.com', password: 'pass',
-      gdprConsentAt: new Date().toISOString(),
+      gdprConsentAt: new Date().toISOString(), privacyVersion: PRIVACY_VERSION,
     })
     expect(err).toBe('409 Email already in use')
   })
@@ -189,9 +188,8 @@ describe('useAuthStore', () => {
   it('register returns generic message for non-Error throws', async () => {
     vi.mocked(api.register).mockRejectedValue(42)
     const err = await useAuthStore().register({
-      firstName: 'A', lastName: 'B',
       email: 'x@x.com', password: 'pass',
-      gdprConsentAt: '',
+      gdprConsentAt: '', privacyVersion: PRIVACY_VERSION,
     })
     expect(err).toBe('Registration failed')
   })
@@ -199,7 +197,7 @@ describe('useAuthStore', () => {
   it('register failure does not touch token or user', async () => {
     vi.mocked(api.register).mockRejectedValue(new Error('Bad'))
     const store = useAuthStore()
-    await store.register({ firstName: 'A', lastName: 'B', email: 'x@x.com', password: 'pass', gdprConsentAt: '' })
+    await store.register({ email: 'x@x.com', password: 'pass', gdprConsentAt: '', privacyVersion: PRIVACY_VERSION })
     expect(store.token).toBeNull()
     expect(store.user).toBeNull()
     expect(store.isAuthenticated).toBe(false)
@@ -439,7 +437,7 @@ describe('useAuthStore', () => {
     it('sends no consent date on the first attempt', async () => {
       vi.mocked(api.googleSignIn).mockResolvedValue({ token: makeJwt() })
       await useAuthStore().signInWithGoogle('credential')
-      expect(api.googleSignIn).toHaveBeenCalledWith('credential', undefined)
+      expect(api.googleSignIn).toHaveBeenCalledWith('credential', undefined, undefined)
     })
 
     it('reports an address that has no account here yet', async () => {
@@ -457,8 +455,9 @@ describe('useAuthStore', () => {
 
     it('passes the consent date on the second attempt', async () => {
       vi.mocked(api.googleSignIn).mockResolvedValue({ token: makeJwt() })
-      await useAuthStore().signInWithGoogle('credential', '2026-10-16T12:00:00.000Z')
-      expect(api.googleSignIn).toHaveBeenCalledWith('credential', '2026-10-16T12:00:00.000Z')
+      await useAuthStore().signInWithGoogle('credential', '2026-10-16T12:00:00.000Z', PRIVACY_VERSION)
+      expect(api.googleSignIn)
+        .toHaveBeenCalledWith('credential', '2026-10-16T12:00:00.000Z', PRIVACY_VERSION)
     })
 
     it('passes the failure through', async () => {
