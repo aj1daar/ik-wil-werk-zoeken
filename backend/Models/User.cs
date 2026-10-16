@@ -18,6 +18,10 @@ public sealed class User
     public string? PreferredLocation { get; set; }
     public string WorkType { get; set; } = "any";
     public string GdprConsentAt { get; set; } = string.Empty;
+
+    // Which version of the privacy notice was accepted. A timestamp alone says
+    // when somebody agreed, never to what.
+    public string PrivacyVersion { get; set; } = string.Empty;
     public bool EmailVerified { get; set; } = false;
     public string Role { get; set; } = "user";
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

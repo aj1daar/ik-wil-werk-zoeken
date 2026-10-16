@@ -112,6 +112,7 @@ builder.Services.AddSingleton<EmailService>();
 // Singleton so Google's signing keys are fetched once an hour, not per request.
 builder.Services.AddSingleton<GoogleIdentityService>();
 builder.Services.AddScoped<UserStore>();
+builder.Services.AddScoped<MyDataExporter>();
 builder.Services.AddScoped<StageStore>();
 builder.Services.AddScoped<SponsorStore>();
 builder.Services.AddScoped<CompanyListStore>();

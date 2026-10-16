@@ -371,6 +371,10 @@ namespace backend.Data.Migrations
                     b.Property<string>("PreferredLocation")
                         .HasColumnType("text");
 
+                    b.Property<string>("PrivacyVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");

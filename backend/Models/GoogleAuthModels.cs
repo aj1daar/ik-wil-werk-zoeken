@@ -22,6 +22,9 @@ public sealed class GoogleAuthRequest
     /// account. An address we have never seen gets no account without it.
     /// </summary>
     [JsonPropertyName("gdprConsentAt")] public string? GdprConsentAt { get; set; }
+
+    /// <summary>The privacy notice shown with that question, which has to be the current one.</summary>
+    [JsonPropertyName("privacyVersion")] public string? PrivacyVersion { get; set; }
 }
 
 public sealed class GoogleAuthResponse

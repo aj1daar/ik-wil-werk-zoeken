@@ -83,7 +83,8 @@ public sealed class GoogleSignInTests : IDisposable
             new UserStore(_db),
             new EmailService(new SingleClientFactory(_handler), new TestEnvironment(), NullLogger<EmailService>.Instance),
             new RateLimiterService(),
-            google ?? Service());
+            google ?? Service(),
+            new MyDataExporter(_db));
 
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
         controller.ControllerContext.HttpContext.Connection.RemoteIpAddress = IPAddress.Parse(ip);
@@ -404,6 +405,7 @@ public sealed class GoogleSignInTests : IDisposable
         {
             Credential = Token(),
             GdprConsentAt = "2026-10-16T12:00:00.000Z",
+            PrivacyVersion = PrivacyNotice.Version,
         });
 
         var body = Assert.IsType<GoogleAuthResponse>(Assert.IsType<OkObjectResult>(result).Value);
@@ -426,6 +428,7 @@ public sealed class GoogleSignInTests : IDisposable
         {
             Credential = Token(),
             GdprConsentAt = "2026-10-16T12:00:00.000Z",
+            PrivacyVersion = PrivacyNotice.Version,
         });
 
         var user = Assert.Single(_db.Users);
@@ -440,6 +443,7 @@ public sealed class GoogleSignInTests : IDisposable
         {
             Credential = Token(),
             GdprConsentAt = "whenever",
+            PrivacyVersion = PrivacyNotice.Version,
         });
 
         Assert.Equal(400, Assert.IsType<ObjectResult>(result).StatusCode);
@@ -538,6 +542,7 @@ public sealed class GoogleSignInTests : IDisposable
         {
             Credential = Token(emailVerified: false),
             GdprConsentAt = "2026-10-16T12:00:00.000Z",
+            PrivacyVersion = PrivacyNotice.Version,
         });
 
         Assert.Equal(403, Assert.IsType<ObjectResult>(result).StatusCode);
@@ -585,6 +590,7 @@ public sealed class GoogleSignInTests : IDisposable
         {
             Credential = Token(),
             GdprConsentAt = "2026-10-16T12:00:00.000Z",
+            PrivacyVersion = PrivacyNotice.Version,
         });
 
         var body = Assert.IsType<GoogleAuthResponse>(Assert.IsType<OkObjectResult>(result).Value);
