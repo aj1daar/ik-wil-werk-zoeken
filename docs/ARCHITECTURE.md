@@ -32,7 +32,7 @@ volume mounts at `/var/lib/postgresql`, not at `/var/lib/postgresql/data`.
 ### Auth `/api/auth/`
 login, register, google, refresh, verify-email, resend-verification, profile (PUT),
 change-password, change-email, confirm-email-change, forgot-password, reset-password,
-account (DELETE).
+my-data (GET), account (DELETE).
 
 ### Dashboard `/api/dashboard/`
 sponsors (GET), applications (GET/POST/PUT/PATCH bulk/DELETE), stats?from=&to=,
@@ -233,6 +233,26 @@ and the button is never rendered, which is what a local checkout without configu
 
 Google's script is the only third-party code the app loads, and only on those two pages. One Tap
 is never called and `auto_select` is off, so nothing from Google runs for a signed-in person.
+
+
+## Personal data
+
+Registration asks for an email address, a password and agreement to the privacy notice, and
+nothing else: a name and job-search preferences are optional and edited on the profile. The
+notice lives at `/privacy`, is readable without an account, and carries a version
+(`PrivacyNotice.Version` on the API, `PRIVACY_VERSION` on the frontend; a test fails the build if
+the two drift). Every account stores both the moment of agreement and the version agreed to, and
+the API refuses a registration carrying any other version, so a tab left open across a wording
+change cannot record agreement to a notice nobody read.
+
+`GET /api/auth/my-data` answers with everything held about the signed-in account: the account
+itself, applications, status history, the change log and company lists, as JSON, rate limited to
+five an hour. The profile page turns that into a download. Deletion already cascaded through all
+of it, so the two halves of "see it" and "be rid of it" are both covered.
+
+Basis: the account and the tracker are performance of the agreement, rate limiting and its logs
+rest on legitimate interest. Processors are Hetzner (hosting), Cloudflare (edge), Resend (email)
+and, for the sign-in button only, Google.
 
 
 ## Security
