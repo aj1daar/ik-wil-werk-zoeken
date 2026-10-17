@@ -26,6 +26,7 @@ namespace backend.Tests;
 /// a token signed with the wrong algorithm, a token whose payload was edited
 /// after signing.
 /// </summary>
+[Collection(JwtSecretCollection.Name)]
 public sealed class GoogleSignInTests : IDisposable
 {
     private const string ClientId = "1234567890-test.apps.googleusercontent.com";

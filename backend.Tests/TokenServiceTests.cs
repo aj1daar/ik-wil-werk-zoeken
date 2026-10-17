@@ -7,6 +7,7 @@ using Xunit;
 
 namespace backend.Tests;
 
+[Collection(JwtSecretCollection.Name)]
 public sealed class TokenServiceTests : IDisposable
 {
     private const string Secret = "test-secret-must-be-at-least-32-chars!";

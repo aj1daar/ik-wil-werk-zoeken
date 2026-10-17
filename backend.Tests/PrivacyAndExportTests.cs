@@ -18,6 +18,7 @@ namespace backend.Tests;
 /// What registration asks for, what it records about agreement, and the export
 /// that answers "show me everything you hold about me".
 /// </summary>
+[Collection(JwtSecretCollection.Name)]
 public sealed class PrivacyAndExportTests : IDisposable
 {
     private readonly SqliteConnection _conn;
