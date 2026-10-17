@@ -11,6 +11,7 @@ vi.mock('../../../api', () => ({
     changePassword: vi.fn(),
     changeEmail:    vi.fn(),
     deleteAccount:  vi.fn(),
+    myData:         vi.fn(),
   },
 }))
 
@@ -33,6 +34,7 @@ function makeRouter() {
     routes: [
       { path: '/', component: { template: '<div/>' } },
       { path: '/login', component: { template: '<div/>' } },
+      { path: '/privacy', component: { template: '<div/>' } },
     ],
   })
 }
@@ -282,5 +284,55 @@ describe('ProfileView – deleting the account', () => {
     expect(wrapper.find('.danger-error').attributes('role')).toBe('alert')
     expect(router.currentRoute.value.path).toBe('/')
     expect(wrapper.find('.delete-confirm').exists()).toBe(false)
+  })
+})
+
+// ── taking your data with you ────────────────────────────────────────────────
+
+describe('Download my data', () => {
+  const download = (wrapper: Wrapper) =>
+    wrapper.findAll('button').find(b => b.text().startsWith('Download my data'))!
+
+  it('asks the server for everything it holds', async () => {
+    vi.mocked(api.myData).mockResolvedValue({ account: { email: 'someone@example.com' } } as never)
+    const { wrapper } = await mountView()
+
+    await download(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(api.myData).toHaveBeenCalledTimes(1)
+  })
+
+  it('hands the browser a file and leaves nothing behind', async () => {
+    vi.mocked(api.myData).mockResolvedValue({ account: { email: 'someone@example.com' } } as never)
+    const createObjectURL = vi.fn(() => 'blob:fake')
+    const revokeObjectURL = vi.fn()
+    Object.assign(URL, { createObjectURL, revokeObjectURL })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    const { wrapper } = await mountView()
+    await download(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
+    expect(click).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('a[download]')).toBeNull()
+    click.mockRestore()
+  })
+
+  it('says what went wrong when the server refuses', async () => {
+    vi.mocked(api.myData).mockRejectedValue(new Error('You can download your data a few times an hour.'))
+    const { wrapper } = await mountView()
+
+    await download(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('a few times an hour')
+  })
+
+  it('links the privacy notice beside it', async () => {
+    const { wrapper } = await mountView()
+    expect(wrapper.find('a[href="/privacy"]').exists()).toBe(true)
   })
 })

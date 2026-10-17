@@ -15,12 +15,19 @@ public sealed class LoginResponse
 
 public sealed class RegisterRequest
 {
-    [JsonPropertyName("firstName")] public string FirstName { get; set; } = string.Empty;
-    [JsonPropertyName("lastName")] public string LastName { get; set; } = string.Empty;
     [JsonPropertyName("email")] public string Email { get; set; } = string.Empty;
     [JsonPropertyName("password")] public string Password { get; set; } = string.Empty;
-    [JsonPropertyName("preferences")] public PreferencesPayload? Preferences { get; set; }
     [JsonPropertyName("gdprConsentAt")] public string GdprConsentAt { get; set; } = string.Empty;
+
+    /// <summary>The privacy notice the register page showed, which has to be the current one.</summary>
+    [JsonPropertyName("privacyVersion")] public string PrivacyVersion { get; set; } = string.Empty;
+
+    // Name and job-search preferences are not asked for here any more: they are
+    // not needed to create an account, and the profile page already edits them.
+    // Still accepted so an older page, or a restored session, does not break.
+    [JsonPropertyName("firstName")] public string? FirstName { get; set; }
+    [JsonPropertyName("lastName")] public string? LastName { get; set; }
+    [JsonPropertyName("preferences")] public PreferencesPayload? Preferences { get; set; }
 }
 
 public sealed class UpdateProfileRequest

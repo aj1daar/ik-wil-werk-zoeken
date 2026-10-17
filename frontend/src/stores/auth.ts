@@ -17,12 +17,12 @@ export interface AuthUser {
 }
 
 export interface RegisterData {
-  firstName:     string
-  lastName:      string
-  email:         string
-  password:      string
-  preferences?:  { targetRole?: string; location?: string; workType?: string }
-  gdprConsentAt: string
+  email:          string
+  password:       string
+  gdprConsentAt:  string
+  // Which privacy notice was shown when they agreed. The API refuses any
+  // version but its own.
+  privacyVersion: string
 }
 
 function b64urlToStd(s: string): string {
@@ -46,6 +46,11 @@ function parseUser(token: string): AuthUser | null {
   }
 }
 
+export type GoogleSignInResult =
+  | { kind: 'signed-in' }
+  | { kind: 'needs-consent'; email: string; firstName: string; lastName: string }
+  | { kind: 'error'; message: string }
+
 export const useAuthStore = defineStore('auth', {
   state: () => {
     const token = sessionStorage.getItem('token') as string | null
@@ -67,6 +72,34 @@ export const useAuthStore = defineStore('auth', {
         return null
       } catch (e) {
         return e instanceof Error ? e.message : 'Login failed'
+      }
+    },
+
+    // Three outcomes, not two: signed in, or the address belongs to nobody here
+    // yet and the page has to ask for consent before an account is made.
+    async signInWithGoogle(
+      credential: string,
+      gdprConsentAt?: string,
+      privacyVersion?: string,
+    ): Promise<GoogleSignInResult> {
+      try {
+        const data = await api.googleSignIn(credential, gdprConsentAt, privacyVersion)
+        if (data.needsConsent) {
+          return {
+            kind: 'needs-consent',
+            email: data.email ?? '',
+            firstName: data.firstName ?? '',
+            lastName: data.lastName ?? '',
+          }
+        }
+        if (!data.token) return { kind: 'error', message: 'Google sign-in failed' }
+
+        this.token = data.token
+        this.user  = parseUser(data.token)
+        sessionStorage.setItem('token', data.token)
+        return { kind: 'signed-in' }
+      } catch (e) {
+        return { kind: 'error', message: e instanceof Error ? e.message : 'Google sign-in failed' }
       }
     },
 

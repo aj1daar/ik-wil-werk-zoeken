@@ -9,6 +9,9 @@ public sealed class UserStore(AppDbContext db)
     public async Task<User?> GetByEmailAsync(string email) =>
         await db.Users.FirstOrDefaultAsync(u => u.Email == email.ToLowerInvariant());
 
+    public async Task<User?> GetByGoogleSubjectAsync(string subject) =>
+        await db.Users.FirstOrDefaultAsync(u => u.GoogleSubject == subject);
+
     public async Task<User?> GetByUserIdAsync(string userId) =>
         await db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
 
