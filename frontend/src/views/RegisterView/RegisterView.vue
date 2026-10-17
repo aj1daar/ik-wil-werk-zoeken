@@ -130,8 +130,11 @@ async function submit() {
 
         <p class="consent-line">
           Creating an account means you accept the
-          <router-link to="/privacy" class="auth-link">privacy notice</router-link>.
-          It says what is stored, who else sees it, and how to get it back or have it deleted.
+          <router-link to="/privacy" class="auth-link">privacy notice</router-link>
+          and the
+          <router-link to="/terms" class="auth-link">terms of service</router-link>.
+          The notice says what is stored, who else sees it, and how to get it back or have it
+          deleted; the terms say what the service promises and what it asks of you.
         </p>
 
         <div v-if="error" id="reg-error" role="alert">

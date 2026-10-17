@@ -15,6 +15,7 @@ import CompaniesView      from '../views/CompaniesView/CompaniesView.vue'
 import ProfileView        from '../views/ProfileView/ProfileView.vue'
 import RegisterView       from '../views/RegisterView/RegisterView.vue'
 import PrivacyView        from '../views/PrivacyView/PrivacyView.vue'
+import TermsView          from '../views/TermsView/TermsView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView/ForgotPasswordView.vue'
 import ResetPasswordView  from '../views/ResetPasswordView/ResetPasswordView.vue'
 import VerifyEmailView           from '../views/VerifyEmailView/VerifyEmailView.vue'
@@ -29,6 +30,7 @@ const router = createRouter({
     { path: '/login',           component: LoginView,          meta: { title: 'Sign in' } },
     { path: '/register',        component: RegisterView,       meta: { title: 'Create account' } },
     { path: '/privacy',         component: PrivacyView,        meta: { title: 'Privacy notice' } },
+    { path: '/terms',           component: TermsView,          meta: { title: 'Terms of service' } },
     { path: '/forgot-password', component: ForgotPasswordView, meta: { title: 'Forgot password' } },
     { path: '/reset-password',  component: ResetPasswordView,  meta: { title: 'Reset password' } },
     { path: '/verify-email',         component: VerifyEmailView,          meta: { title: 'Verify email' } },

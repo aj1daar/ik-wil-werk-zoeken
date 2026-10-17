@@ -26,6 +26,7 @@ function makeRouter() {
       { path: '/login',          component: { template: '<div id="login"/>' } },
       { path: '/forgot-password', component: { template: '<div id="forgot"/>' } },
       { path: '/privacy',        component: { template: '<div id="privacy"/>' } },
+      { path: '/terms',          component: { template: '<div id="terms"/>' } },
     ]
   })
 }
@@ -72,7 +73,9 @@ describe('RegisterView', () => {
   it('says what creating an account means, and links the notice', () => {
     const w = mountView()
     expect(w.text()).toContain('privacy notice')
+    expect(w.text()).toContain('terms of service')
     expect(w.find('a[href="/privacy"]').exists()).toBe(true)
+    expect(w.find('a[href="/terms"]').exists()).toBe(true)
   })
 
   it('renders email input', () => {

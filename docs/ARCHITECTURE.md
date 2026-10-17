@@ -254,6 +254,14 @@ Basis: the account and the tracker are performance of the agreement, rate limiti
 rest on legitimate interest. Processors are Hetzner (hosting), Cloudflare (edge), Resend (email)
 and, for the sign-in button only, Google.
 
+The rules of use sit beside the notice at `/terms`, also public, also carrying a date
+(`TERMS_VERSION`). Google's OAuth branding page holds a link to each, and Google requires both to
+be reachable by anyone, so `src/__tests__/legalRoutes.test.ts` fails the build if either route
+stops being public or either page stops being linked from sign-in and register. Both pages are
+drawn by one component, `components/LegalPage`, which owns the frame and leaves the sections to
+the view. Accepting the terms happens in the same act as accepting the notice, so the account
+records that single moment rather than two versions.
+
 
 ## Security
 

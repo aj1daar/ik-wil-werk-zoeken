@@ -29,6 +29,8 @@ function makeRouter() {
       { path: '/login',    component: LoginView },
       { path: '/',         component: { template: '<div id="home"/>' } },
       { path: '/register', component: { template: '<div id="register"/>' } },
+      { path: '/privacy',  component: { template: '<div id="privacy"/>' } },
+      { path: '/terms',    component: { template: '<div id="terms"/>' } },
     ]
   })
 }
@@ -62,6 +64,12 @@ describe('LoginView', () => {
 
   it('renders a submit button', () => {
     expect(mountView().find('button[type="submit"]').exists()).toBe(true)
+  })
+
+  it('offers the privacy notice and the terms without an account', () => {
+    const wrapper = mountView()
+    expect(wrapper.find('a[href="/privacy"]').text()).toBe('Privacy notice')
+    expect(wrapper.find('a[href="/terms"]').text()).toBe('Terms of service')
   })
 
   it('renders a link to /register', () => {

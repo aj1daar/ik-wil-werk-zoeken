@@ -125,6 +125,8 @@ async function resendVerification() {
       </p>
       <p class="auth-footer auth-footer--quiet">
         <router-link to="/privacy" class="auth-link">Privacy notice</router-link>
+        <span class="auth-footer-dot" aria-hidden="true">·</span>
+        <router-link to="/terms" class="auth-link">Terms of service</router-link>
       </p>
     </div>
   </div>
